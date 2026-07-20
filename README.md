@@ -3,6 +3,8 @@
 > **本地優先的 macOS 繁體中文語音輸入與會議轉錄工具。**
 > **Local-first Traditional Chinese dictation and meeting transcription for macOS.**
 
+**[Website](https://frank890417.github.io/open-dictate/)** · [Setup](docs/SETUP.md) · [Privacy](docs/PRIVACY.md)
+
 Hold a hotkey, speak, release, and Open Dictate inserts the transcribed sentence at your cursor. The core path runs locally with MLX Whisper on Apple Silicon, then applies deterministic glossary correction owned by the user.
 
 按住快捷鍵、說話、放開，Open Dictate 會把轉錄後的文字插入目前游標位置。核心流程在 Apple Silicon 上本地執行 MLX Whisper，並套用使用者擁有的確定性詞庫校正。
