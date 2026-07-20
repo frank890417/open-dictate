@@ -1,0 +1,126 @@
+<!doctype html>
+<html lang="zh-Hant">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="description" content="Open Dictate：Apple Silicon 上本地優先的繁體中文語音輸入與會議轉錄工具。">
+  <meta name="theme-color" content="#080b0d">
+  <meta property="og:title" content="Open Dictate — 聲音，成為你能掌握的文字">
+  <meta property="og:description" content="Apple Silicon 上本地優先的繁體中文語音輸入與會議轉錄工具。">
+  <meta property="og:type" content="website">
+  <meta property="og:url" content="https://frank890417.github.io/open-dictate/">
+  <link rel="canonical" href="https://frank890417.github.io/open-dictate/">
+  <title>Open Dictate — 聲音，成為你能掌握的文字</title>
+  <link rel="stylesheet" href="styles.css">
+  <script src="script.js" defer></script>
+</head>
+<body>
+  <a class="skip-link" href="#main">跳到主要內容</a>
+  <header class="site-header">
+    <a class="wordmark" href="#top" aria-label="Open Dictate 首頁">
+      <span class="wordmark-mark" aria-hidden="true">OD</span>
+      <span>OPEN DICTATE</span>
+    </a>
+    <nav aria-label="主要導覽">
+      <a href="#principles">原則</a>
+      <a href="#workflow">流程</a>
+      <a href="https://github.com/frank890417/open-dictate">GitHub ↗</a>
+    </nav>
+  </header>
+
+  <main id="main">
+    <section class="hero" id="top" aria-labelledby="hero-title">
+      <div class="hero-copy">
+        <p class="eyebrow">LOCAL-FIRST · TRADITIONAL CHINESE · macOS</p>
+        <h1 id="hero-title">聲音，成為<br><em>你能掌握</em>的文字。</h1>
+        <p class="lead">按住快捷鍵、說話、放開。Open Dictate 在 Apple Silicon 上本地轉錄繁體中文，把結果送到游標，而不是送出你的 Mac。</p>
+        <div class="hero-actions">
+          <a class="button primary" href="https://github.com/frank890417/open-dictate#快速開始--quick-start">開始安裝 <span aria-hidden="true">↗</span></a>
+          <a class="button text-button" href="https://github.com/frank890417/open-dictate">查看原始碼</a>
+        </div>
+        <p class="status"><span aria-hidden="true"></span> Early public seed · MIT</p>
+      </div>
+
+      <div class="console" aria-label="互動語音轉文字示意">
+        <div class="console-top">
+          <span>INPUT / 01</span><span>LOCAL</span>
+        </div>
+        <button class="voice-pad" type="button" aria-describedby="voice-hint" aria-pressed="false">
+          <span class="wave" aria-hidden="true"></span>
+          <span class="voice-state">按住開始說話</span>
+          <span class="keycap">HOLD <kbd>SPACE</kbd></span>
+        </button>
+        <p id="voice-hint" class="sr-only">按住滑鼠或空白鍵模擬錄音，放開後顯示轉錄結果。</p>
+        <div class="transcript" aria-live="polite" aria-atomic="true">
+          <span class="line-number">001</span>
+          <p data-transcript>語音不出境，文字不失控。</p>
+          <span class="cursor" aria-hidden="true"></span>
+        </div>
+        <div class="console-meta"><span>zh-Hant</span><span>review: ready</span><span>audio: local</span></div>
+      </div>
+    </section>
+
+    <section class="manifesto" id="principles" aria-labelledby="principles-title">
+      <div>
+        <p class="section-index">01 / CONTROL</p>
+        <h2 id="principles-title">不是把聲音<br>交給黑箱。</h2>
+      </div>
+      <div class="principle-copy">
+        <p class="pullquote">「系統可以標記、可以建議，<br>但不能靜默改寫意思。」</p>
+        <p>Open Dictate 用 MLX Whisper 在本機轉錄，再套用你擁有的確定性詞庫。它寧可漏改，也不錯改；每個候選詞都先經過你審核。</p>
+      </div>
+    </section>
+
+    <section class="feature-strip" aria-label="核心特點">
+      <article><span class="feature-no">A</span><h3>本地運算</h3><p>核心語音路徑在 Apple Silicon macOS 上執行，音檔預設留在本機。</p></article>
+      <article><span class="feature-no">B</span><h3>按住即說</h3><p>Push-to-talk：按住 <kbd>fn</kbd> 或右側 Option，放開便把文字送到游標。</p></article>
+      <article><span class="feature-no">C</span><h3>會議模式</h3><p>把本機音檔整理成可審核的 Markdown、JSONL、SRT 或 VTT 逐字稿包。</p></article>
+      <article><span class="feature-no">D</span><h3>詞庫會進化</h3><p>疑似誤聽進入候選佇列；只有接受後，才成為下一次的確定校正。</p></article>
+    </section>
+
+    <section class="workflow" id="workflow" aria-labelledby="workflow-title">
+      <div class="workflow-heading">
+        <p class="section-index">02 / THE LOOP</p>
+        <h2 id="workflow-title">每一次使用，<br>都更像你的語言。</h2>
+      </div>
+      <ol class="signal-path">
+        <li><span>01</span><strong>說話 / 錄音</strong><small>Speak or record</small></li>
+        <li><span>02</span><strong>本機轉錄</strong><small>Local transcription</small></li>
+        <li><span>03</span><strong>標記疑似誤聽</strong><small>Flag candidates</small></li>
+        <li><span>04</span><strong>人工審核</strong><small>Human review</small></li>
+        <li><span>05</span><strong>個人詞庫進化</strong><small>Your glossary improves</small></li>
+      </ol>
+    </section>
+
+    <section class="machine" aria-labelledby="machine-title">
+      <div class="machine-label"><span>OPEN / VERIFIABLE</span><span>EARLY PUBLIC SEED</span></div>
+      <div class="machine-grid">
+        <div>
+          <p class="section-index">03 / INSIDE</p>
+          <h2 id="machine-title">看得見的<br>語音管線。</h2>
+          <p>Swift 選單列外殼、常駐 MLX daemon、會議 CLI、QA 掃描與審核佇列，全都能在公開 repo 裡閱讀與檢驗。</p>
+        </div>
+        <figure class="screenshot-frame">
+          <img src="assets/open-dictate-screenshot.svg" alt="Open Dictate 選單列應用程式介面，顯示本地繁中聽寫與結果">
+        </figure>
+      </div>
+    </section>
+
+    <section class="cta" aria-labelledby="cta-title">
+      <p class="eyebrow">YOUR VOICE · YOUR MACHINE · YOUR WORDS</p>
+      <h2 id="cta-title">把聲音留在本機。<br>把決定留給自己。</h2>
+      <div class="cta-links">
+        <a class="button primary" href="https://github.com/frank890417/open-dictate#快速開始--quick-start">閱讀 Quick Start <span aria-hidden="true">↗</span></a>
+        <a href="https://github.com/frank890417/open-dictate/blob/main/docs/PRIVACY.md">Privacy</a>
+        <a href="https://github.com/frank890417/open-dictate/blob/main/LICENSE">MIT License</a>
+      </div>
+    </section>
+  </main>
+
+  <footer>
+    <span>OPEN DICTATE</span>
+    <p>Local-first Traditional Chinese dictation for macOS.</p>
+    <a href="https://github.com/frank890417/open-dictate">github.com/frank890417/open-dictate ↗</a>
+  </footer>
+</body>
+</html>
