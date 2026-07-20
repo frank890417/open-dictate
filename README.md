@@ -64,8 +64,11 @@ Read: [`docs/PRIVACY.md`](docs/PRIVACY.md)
 git clone https://github.com/frank890417/open-dictate.git
 cd open-dictate
 ./install.sh          # standalone install: creates .venv-dictate and uses vendor starter glossaries
-open /Applications/OpenDictate.app
 ```
+
+The first install downloads Python packages and the Whisper model. Model warm-up can take about two minutes; the installer shows progress and waits up to 180 seconds before printing diagnostics.
+
+第一次安裝會下載 Python 套件與 Whisper 模型。模型載入可能約需兩分鐘；安裝器會顯示進度，最多等待 180 秒，逾時則印出診斷資訊。
 
 First-time permissions / 第一次使用需要開權限：
 
@@ -73,8 +76,16 @@ First-time permissions / 第一次使用需要開權限：
    - Accessibility
    - Input Monitoring
    - Microphone
-2. If you use the `fn` hotkey: Keyboard → “Press 🌐 key to” → Do Nothing.
+2. If you use the `fn` hotkey: Keyboard → “Press 🌐 key to” → Do Nothing. Disable Apple Dictation's `fn` shortcut and quit other dictation apps that capture the same key.
 3. Click any text field, hold `fn`, speak, release.
+
+Diagnostics and uninstall / 診斷與解除安裝：
+
+```bash
+./scripts/doctor.sh       # read-only checks; does not install or start anything
+./uninstall.sh            # removes app + LaunchAgents, keeps ~/.open-dictate
+./uninstall.sh --purge-data  # prints manual data-removal guidance; never deletes user data
+```
 
 Full setup: [`docs/SETUP.md`](docs/SETUP.md)
 

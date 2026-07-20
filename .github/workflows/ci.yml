@@ -11,7 +11,9 @@ jobs:
         with:
           python-version: '3.12'
       - run: python3 -m compileall daemon scripts vendor
+      - run: bash -n install.sh uninstall.sh scripts/doctor.sh scripts/smoke-test.sh
       - run: python3 scripts/public-safety-scan.py
+      - run: python3 -m unittest discover tests
       - run: python3 scripts/golden-bench.py --skip-daemon
   swift:
     runs-on: macos-latest

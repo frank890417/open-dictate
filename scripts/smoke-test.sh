@@ -75,5 +75,9 @@ echo "  ✓ codesign ok"
 
 echo ""
 echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
-echo " ✓ smoke-test ALL PASSED"
+if [[ -S /tmp/open-dictate.sock ]]; then
+  echo " ✓ smoke-test ALL PASSED"
+else
+  echo " ✓ smoke-test OFFLINE CHECKS PASSED（runtime checks skipped: daemon not running）"
+fi
 echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"

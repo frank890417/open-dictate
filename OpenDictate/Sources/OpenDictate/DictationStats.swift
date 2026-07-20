@@ -12,7 +12,7 @@ struct DictationStats {
 
     static var logDir: URL {
         FileManager.default.homeDirectoryForCurrentUser
-            .appendingPathComponent(".muse/dictation-log")
+            .appendingPathComponent(".open-dictate/dictation-log")
     }
 
     static func todayFile() -> URL {
