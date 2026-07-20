@@ -14,6 +14,8 @@ Hold a hotkey, speak, release, and Open Dictate inserts the transcribed sentence
 
 Architecture and protocol: [`IO-CONTRACT.md`](IO-CONTRACT.md)
 
+![Open Dictate screenshot](docs/assets/open-dictate-screenshot.svg)
+
 ---
 
 ## Quick Start

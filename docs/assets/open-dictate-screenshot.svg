@@ -1,0 +1,82 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1280" height="760" viewBox="0 0 1280 760" role="img" aria-labelledby="title desc">
+  <title id="title">Open Dictate macOS menubar app screenshot mockup</title>
+  <desc id="desc">A clean macOS-style screenshot showing Open Dictate recording Traditional Chinese text locally.</desc>
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#f8fafc"/>
+      <stop offset="1" stop-color="#e0f2fe"/>
+    </linearGradient>
+    <linearGradient id="panel" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#ffffff"/>
+      <stop offset="1" stop-color="#f8fafc"/>
+    </linearGradient>
+    <filter id="shadow" x="-20%" y="-20%" width="140%" height="140%">
+      <feDropShadow dx="0" dy="18" stdDeviation="24" flood-color="#0f172a" flood-opacity="0.18"/>
+    </filter>
+    <style>
+      .mono { font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace; }
+      .sans { font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Display', 'Noto Sans TC', 'PingFang TC', sans-serif; }
+      .muted { fill: #64748b; }
+      .dark { fill: #0f172a; }
+      .blue { fill: #0284c7; }
+      .green { fill: #059669; }
+      .card { fill: url(#panel); stroke: #e2e8f0; stroke-width: 1; }
+      .chip { fill: #e0f2fe; stroke: #bae6fd; stroke-width: 1; }
+      .wave { stroke: #0284c7; stroke-width: 8; stroke-linecap: round; }
+    </style>
+  </defs>
+
+  <rect width="1280" height="760" fill="url(#bg)"/>
+
+  <!-- Browser-ish README frame -->
+  <rect x="82" y="70" width="1116" height="620" rx="28" fill="#ffffff" filter="url(#shadow)"/>
+  <rect x="82" y="70" width="1116" height="58" rx="28" fill="#f1f5f9"/>
+  <circle cx="122" cy="99" r="8" fill="#ef4444"/>
+  <circle cx="150" cy="99" r="8" fill="#f59e0b"/>
+  <circle cx="178" cy="99" r="8" fill="#22c55e"/>
+  <rect x="235" y="86" width="812" height="26" rx="13" fill="#ffffff" stroke="#e2e8f0"/>
+  <text x="640" y="104" class="mono muted" font-size="13" text-anchor="middle">github.com/frank890417/open-dictate</text>
+
+  <!-- Left README content -->
+  <text x="132" y="182" class="sans dark" font-size="46" font-weight="750">Open Dictate 🎙️</text>
+  <text x="132" y="222" class="sans muted" font-size="20">Local-first Traditional Chinese dictation for macOS.</text>
+
+  <rect x="132" y="260" width="455" height="72" rx="18" class="chip"/>
+  <text x="158" y="290" class="sans blue" font-size="18" font-weight="700">Audio stays on your Mac</text>
+  <text x="158" y="316" class="sans muted" font-size="15">MLX Whisper + deterministic glossary correction</text>
+
+  <rect x="132" y="356" width="455" height="210" rx="22" class="card"/>
+  <text x="160" y="394" class="sans dark" font-size="20" font-weight="700">Quick Start</text>
+  <rect x="160" y="416" width="398" height="118" rx="14" fill="#0f172a"/>
+  <text x="184" y="450" class="mono" font-size="16" fill="#bae6fd">git clone https://github.com/frank890417/open-dictate.git</text>
+  <text x="184" y="482" class="mono" font-size="16" fill="#bbf7d0">cd open-dictate</text>
+  <text x="184" y="514" class="mono" font-size="16" fill="#fde68a">./install.sh</text>
+
+  <!-- App mockup -->
+  <rect x="655" y="176" width="410" height="350" rx="34" fill="#0f172a" filter="url(#shadow)"/>
+  <rect x="685" y="206" width="350" height="54" rx="18" fill="#1e293b"/>
+  <circle cx="720" cy="233" r="10" fill="#38bdf8"/>
+  <text x="744" y="240" class="sans" font-size="18" fill="#e2e8f0" font-weight="700">OpenDictate</text>
+  <text x="1006" y="240" class="mono" font-size="14" fill="#94a3b8" text-anchor="end">local</text>
+
+  <text x="860" y="314" class="sans" font-size="22" fill="#f8fafc" font-weight="650" text-anchor="middle">正在聽寫…</text>
+  <text x="860" y="346" class="sans" font-size="16" fill="#94a3b8" text-anchor="middle">Hold fn, speak, release</text>
+
+  <line x1="730" y1="407" x2="730" y2="382" class="wave"/>
+  <line x1="760" y1="407" x2="760" y2="360" class="wave"/>
+  <line x1="790" y1="407" x2="790" y2="330" class="wave"/>
+  <line x1="820" y1="407" x2="820" y2="366" class="wave"/>
+  <line x1="850" y1="407" x2="850" y2="346" class="wave"/>
+  <line x1="880" y1="407" x2="880" y2="318" class="wave"/>
+  <line x1="910" y1="407" x2="910" y2="360" class="wave"/>
+  <line x1="940" y1="407" x2="940" y2="375" class="wave"/>
+  <line x1="970" y1="407" x2="970" y2="348" class="wave"/>
+
+  <rect x="710" y="448" width="300" height="44" rx="22" fill="#ecfeff"/>
+  <text x="860" y="476" class="sans blue" font-size="17" font-weight="700" text-anchor="middle">繁體中文、全形標點、語音不出境</text>
+
+  <rect x="692" y="558" width="506" height="80" rx="22" fill="#ffffff" filter="url(#shadow)"/>
+  <text x="726" y="591" class="sans dark" font-size="19" font-weight="700">Result</text>
+  <text x="726" y="620" class="sans muted" font-size="18">本地語音輸入的好處是隱私、速度和可控性。</text>
+  <text x="1148" y="591" class="mono green" font-size="15" text-anchor="end">328 ms</text>
+</svg>
