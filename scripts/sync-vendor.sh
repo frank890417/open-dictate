@@ -5,6 +5,8 @@
 #   vendor/tools/td-subtitle/glossaries/*.json    ← starter 詞庫（general-zh 快照 + 空 personal）
 # 每次 muse_lexicon.py 有重要更新後重跑本腳本。快照 hash 印在 vendor/VENDOR-STAMP.txt。
 set -euo pipefail
+REPO="$(cd "$(dirname "$0")/.." && pwd)"
+cd "$REPO"
 cd "$(dirname "$0")/.."
 
 LEXICON_ROOT="${OPEN_DICTATE_LEXICON_ROOT:-${REPO}/vendor}"
@@ -13,11 +15,16 @@ SRC_GLOSS="$LEXICON_ROOT/tools/td-subtitle/glossaries"
 [ -f "$SRC_LEX" ] || { echo "✗ 找不到 $SRC_LEX（設 OPEN_DICTATE_LEXICON_ROOT 或先 clone compatible glossary root）" >&2; exit 1; }
 
 mkdir -p vendor/tools/muse-lexicon vendor/tools/td-subtitle/glossaries
-cp "$SRC_LEX" vendor/tools/muse-lexicon/muse_lexicon.py
+DEST_LEX="$REPO/vendor/tools/muse-lexicon/muse_lexicon.py"
+if [ "$(cd "$(dirname "$SRC_LEX")" && pwd)/$(basename "$SRC_LEX")" != "$DEST_LEX" ]; then
+  cp "$SRC_LEX" "$DEST_LEX"
+fi
 
 # starter 詞庫：general-zh（通用層，無個資）照搬；personal 給空殼 schema（分享對象自己長）
 if [ -f "$SRC_GLOSS/general-zh.json" ]; then
-  cp "$SRC_GLOSS/general-zh.json" vendor/tools/td-subtitle/glossaries/
+  SRC_GENERAL="$(cd "$SRC_GLOSS" && pwd)/general-zh.json"
+  DEST_GENERAL="$REPO/vendor/tools/td-subtitle/glossaries/general-zh.json"
+  [ "$SRC_GENERAL" = "$DEST_GENERAL" ] || cp "$SRC_GENERAL" "$DEST_GENERAL"
 fi
 cat > vendor/tools/td-subtitle/glossaries/muse-personal.json <<'JSON'
 {

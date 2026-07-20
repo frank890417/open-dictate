@@ -4,21 +4,48 @@
 set -euo pipefail
 cd "$(dirname "$0")"
 
-APP_NAME="OpenDictate"
+APP_NAME="${PRODUCT_APP_NAME:-OpenDictate}"
+EXECUTABLE="${PRODUCT_EXECUTABLE:-$APP_NAME}"
+PRODUCT_ID="${PRODUCT_ID:-open-dictate}"
+BUNDLE_ID="${PRODUCT_BUNDLE_ID:-org.opendictate.shell}"
+SOCKET_PATH="${PRODUCT_SOCKET_PATH:-/tmp/open-dictate.sock}"
+DATA_ROOT="${PRODUCT_DATA_ROOT:-~/.open-dictate}"
+LOG_ROOT="${PRODUCT_LOG_ROOT:-${DATA_ROOT}/dictation-log}"
+DAEMON_LABEL="${PRODUCT_DAEMON_LABEL:-org.opendictate.daemon}"
+SHELL_LABEL="${PRODUCT_SHELL_LABEL:-${BUNDLE_ID}}"
+ENV_PREFIX="${PRODUCT_ENV_PREFIX:-OPEN_DICTATE}"
+PRIORITY_TERMS="${PRODUCT_PRIORITY_TERMS:-Open Dictate、OpenDictate、TouchDesigner、p5.js、Obsidian、Notion、Hermes、Python、Swift、macOS、Apple Silicon}"
+SWIFT_PRODUCT="OpenDictate"
 DIST_DIR="dist"
 APP="$DIST_DIR/$APP_NAME.app"
 
 echo "▸ swift build -c release"
 swift build -c release --package-path OpenDictate
 
-BIN="OpenDictate/.build/release/$APP_NAME"
+BIN="OpenDictate/.build/release/$SWIFT_PRODUCT"
 [ -f "$BIN" ] || { echo "✗ 找不到 build 產物 $BIN" >&2; exit 1; }
 
 echo "▸ 組 $APP"
 rm -rf "$DIST_DIR"
 mkdir -p "$APP/Contents/MacOS" "$APP/Contents/Resources"
-cp "$BIN" "$APP/Contents/MacOS/$APP_NAME"
+cp "$BIN" "$APP/Contents/MacOS/$EXECUTABLE"
 cp packaging/Info.plist "$APP/Contents/Info.plist"
+PLIST="$APP/Contents/Info.plist"
+/usr/libexec/PlistBuddy -c "Set :CFBundleName $APP_NAME" "$PLIST"
+/usr/libexec/PlistBuddy -c "Set :CFBundleDisplayName $APP_NAME" "$PLIST"
+/usr/libexec/PlistBuddy -c "Set :CFBundleIdentifier $BUNDLE_ID" "$PLIST"
+/usr/libexec/PlistBuddy -c "Set :CFBundleExecutable $EXECUTABLE" "$PLIST"
+/usr/libexec/PlistBuddy -c "Set :NSMicrophoneUsageDescription $APP_NAME 需要麥克風錄下你按住熱鍵時說的話。轉錄全程在本機進行，語音不出境。" "$PLIST"
+/usr/libexec/PlistBuddy -c "Set :ODProductID $PRODUCT_ID" "$PLIST"
+/usr/libexec/PlistBuddy -c "Set :ODSocketPath $SOCKET_PATH" "$PLIST"
+/usr/libexec/PlistBuddy -c "Set :ODDataRoot $DATA_ROOT" "$PLIST"
+/usr/libexec/PlistBuddy -c "Set :ODLogRoot $LOG_ROOT" "$PLIST"
+/usr/libexec/PlistBuddy -c "Set :ODDaemonLaunchLabel $DAEMON_LABEL" "$PLIST"
+/usr/libexec/PlistBuddy -c "Set :ODShellLaunchLabel $SHELL_LABEL" "$PLIST"
+/usr/libexec/PlistBuddy -c "Set :ODEnvironmentPrefix $ENV_PREFIX" "$PLIST"
+/usr/libexec/PlistBuddy -c "Set :ODPriorityTerms $PRIORITY_TERMS" "$PLIST"
+# Keep the standalone fallback usable after the source checkout is removed.
+ditto vendor "$APP/Contents/Resources/vendor"
 printf 'APPL????' > "$APP/Contents/PkgInfo"
 
 plutil -lint "$APP/Contents/Info.plist" >/dev/null

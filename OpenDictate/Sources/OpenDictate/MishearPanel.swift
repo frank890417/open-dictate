@@ -16,7 +16,7 @@ enum MishearPanel {
                         completion: @escaping (String, String) -> Void) {
         let alert = NSAlert()
         alert.messageText = "教詞庫：聽錯了什麼？"
-        var info = "只填「聽錯的詞 → 正確的詞」（例：台灣點 → OpenDictate）。整句不用貼，詞庫是逐詞替換。"
+        var info = "只填「聽錯的詞 → 正確的詞」（例：台灣點 → \(ProductConfig.appName)）。整句不用貼，詞庫是逐詞替換。"
         if let ctx = contextHint, !ctx.isEmpty {
             info += "\n\n\(String(ctx.prefix(200)))\(ctx.count > 200 ? "…" : "")"
         }
@@ -39,7 +39,7 @@ enum MishearPanel {
         wrongField.font = .systemFont(ofSize: 13)
 
         let rightField = NSTextField(frame: NSRect(x: 0, y: 0, width: 360, height: 28))
-        rightField.placeholderString = "正確的詞（例：OpenDictate）"
+        rightField.placeholderString = "正確的詞（例：\(ProductConfig.appName)）"
         rightField.stringValue = seedRight ?? ""
         rightField.font = .systemFont(ofSize: 13)
 

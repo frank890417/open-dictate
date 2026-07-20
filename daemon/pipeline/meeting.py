@@ -15,14 +15,16 @@ import os
 import sys
 from pathlib import Path
 
+from daemon.product_config import DATA_ROOT, LEXICON_ROOT as PRODUCT_LEXICON_ROOT, env
+
 ROOT = Path(__file__).resolve().parents[2]
-LEXICON_ROOT = ROOT / "vendor" / "tools" / "muse-lexicon"
+LEXICON_ROOT = PRODUCT_LEXICON_ROOT / "tools" / "muse-lexicon"
 if str(LEXICON_ROOT) not in sys.path:
     sys.path.insert(0, str(LEXICON_ROOT))
 
 from muse_lexicon import Lexicon  # type: ignore
 
-LOCAL_PERSONAL_GLOSSARY = Path(os.environ.get("OPEN_DICTATE_PERSONAL_GLOSSARY", "~/.open-dictate/glossaries/personal.json")).expanduser()
+LOCAL_PERSONAL_GLOSSARY = Path(env("PERSONAL_GLOSSARY", str(DATA_ROOT / "glossaries" / "personal.json"))).expanduser()
 
 try:
     from .audio_asr import transcribe_audio_segments

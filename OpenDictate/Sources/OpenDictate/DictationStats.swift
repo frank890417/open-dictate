@@ -11,8 +11,7 @@ struct DictationStats {
     let maxMs: Int?
 
     static var logDir: URL {
-        FileManager.default.homeDirectoryForCurrentUser
-            .appendingPathComponent(".open-dictate/dictation-log")
+        URL(fileURLWithPath: ProductConfig.logRoot, isDirectory: true)
     }
 
     static func todayFile() -> URL {

@@ -1,0 +1,11 @@
+{
+  "schemaVersion": 1,
+  "wireProtocolVersion": "1.0",
+  "transport": {
+    "kind": "unix-domain-socket",
+    "framing": "newline-delimited-json",
+    "socketMode": "0600"
+  },
+  "commands": ["transcribe", "ping", "reload_lexicon", "add_pair", "stats"],
+  "errors": ["no_speech", "file_not_found", "asr_failed", "bad_request", "unknown_cmd", "add_pair_failed"]
+}

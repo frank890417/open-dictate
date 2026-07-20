@@ -25,7 +25,7 @@ enum SocketClientError: Error, CustomStringConvertible {
 /// 阻塞式 unix domain socket client（一問一答，每次請求開新連線）。
 /// 在背景 queue 呼叫；不要在 main thread 用。
 struct SocketClient {
-    static let defaultSocketPath = "/tmp/open-dictate.sock"
+    static var defaultSocketPath: String { ProductConfig.socketPath }
 
     let socketPath: String
     /// 秒。連線後等回應的上限（SO_RCVTIMEO）。

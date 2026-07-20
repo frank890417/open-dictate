@@ -34,7 +34,7 @@ enum AudioRecorderError: Error, CustomStringConvertible {
 /// AVAudioEngine inputNode tap → PCM16Resampler → 記憶體累積。
 /// 每次錄音用全新 engine；可指定 preferredMicUID（DictateSettings）。
 final class AudioRecorder {
-    private let queue = DispatchQueue(label: "org.opendictate.audio")
+    private let queue = DispatchQueue(label: "\(ProductConfig.shellLaunchLabel).audio")
     private var engine: AVAudioEngine?
     private var resampler: PCM16Resampler?
     private var startedAt: Date?
