@@ -1,0 +1,22 @@
+{
+  "segments": [
+    {
+      "start": 0.0,
+      "end": 3.2,
+      "speaker": "alice",
+      "raw": "今天我們測試open dictate的會議模式"
+    },
+    {
+      "start": 3.2,
+      "end": 7.8,
+      "speaker": "bob",
+      "raw": "如果聽錯阿布西店就要進入審核而不是直接改"
+    },
+    {
+      "start": 7.8,
+      "end": 11.0,
+      "speaker": "alice",
+      "raw": "預算是3000元這種數字要標記確認"
+    }
+  ]
+}

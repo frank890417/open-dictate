@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# open-dictate 完整煙霧測試：build → golden-bench → ab-bench quick → CLI → probe
+# open-dictate 完整煙霧測試：build → tests → golden-bench → meeting demo → CLI → probe
 set -euo pipefail
 cd "$(dirname "$0")/.."
 ROOT="$PWD"
@@ -12,21 +12,32 @@ echo " open-dictate smoke-test"
 echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
 
 echo ""
-echo "▸ 1/5 build"
+echo "▸ 1/7 build"
 ./build.sh
 DIST_BIN="$ROOT/dist/OpenDictate.app/Contents/MacOS/OpenDictate"
-# 優先測剛 build 的 dist，再 fallback Applications
 if [[ -x "$DIST_BIN" ]]; then
   SHELL_BIN="$DIST_BIN"
 fi
 echo "  shell=$SHELL_BIN"
 
 echo ""
-echo "▸ 2/6 golden-bench"
+echo "▸ 2/7 python unit tests"
+python3 -m unittest discover tests
+
+echo ""
+echo "▸ 3/7 golden-bench"
 python3 scripts/golden-bench.py --shell "$SHELL_BIN"
 
 echo ""
-echo "▸ 3/6 ab-bench --quick（閘門 v2 對抗 + 校準稿不誤傷；確定性，無 LLM）"
+echo "▸ 4/7 meeting demo export"
+TMP_DEMO="$(mktemp -d /tmp/open-dictate-meeting-demo.XXXXXX)"
+python3 daemon/meeting_cli.py export-demo --out "$TMP_DEMO"
+test -s "$TMP_DEMO/transcript.md"
+test -s "$TMP_DEMO/transcript.jsonl"
+rm -rf "$TMP_DEMO"
+
+echo ""
+echo "▸ 5/7 ab-bench --quick（閘門 v2 對抗 + 校準稿不誤傷；確定性，無 LLM）"
 if [[ -n "${VENV_PY:-}" && -x "${VENV_PY:-}" ]]; then
   "$VENV_PY" scripts/ab-bench.py --quick
 else
@@ -34,7 +45,7 @@ else
 fi
 
 echo ""
-echo "▸ 4/6 dictate_cli"
+echo "▸ 6/7 dictate_cli"
 if [[ -S /tmp/open-dictate.sock ]]; then
   python3 daemon/dictate_cli.py ping
   python3 daemon/dictate_cli.py stats
@@ -44,8 +55,7 @@ else
 fi
 
 echo ""
-echo "▸ 5/6 TeachSuggestions / 協議欄位（swift 已在 build 驗證編譯）"
-# 用 python 重現 TeachSuggestions 啟發式的核心：middle diff
+echo "▸ 7/7 TeachSuggestions / 協議欄位 / 簽章"
 python3 - <<'PY'
 def middle_diff(a, b):
     i = 0
@@ -60,9 +70,6 @@ w, r = middle_diff("開放聽寫很棒", "OpenDictate很棒")
 assert (w, r) == ("開放聽寫", "OpenDictate"), (w, r)
 print("  ✓ teach middle-diff heuristic")
 PY
-
-echo ""
-echo "▸ 6/6 安裝產物簽章"
 codesign --verify --deep "$ROOT/dist/OpenDictate.app"
 echo "  ✓ codesign ok"
 

@@ -1,0 +1,15 @@
+{
+  "schema_version": "0.1",
+  "profiles": [
+    {
+      "speaker_id": "alice-example",
+      "display_name": "Alice Example",
+      "embedding_model": "fake-example-only",
+      "embedding": [0.0, 0.1, 0.2],
+      "consent": {
+        "source": "example-only",
+        "notes": "Do not store real speaker profiles in the repository."
+      }
+    }
+  ]
+}
