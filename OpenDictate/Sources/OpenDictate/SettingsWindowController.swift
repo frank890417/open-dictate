@@ -28,7 +28,7 @@ final class SettingsWindowController: NSWindowController {
             backing: .buffered,
             defer: false
         )
-        win.title = "OpenDictate 設定"
+        win.title = "\(ProductConfig.appName) 設定"
         win.isReleasedWhenClosed = false
         win.center()
         self.init(window: win)
@@ -154,7 +154,7 @@ final class SettingsWindowController: NSWindowController {
         row.addArrangedSubview(makeButton("權限…", #selector(permClicked)))
         stack.addArrangedSubview(row)
 
-        let version = NSTextField(labelWithString: "OpenDictate v0.5 · 本地 MLX Whisper · 語音不出境 · 確定性詞庫")
+        let version = NSTextField(labelWithString: "\(ProductConfig.appName) v0.5 · 本地 MLX Whisper · 語音不出境 · 確定性詞庫")
         version.font = .systemFont(ofSize: 10)
         version.textColor = .tertiaryLabelColor
         stack.addArrangedSubview(version)

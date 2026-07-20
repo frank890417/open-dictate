@@ -30,5 +30,21 @@
 	<string>OpenDictate 需要麥克風錄下你按住熱鍵時說的話。轉錄全程在本機進行，語音不出境。</string>
 	<key>NSHumanReadableCopyright</key>
 	<string>© 2026 Che-Yu Wu and contributors.</string>
+	<key>ODProductID</key>
+	<string>open-dictate</string>
+	<key>ODSocketPath</key>
+	<string>/tmp/open-dictate.sock</string>
+	<key>ODDataRoot</key>
+	<string>~/.open-dictate</string>
+	<key>ODLogRoot</key>
+	<string>~/.open-dictate/dictation-log</string>
+	<key>ODDaemonLaunchLabel</key>
+	<string>org.opendictate.daemon</string>
+	<key>ODShellLaunchLabel</key>
+	<string>org.opendictate.shell</string>
+	<key>ODEnvironmentPrefix</key>
+	<string>OPEN_DICTATE</string>
+	<key>ODPriorityTerms</key>
+	<string>Open Dictate、OpenDictate、TouchDesigner、p5.js、Obsidian、Notion、Hermes、Python、Swift、macOS、Apple Silicon</string>
 </dict>
 </plist>

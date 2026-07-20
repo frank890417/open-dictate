@@ -23,7 +23,10 @@ import statistics
 import sys
 import time
 
-SOCKET_PATH = "/tmp/open-dictate.sock"
+try:
+    from .product_config import PRODUCT_ID, SOCKET_PATH
+except ImportError:  # direct script execution: python daemon/dictate_cli.py
+    from product_config import PRODUCT_ID, SOCKET_PATH
 
 
 def send(req: dict, socket_path: str, timeout: float = 120.0) -> dict:
@@ -82,7 +85,7 @@ def cmd_bench(args) -> int:
     deleted_ok = True
     for i in range(args.n):
         # 模擬殼行為：每輪複製一份到 /tmp（daemon 處理完會刪掉這份 copy，原檔安全）
-        copy = f"/tmp/open-dictate-bench-{os.getpid()}-{i}.wav"
+        copy = f"/tmp/{PRODUCT_ID}-bench-{os.getpid()}-{i}.wav"
         shutil.copyfile(src, copy)
         t0 = time.perf_counter()
         resp = send({"cmd": "transcribe", "wav": copy}, args.socket)

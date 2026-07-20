@@ -1,0 +1,25 @@
+{
+  "schemaVersion": 1,
+  "product": {
+    "id": "open-dictate",
+    "name": "OpenDictate",
+    "bundleIdentifier": "org.opendictate.shell",
+    "executable": "OpenDictate",
+    "daemonLaunchAgentLabel": "org.opendictate.daemon",
+    "shellLaunchAgentLabel": "org.opendictate.shell",
+    "environmentPrefix": "OPEN_DICTATE",
+    "dataRoot": "~/.open-dictate",
+    "logRoot": "~/.open-dictate/dictation-log"
+  },
+  "runtime": {
+    "socketPath": "/tmp/open-dictate.sock",
+    "wireProtocolVersion": "1.0",
+    "updateChannel": "stable",
+    "priorityTerms": "Open Dictate、OpenDictate、TouchDesigner、p5.js、Obsidian、Notion、Hermes、Python、Swift、macOS、Apple Silicon"
+  },
+  "lexicon": {
+    "provider": "bundled",
+    "starterBundle": "vendor"
+  },
+  "adapters": []
+}

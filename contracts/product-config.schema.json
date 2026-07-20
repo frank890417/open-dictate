@@ -1,0 +1,60 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://open-dictate.dev/contracts/product-config.schema.json",
+  "title": "Open Dictate product overlay configuration",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schemaVersion", "product", "runtime", "lexicon"],
+  "properties": {
+    "schemaVersion": {"const": 1},
+    "product": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "name", "bundleIdentifier", "executable", "daemonLaunchAgentLabel", "shellLaunchAgentLabel", "environmentPrefix", "dataRoot", "logRoot"],
+      "properties": {
+        "id": {"type": "string", "pattern": "^[a-z0-9][a-z0-9-]*$"},
+        "name": {"type": "string", "minLength": 1},
+        "bundleIdentifier": {"type": "string", "pattern": "^[A-Za-z0-9-]+(\\.[A-Za-z0-9-]+)+$"},
+        "executable": {"type": "string", "pattern": "^[A-Za-z0-9_-]+$"},
+        "daemonLaunchAgentLabel": {"type": "string", "pattern": "^[A-Za-z0-9-]+(\\.[A-Za-z0-9-]+)+$"},
+        "shellLaunchAgentLabel": {"type": "string", "pattern": "^[A-Za-z0-9-]+(\\.[A-Za-z0-9-]+)+$"},
+        "environmentPrefix": {"type": "string", "pattern": "^[A-Z][A-Z0-9_]+$"},
+        "dataRoot": {"type": "string", "minLength": 1},
+        "logRoot": {"type": "string", "minLength": 1}
+      }
+    },
+    "runtime": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["socketPath", "wireProtocolVersion", "updateChannel", "priorityTerms"],
+      "properties": {
+        "socketPath": {"type": "string", "pattern": "^/tmp/[A-Za-z0-9._-]+\\.sock$"},
+        "wireProtocolVersion": {"type": "string", "pattern": "^[0-9]+\\.[0-9]+$"},
+        "updateChannel": {"enum": ["stable", "beta"]},
+        "priorityTerms": {"type": "string"}
+      }
+    },
+    "lexicon": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["provider", "starterBundle"],
+      "properties": {
+        "provider": {"enum": ["bundled", "external"]},
+        "starterBundle": {"type": "string", "minLength": 1},
+        "externalRootEnvironment": {"type": "string", "pattern": "^[A-Z][A-Z0-9_]+$"},
+        "legacyExternalRootEnvironment": {"type": "string", "pattern": "^[A-Z][A-Z0-9_]+$"},
+        "defaultExternalRoot": {"type": "string", "minLength": 1}
+      }
+    },
+    "adapters": {
+      "type": "array",
+      "uniqueItems": true,
+      "items": {"type": "string", "pattern": "^[a-z0-9][a-z0-9._-]*$"},
+      "default": []
+    }
+  },
+  "allOf": [{
+    "if": {"properties": {"lexicon": {"properties": {"provider": {"const": "external"}}, "required": ["provider"]}}},
+    "then": {"properties": {"lexicon": {"required": ["externalRootEnvironment"]}}}
+  }]
+}

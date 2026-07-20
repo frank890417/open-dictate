@@ -217,6 +217,14 @@ The smoke test builds the app, runs deterministic tests, exports a meeting demo,
 - [ ] Optional local speaker profile enrollment.
 - [ ] Menubar UI for reviewing glossary candidates.
 - [ ] Import/export for user-owned glossary packages.
+- [ ] Remove runtime dependency on the source clone, developer Python, Swift, and Xcode Command Line Tools.
+- [ ] Ship a self-contained beta `.app` with in-app permission onboarding, model download, diagnostics, and uninstall.
+- [ ] Release a Developer ID signed and Apple-notarized DMG with clean-Mac installation tests.
+- [ ] Add signed in-app updates, rollback, and Stable/Beta release channels.
+
+完整的 macOS 安裝與發布分階段規劃：[`docs/MACOS-DISTRIBUTION-ROADMAP.md`](docs/MACOS-DISTRIBUTION-ROADMAP.md)
+
+Detailed macOS packaging and distribution plan: [`docs/MACOS-DISTRIBUTION-ROADMAP.md`](docs/MACOS-DISTRIBUTION-ROADMAP.md)
 
 ## Status
 

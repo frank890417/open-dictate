@@ -36,8 +36,8 @@ enum PermissionGuide {
             }
         case .denied, .restricted:
             DispatchQueue.main.async {
-                Notifier.notify(title: "OpenDictate 沒有麥克風權限",
-                                body: "系統設定 > 隱私權與安全性 > 麥克風，勾選 OpenDictate")
+                Notifier.notify(title: "\(ProductConfig.appName) 沒有麥克風權限",
+                                body: "系統設定 > 隱私權與安全性 > 麥克風，勾選 \(ProductConfig.appName)")
                 NSWorkspace.shared.open(URL(string: microphonePane)!)
             }
         @unknown default:
@@ -49,7 +49,7 @@ enum PermissionGuide {
     static func showGuideAlert() {
         NSApp.activate(ignoringOtherApps: true)
         let alert = NSAlert()
-        alert.messageText = "OpenDictate 需要授權才能運作"
+        alert.messageText = "\(ProductConfig.appName) 需要授權才能運作"
         if let img = UITheme.symbolImage(UITheme.Symbol.permissions, pointSize: 32) {
             alert.icon = img
         }
@@ -68,7 +68,7 @@ enum PermissionGuide {
         ○ 輸入監控（Input Monitoring）— 全域鍵盤（請在設定確認）
         \(micOK ? "✓" : "○") 麥克風 — 錄音
 
-        勾選後請結束並重開 OpenDictate。
+        勾選後請結束並重開 \(ProductConfig.appName)。
         完整步驟見 docs/SETUP.md。
         """
         alert.informativeText = checklist

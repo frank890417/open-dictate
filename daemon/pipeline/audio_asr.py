@@ -12,19 +12,21 @@ import sys
 from pathlib import Path
 from typing import Any
 
+from daemon.product_config import LEXICON_ROOT as PRODUCT_LEXICON_ROOT, PRIORITY_TERMS as PRODUCT_PRIORITY_TERMS, env
+
 ROOT = Path(__file__).resolve().parents[2]
-LEXICON_ROOT = ROOT / "vendor" / "tools" / "muse-lexicon"
+LEXICON_ROOT = PRODUCT_LEXICON_ROOT / "tools" / "muse-lexicon"
 if str(LEXICON_ROOT) not in sys.path:
     sys.path.insert(0, str(LEXICON_ROOT))
 
 from muse_lexicon import Lexicon  # type: ignore
 
-DEFAULT_MODEL = os.environ.get("OPEN_DICTATE_MEETING_MODEL", "mlx-community/whisper-large-v3-turbo")
-DEFAULT_LANGUAGE = os.environ.get("OPEN_DICTATE_MEETING_LANGUAGE", "zh")
+DEFAULT_MODEL = env("MEETING_MODEL", "mlx-community/whisper-large-v3-turbo")
+DEFAULT_LANGUAGE = env("MEETING_LANGUAGE", "zh")
 SUPPORTED_AUDIO_SUFFIXES = {".wav", ".m4a", ".mp3", ".flac", ".aiff", ".aif"}
 
 PROMPT_STYLE_SEED = "請以繁體中文與台灣慣用語轉錄，保留英文專名，例如 Open Dictate、TouchDesigner、Obsidian。"
-PRIORITY_TERMS = "Open Dictate、OpenDictate、TouchDesigner、p5.js、Obsidian、Notion、Hermes、Python、Swift、macOS、Apple Silicon"
+PRIORITY_TERMS = PRODUCT_PRIORITY_TERMS
 
 
 class AudioASRUnavailable(RuntimeError):

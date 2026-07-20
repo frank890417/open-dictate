@@ -1,0 +1,34 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://open-dictate.dev/contracts/daemon-message.schema.json",
+  "title": "Open Dictate daemon request",
+  "oneOf": [
+    {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["cmd", "wav"],
+      "properties": {
+        "cmd": {"const": "transcribe"},
+        "wav": {"type": "string", "minLength": 1},
+        "punct": {"enum": ["raw", "smart_zh", "llm_zh"], "default": "smart_zh"}
+      }
+    },
+    {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["cmd"],
+      "properties": {"cmd": {"enum": ["ping", "reload_lexicon", "stats"]}}
+    },
+    {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["cmd", "wrong", "right"],
+      "properties": {
+        "cmd": {"const": "add_pair"},
+        "wrong": {"type": "string", "minLength": 1},
+        "right": {"type": "string", "minLength": 1},
+        "source": {"type": "string", "minLength": 1, "default": "dictate-ui"}
+      }
+    }
+  ]
+}

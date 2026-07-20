@@ -1,0 +1,35 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://open-dictate.dev/contracts/daemon-response.schema.json",
+  "title": "Open Dictate daemon response",
+  "type": "object",
+  "required": ["ok"],
+  "properties": {
+    "ok": {"type": "boolean"},
+    "error": {"enum": ["no_speech", "file_not_found", "asr_failed", "bad_request", "unknown_cmd", "add_pair_failed"]},
+    "text": {"type": "string"},
+    "raw": {"type": "string"},
+    "changes": {
+      "type": "array",
+      "items": {
+        "type": "array",
+        "prefixItems": [{"type": "string"}, {"type": "string"}],
+        "minItems": 2,
+        "maxItems": 2
+      }
+    },
+    "punct": {"enum": ["raw", "smart_zh", "llm_zh", "smart_zh_fallback"]},
+    "asr_ms": {"type": "integer", "minimum": 0},
+    "total_ms": {"type": "integer", "minimum": 0},
+    "pong": {"type": "boolean"},
+    "model": {"type": "string"},
+    "warm": {"type": "boolean"},
+    "version": {"type": "string"}
+  },
+  "allOf": [
+    {
+      "if": {"properties": {"ok": {"const": false}}, "required": ["ok"]},
+      "then": {"required": ["error"]}
+    }
+  ]
+}

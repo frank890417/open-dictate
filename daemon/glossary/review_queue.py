@@ -9,9 +9,11 @@ import os
 from pathlib import Path
 from uuid import uuid4
 
-DEFAULT_STATE_DIR = Path("~/.open-dictate/review-queue").expanduser()
+from daemon.product_config import DATA_ROOT
+
+DEFAULT_STATE_DIR = DATA_ROOT / "review-queue"
 DEFAULT_QUEUE = DEFAULT_STATE_DIR / "candidates.json"
-DEFAULT_GLOSSARY = Path("~/.open-dictate/glossaries/personal.json").expanduser()
+DEFAULT_GLOSSARY = DATA_ROOT / "glossaries" / "personal.json"
 
 
 @dataclass

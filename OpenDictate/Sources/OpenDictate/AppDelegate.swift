@@ -13,7 +13,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private let recorder = AudioRecorder()
     private let hud = RecordingHUD()
     private let settingsWindow = SettingsWindowController()
-    private let socketQueue = DispatchQueue(label: "org.opendictate.socket", qos: .userInitiated)
+    private let socketQueue = DispatchQueue(label: "\(ProductConfig.shellLaunchLabel).socket", qos: .userInitiated)
 
     private var state: State = .idle
     private let minHoldSeconds = 0.5
@@ -47,7 +47,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
         statusController.refreshStats()
         pingDaemon()
-        mdLog("OpenDictate v0.5 啟動（熱鍵=\(DictateSettings.hotkeyLabel), AX=\(PermissionGuide.isAccessibilityTrusted)）")
+        mdLog("\(ProductConfig.appName) v0.5 啟動（熱鍵=\(DictateSettings.hotkeyLabel), AX=\(PermissionGuide.isAccessibilityTrusted)）")
     }
 
     func applicationSupportsSecureRestorableState(_ app: NSApplication) -> Bool { true }
@@ -108,10 +108,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         formatter.dateFormat = "yyyyMMdd-HHmmss"
         formatter.locale = Locale(identifier: "en_US_POSIX")
         let stamp = formatter.string(from: Date())
-        let path = "/tmp/open-dictate-rec-\(stamp).wav"
+        let path = "/tmp/\(ProductConfig.productID)-rec-\(stamp).wav"
         if FileManager.default.fileExists(atPath: path) {
             let ms = Int(Date().timeIntervalSince1970 * 1000) % 1000
-            return "/tmp/open-dictate-rec-\(stamp)-\(String(format: "%03d", ms)).wav"
+            return "/tmp/\(ProductConfig.productID)-rec-\(stamp)-\(String(format: "%03d", ms)).wav"
         }
         return path
     }
@@ -255,8 +255,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     }
 
     private func addLexiconPairViaCLI(wrong: String, right: String) {
-        let museBotRoot = ProcessInfo.processInfo.environment["OPEN_DICTATE_LEXICON_ROOT"]
-            ?? "\(Bundle.main.bundlePath)/Contents/Resources/vendor"
+        let museBotRoot = ProductConfig.lexiconRoot
         let py = "\(museBotRoot)/tools/td-subtitle/.venv/bin/python3"
         let lexCli = "\(museBotRoot)/tools/muse-lexicon/muse_lexicon.py"
         let p = Process()
@@ -287,7 +286,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private func restartDaemon() {
         let p = Process()
         p.executableURL = URL(fileURLWithPath: "/bin/launchctl")
-        p.arguments = ["kickstart", "-k", "gui/\(getuid())/org.opendictate.daemon"]
+        p.arguments = ["kickstart", "-k", "gui/\(getuid())/\(ProductConfig.daemonLaunchLabel)"]
         do {
             try p.run()
             p.waitUntilExit()

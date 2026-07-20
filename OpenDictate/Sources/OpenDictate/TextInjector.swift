@@ -23,7 +23,7 @@ enum TextInjector {
             leaveOnClipboard(text)
             mdLog("⚠️ 輔助使用未授權：字已留剪貼簿")
             Notifier.notify(title: "字在剪貼簿，請手動 Cmd-V",
-                            body: "輔助使用未授權。系統設定 > 隱私權與安全性 > 輔助使用 → OpenDictate。")
+                            body: "輔助使用未授權。系統設定 > 隱私權與安全性 > 輔助使用 → \(ProductConfig.appName)。")
             completion(.clipboardOnly)
             return
         }

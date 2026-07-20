@@ -27,7 +27,7 @@ final class StatusItemController: NSObject, NSMenuDelegate {
         var tooltip: String {
             let hk = DictateSettings.hotkeyLabel
             switch self {
-            case .idle: return "OpenDictate — 按住 \(hk) 講話"
+            case .idle: return "\(ProductConfig.appName) — 按住 \(hk) 講話"
             case .recording: return "錄音中…"
             case .transcribing: return "轉錄中…"
             case .error: return "發生錯誤"
@@ -204,7 +204,7 @@ final class StatusItemController: NSObject, NSMenuDelegate {
 
         menu.addItem(.separator())
 
-        let quit = NSMenuItem(title: "結束 OpenDictate", action: #selector(NSApplication.terminate(_:)), keyEquivalent: "q")
+        let quit = NSMenuItem(title: "結束 \(ProductConfig.appName)", action: #selector(NSApplication.terminate(_:)), keyEquivalent: "q")
         quit.image = UITheme.menuSymbol(UITheme.Symbol.quit)
         menu.addItem(quit)
 
