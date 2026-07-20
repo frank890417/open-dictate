@@ -1,0 +1,34 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<key>CFBundleName</key>
+	<string>OpenDictate</string>
+	<key>CFBundleDisplayName</key>
+	<string>OpenDictate</string>
+	<key>CFBundleIdentifier</key>
+	<string>org.opendictate.shell</string>
+	<key>CFBundleExecutable</key>
+	<string>OpenDictate</string>
+	<key>CFBundlePackageType</key>
+	<string>APPL</string>
+	<key>CFBundleShortVersionString</key>
+	<string>0.5.1</string>
+	<key>CFBundleVersion</key>
+	<string>6</string>
+	<key>CFBundleInfoDictionaryVersion</key>
+	<string>6.0</string>
+	<key>LSMinimumSystemVersion</key>
+	<string>14.0</string>
+	<key>LSUIElement</key>
+	<true/>
+	<key>NSPrincipalClass</key>
+	<string>NSApplication</string>
+	<key>NSHighResolutionCapable</key>
+	<true/>
+	<key>NSMicrophoneUsageDescription</key>
+	<string>OpenDictate 需要麥克風錄下你按住熱鍵時說的話。轉錄全程在本機進行，語音不出境。</string>
+	<key>NSHumanReadableCopyright</key>
+	<string>© 2026 Che-Yu Wu and contributors.</string>
+</dict>
+</plist>

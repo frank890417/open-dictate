@@ -1,0 +1,28 @@
+{
+  "meta": {
+    "version": "public-v1",
+    "description": "Fictional Traditional Chinese calibration sentences for Open Dictate tests. No real user dictation."
+  },
+  "segments": [
+    {
+      "id": "public-01",
+      "truth": "今天早上我用 Open Dictate 測試繁體中文語音輸入，順便確認 TouchDesigner、p5.js 和 Obsidian 這幾個英文專名都能保持原樣。"
+    },
+    {
+      "id": "public-02",
+      "truth": "小安下午要整理投影片，晚上跟朋友討論開源專案，明天再把測試結果寫進筆記。"
+    },
+    {
+      "id": "public-03",
+      "truth": "這段包含數字三千、比例十六比九、版本 v1.2.3，還有網址 example.com，請不要亂改它們的意思。"
+    },
+    {
+      "id": "public-04",
+      "truth": "他問我：你確定這樣比較安全嗎？我說，寧可漏改，也不要錯改。"
+    },
+    {
+      "id": "public-05",
+      "truth": "本地語音輸入的好處是隱私、速度和可控性，缺點是第一次安裝需要設定權限。"
+    }
+  ]
+}

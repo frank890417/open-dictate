@@ -1,0 +1,4 @@
+# Open Dictate daemon dependencies for standalone install
+mlx-whisper==0.4.3
+opencc-python-reimplemented==0.1.7
+numpy==2.4.4

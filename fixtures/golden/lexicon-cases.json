@@ -1,0 +1,52 @@
+{
+  "_meta": {
+    "description": "open-dictate golden：確定性校正 + 標點回歸（不依賴個人詞庫隱私內容）",
+    "version": "1.0"
+  },
+  "smart_punct": [
+    {
+      "id": "half-to-full-comma",
+      "in": "好的,我知道了.",
+      "out_contains": ["，", "。"],
+      "out_not_contains": []
+    },
+    {
+      "id": "keep-url-ish",
+      "in": "見 https://example.com 說明",
+      "out_contains": ["https://example.com"]
+    },
+    {
+      "id": "idempotent",
+      "in": "好的，我知道了。",
+      "out_equals": "好的，我知道了。"
+    }
+  ],
+  "lexicon_synthetic": [
+    {
+      "id": "pair-basic",
+      "pairs": [["開放聽寫", "OpenDictate"], ["台灣點", "OpenDictate"]],
+      "in": "開放聽寫 與 台灣點 很好用",
+      "out": "OpenDictate 與 OpenDictate 很好用"
+    },
+    {
+      "id": "no-false-positive",
+      "pairs": [["光韻X", "Gwang"]],
+      "in": "光韻是正常詞",
+      "out": "光韻是正常詞"
+    }
+  ],
+  "content_gate": [
+    {
+      "id": "punct-only-change-ok",
+      "a": "你好世界",
+      "b": "你好，世界！",
+      "same_content": true
+    },
+    {
+      "id": "word-swap-not-same",
+      "a": "還好有課",
+      "b": "Hahow有課",
+      "same_content": false
+    }
+  ]
+}

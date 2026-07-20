@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0"><dict>
+  <key>Label</key><string>org.opendictate.daemon</string>
+  <key>ProgramArguments</key><array><string>__PYTHON__</string><string>__REPO__/daemon/dictated.py</string></array>
+  <key>EnvironmentVariables</key><dict><key>OPEN_DICTATE_LEXICON_ROOT</key><string>__LEXICON_ROOT__</string></dict>
+  <key>RunAtLoad</key><true/><key>KeepAlive</key><true/>
+  <key>ProcessType</key><string>Interactive</string>
+  <key>StandardOutPath</key><string>__HOME__/Library/Logs/open-dictate/daemon.out.log</string>
+  <key>StandardErrorPath</key><string>__HOME__/Library/Logs/open-dictate/daemon.err.log</string>
+</dict></plist>

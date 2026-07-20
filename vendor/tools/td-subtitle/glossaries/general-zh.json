@@ -1,0 +1,27 @@
+{
+  "_meta": {
+    "name": "通用中文 Whisper 誤聽詞庫",
+    "description": "常見中文語音轉文字錯誤，適用於各類中文音頻",
+    "version": "1.0.0"
+  },
+  "replacements": [
+    {"pattern": "因維", "replacement": "因為", "desc": "常見語音誤轉"},
+    {"pattern": "那個那個那個那個", "replacement": "那個", "desc": "口語重複壓縮"},
+    {"pattern": "然後然後然後", "replacement": "然後", "desc": "口語重複壓縮"},
+    {"pattern": "就是就是就是", "replacement": "就是", "desc": "口語重複壓縮"},
+    {"pattern": "對對對對對", "replacement": "對對對", "desc": "口語重複壓縮"},
+    {"pattern": "嗯嗯嗯嗯+", "replacement": "嗯", "desc": "語氣詞壓縮"},
+    {"pattern": "啊啊啊啊+", "replacement": "啊", "desc": "語氣詞壓縮"},
+    {"pattern": "欸欸欸+", "replacement": "欸", "desc": "語氣詞壓縮"},
+
+    {"pattern": "妳", "replacement": "你", "desc": "語音無法區分性別（統一用你）"},
+
+    {"pattern": "做作", "replacement": "做", "desc": "常見重複誤轉（需上下文）"},
+
+    {"pattern": "台灣", "replacement": "台灣", "desc": "確保用台而非臺"},
+    {"pattern": "臺灣", "replacement": "台灣", "desc": "臺→台"},
+
+    {"pattern": "着", "replacement": "著", "desc": "台灣字形：着為異體字，全 context 安全（venv opencc-reimplemented 缺此轉換，2026-07-05 補於詞庫層讓 correct-srt 與 muse-lexicon 同時生效）"}
+  ],
+  "phase2_candidates": []
+}
