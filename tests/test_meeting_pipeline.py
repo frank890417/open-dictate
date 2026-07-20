@@ -2,8 +2,10 @@ import json
 import tempfile
 import unittest
 from pathlib import Path
+from unittest.mock import patch
 from daemon.pipeline import meeting as meeting_pipeline
-from daemon.pipeline.meeting import run_from_segments
+from daemon.pipeline.audio_asr import segments_from_mlx_result
+from daemon.pipeline.meeting import run_from_audio, run_from_segments
 from daemon.speaker.anonymous import normalize_speaker_labels
 from daemon.exporters.srt import render_srt
 from daemon.exporters.vtt import render_vtt
@@ -68,6 +70,26 @@ class MeetingPipelineTests(unittest.TestCase):
                 self.assertEqual(result.segments[0]["text"], "打開Obsidian")
             finally:
                 meeting_pipeline.LOCAL_PERSONAL_GLOSSARY = original
+
+    def test_segments_from_mlx_result_uses_segment_timestamps(self):
+        rows = segments_from_mlx_result({"segments": [
+            {"id": 3, "start": 1.2, "end": 2.4, "text": " 測試音檔 "},
+            {"id": 4, "start": 2.4, "end": 3.0, "text": ""},
+        ]})
+        self.assertEqual(rows, [{"start": 1.2, "end": 2.4, "speaker": "SPEAKER", "raw": "測試音檔", "asr_segment_id": 3}])
+
+    def test_audio_path_runs_local_asr_adapter_without_downloading_model(self):
+        with tempfile.TemporaryDirectory() as d:
+            root = Path(d)
+            audio = root / "meeting.wav"
+            audio.write_bytes(b"not a real wav; backend is mocked")
+            with patch("daemon.pipeline.audio_asr._transcribe_backend") as backend:
+                backend.return_value = {"segments": [{"start": 0, "end": 1.5, "text": "今天測試阿布西店"}]}
+                result = run_from_audio(audio, root / "out", language="zh", model="mock-model")
+            self.assertEqual(len(result.segments), 1)
+            self.assertEqual(result.segments[0]["speaker"], "SPEAKER_00")
+            self.assertIn("transcript.md", result.exports["markdown"])
+            backend.assert_called_once()
 
 
 if __name__ == "__main__":

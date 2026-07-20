@@ -1,10 +1,10 @@
 #!/usr/bin/env python3
 """Public-safe meeting transcript pipeline.
 
-MVP scope: process JSON/JSONL segment fixtures or pre-transcribed segments, then
-apply deterministic correction, anonymous speaker normalization, QA flags, and
-exports. Real audio ASR can be wired behind this stable contract later without
-changing export schemas.
+Meeting Mode accepts either pre-transcribed JSON/JSONL segments or local audio
+files. Audio ASR is a thin MLX Whisper adapter behind the same segment contract;
+speaker diarization remains an optional future layer, so public output defaults
+to anonymous speaker labels.
 """
 from __future__ import annotations
 
@@ -25,6 +25,7 @@ from muse_lexicon import Lexicon  # type: ignore
 LOCAL_PERSONAL_GLOSSARY = Path(os.environ.get("OPEN_DICTATE_PERSONAL_GLOSSARY", "~/.open-dictate/glossaries/personal.json")).expanduser()
 
 try:
+    from .audio_asr import transcribe_audio_segments
     from ..qa.mishear_detector import scan_segments
     from ..speaker.anonymous import normalize_speaker_labels
     from ..exporters.jsonl import write_jsonl
@@ -32,6 +33,7 @@ try:
     from ..exporters.srt import write_srt
     from ..exporters.vtt import write_vtt
 except ImportError:
+    from daemon.pipeline.audio_asr import transcribe_audio_segments  # type: ignore
     from daemon.qa.mishear_detector import scan_segments  # type: ignore
     from daemon.speaker.anonymous import normalize_speaker_labels  # type: ignore
     from daemon.exporters.jsonl import write_jsonl  # type: ignore
@@ -152,6 +154,33 @@ def export_result(segments: list[dict], out_dir: Path, *, title: str = "Open Dic
 
 def run_from_segments(path: Path, out_dir: Path, *, language: str = "zh-TW", title: str = "Open Dictate Meeting Transcript") -> MeetingResult:
     segments = process_segments(load_segments(path))
+    meeting_id = path.stem
+    exports = export_result(segments, out_dir, title=title)
+    result = MeetingResult(
+        meeting_id=meeting_id,
+        created_at=datetime.now(timezone.utc).isoformat(),
+        language=language,
+        segments=segments,
+        exports=exports,
+    )
+    (out_dir / "meeting-result.json").write_text(json.dumps(result.to_dict(), ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
+    return result
+
+
+def run_from_audio(
+    path: Path,
+    out_dir: Path,
+    *,
+    language: str = "zh",
+    title: str = "Open Dictate Meeting Transcript",
+    model: str | None = None,
+) -> MeetingResult:
+    lex = Lexicon.load(names=["general-zh", "muse-personal"])
+    kwargs = {"lex": lex, "language": language}
+    if model:
+        kwargs["model"] = model
+    raw_segments = transcribe_audio_segments(path, **kwargs)
+    segments = process_segments(raw_segments)
     meeting_id = path.stem
     exports = export_result(segments, out_dir, title=title)
     result = MeetingResult(

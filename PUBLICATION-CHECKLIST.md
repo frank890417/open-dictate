@@ -27,6 +27,7 @@ For release builds:
 - [ ] No private local paths.
 - [ ] No private project names or collaborator names.
 - [ ] README marks unfinished features as planned or experimental.
+- [ ] Meeting audio ASR is documented as local MLX Whisper; speaker diarization / real identity remains planned unless implemented and local-only.
 - [ ] Privacy warnings cover speaker identity and review queues.
 - [ ] Screenshots are mockups or checked for private text.
 

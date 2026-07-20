@@ -39,7 +39,8 @@ Design rule: **the system may flag and suggest, but it must not silently rewrite
 | Deterministic glossary correction / 確定性詞庫校正 | Public seed |
 | Traditional Chinese punctuation / 繁中全形標點 | Public seed |
 | Menubar teaching flow / 選單列教詞庫 | Public seed |
-| Meeting transcript package / 會議逐字稿包 | MVP: JSON/JSONL segments |
+| Meeting transcript package / 會議逐字稿包 | Public seed: audio or JSON/JSONL segments |
+| Local audio ASR for Meeting Mode / 會議模式本地音檔 ASR | Public seed: MLX Whisper adapter |
 | Post-transcription QA / 轉錄後誤聽偵測 | MVP: review flags |
 | Review-first glossary growth / 審核優先詞庫成長 | MVP: CLI queue |
 | Anonymous speaker labels / 匿名說話者標籤 | MVP |
@@ -87,13 +88,15 @@ Full setup: [`docs/SETUP.md`](docs/SETUP.md)
 
 ## 會議模式 / Meeting Mode
 
-Meeting Mode creates a reviewable transcript package from longer conversations. The current public MVP processes pre-transcribed JSON/JSONL segments and exports Markdown, JSONL, SRT, and VTT. Real audio ASR is intentionally not faked; it will be wired as a local backend.
+Meeting Mode creates a reviewable transcript package from longer conversations. It now accepts local audio files through an MLX Whisper adapter, or pre-transcribed JSON/JSONL segments for integrations and tests. The public-safe default still uses anonymous speaker labels; real speaker identity / diarization is not silently guessed and remains a planned optional local layer.
 
-會議模式把長對話整理成可審核的逐字稿包。目前公開 MVP 先處理 JSON/JSONL 分段逐字稿，並匯出 Markdown、JSONL、SRT、VTT。音檔 ASR 不會假裝完成，之後會以本地後端方式接上。
+會議模式把長對話整理成可審核的逐字稿包。現在可直接吃本機音檔，透過 MLX Whisper adapter 轉成分段逐字稿；也仍支援 JSON/JSONL 分段輸入，方便整合與測試。公開安全預設仍是匿名說話者標籤；真實說話者身分 / diarization 不會偷偷猜，仍是之後的本機可選層。
 
 ```bash
 python3 daemon/meeting_cli.py export-demo --out /tmp/open-dictate-demo
 python3 daemon/meeting_cli.py transcribe examples/meeting-segments.example.json --out /tmp/open-dictate-meeting
+python3 daemon/meeting_cli.py transcribe ~/Desktop/meeting.m4a --out /tmp/open-dictate-meeting-audio --language zh
+# Mixed English/Chinese recordings can use: --language auto
 ```
 
 Read: [`docs/MEETING.md`](docs/MEETING.md)
@@ -144,8 +147,9 @@ Read: [`docs/SPEAKER-ID.md`](docs/SPEAKER-ID.md)
   → text insertion
   → ~/.open-dictate/dictation-log/
 
-[Meeting JSON/JSONL]
+[Meeting audio or JSON/JSONL]
   → meeting_cli.py
+  → local MLX Whisper audio ASR if needed
   → deterministic correction
   → anonymous speaker labels
   → QA flags
@@ -196,7 +200,7 @@ The smoke test builds the app, runs deterministic tests, exports a meeting demo,
 - [x] QA flags for possible mishearings and numbers.
 - [x] Review-first glossary queue CLI.
 - [x] Anonymous speaker label layer.
-- [ ] Local audio ASR backend for Meeting Mode.
+- [x] Local audio ASR backend for Meeting Mode.
 - [ ] Optional local speaker profile enrollment.
 - [ ] Menubar UI for reviewing glossary candidates.
 - [ ] Import/export for user-owned glossary packages.

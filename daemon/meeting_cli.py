@@ -1,9 +1,9 @@
 #!/usr/bin/env python3
 """Open Dictate meeting transcription CLI.
 
-Current public MVP processes pre-transcribed JSON/JSONL segments and exports a
-reviewable meeting package. Real audio ASR is intentionally not faked: audio
-input exits with an explicit message until an ASR backend is wired in.
+Processes pre-transcribed JSON/JSONL segments or local audio files and exports a
+reviewable meeting package. Audio ASR uses a local MLX Whisper backend; speaker
+identity remains anonymous by default.
 """
 from __future__ import annotations
 
@@ -16,7 +16,8 @@ ROOT = Path(__file__).resolve().parents[1]
 if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
-from daemon.pipeline.meeting import run_from_segments  # type: ignore
+from daemon.pipeline.audio_asr import is_audio_path  # type: ignore
+from daemon.pipeline.meeting import run_from_audio, run_from_segments  # type: ignore
 
 DEMO_SEGMENTS = [
     {"start": 0.0, "end": 3.2, "speaker": "alice", "raw": "今天我們測試open dictate的會議模式"},
@@ -35,10 +36,12 @@ def main(argv=None) -> int:
     sub = p.add_subparsers(dest="cmd", required=True)
     demo = sub.add_parser("export-demo", help="write and process a fictional public-safe demo transcript")
     demo.add_argument("--out", type=Path, required=True)
-    trans = sub.add_parser("transcribe", help="process pre-transcribed JSON/JSONL segments")
+    trans = sub.add_parser("transcribe", help="process audio files or pre-transcribed JSON/JSONL segments")
     trans.add_argument("input", type=Path)
     trans.add_argument("--out", type=Path, required=True)
     trans.add_argument("--title", default="Open Dictate Meeting Transcript")
+    trans.add_argument("--language", default="zh", help="ASR language, e.g. zh or auto")
+    trans.add_argument("--model", default=None, help="MLX Whisper model repo for audio input")
     args = p.parse_args(argv)
 
     if args.cmd == "export-demo":
@@ -46,10 +49,10 @@ def main(argv=None) -> int:
         _write_demo(source)
         result = run_from_segments(source, args.out, title="Open Dictate Demo Meeting")
     elif args.cmd == "transcribe":
-        if args.input.suffix.lower() in {".wav", ".m4a", ".mp3", ".flac", ".aiff"}:
-            print("Audio ASR backend is not enabled in this public MVP. Provide JSON/JSONL segments or wire a local ASR adapter.", file=sys.stderr)
-            return 2
-        result = run_from_segments(args.input, args.out, title=args.title)
+        if is_audio_path(args.input):
+            result = run_from_audio(args.input, args.out, title=args.title, language=args.language, model=args.model)
+        else:
+            result = run_from_segments(args.input, args.out, title=args.title, language=args.language)
     else:
         raise AssertionError(args.cmd)
     print(json.dumps({"ok": True, "exports": result.exports, "segments": len(result.segments)}, ensure_ascii=False, indent=2))
