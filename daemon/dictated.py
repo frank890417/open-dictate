@@ -7,7 +7,7 @@ MLX Whisper keep-warm + unix socket + muse_lexicon 確定性校正。
 流程：Swift 殼錄 16k/mono/PCM16 wav → socket 送 {"cmd":"transcribe","wav":...}
      → mlx_whisper（常駐權重）→ lex.correct()（絕無 LLM）→ 回 JSON → 刪 /tmp wav → log jsonl。
 
-跑法（venv 重用 td-subtitle，不另建）：
+跑法（需要有 mlx-whisper 的 Python 環境）：
     python3 dictated.py
 launchd 安裝見 daemon/README.md。
 """
@@ -33,12 +33,14 @@ try:
 except ImportError:  # direct script execution: python daemon/dictated.py
     from product_config import LOG_ROOT, LEXICON_ROOT, PRIORITY_TERMS, SOCKET_PATH, env
 
-__version__ = "0.5.2"
+__version__ = "0.5.3"
 
 # ---------------------------------------------------------------------------
 # 常數（路徑皆契約 SSOT，見 IO-CONTRACT.md §路徑約定）
 # ---------------------------------------------------------------------------
-MODEL = "mlx-community/whisper-large-v3-turbo"
+# 預設留 turbo（下載小、中位延遲低）。完整版 large-v3 迴圈幻覺明顯更少但檔案大一倍，
+# 由各產品自行以 product config 決定，不在核心寫死。
+MODEL = env("MODEL", "mlx-community/whisper-large-v3-turbo")
 LOG_DIR = LOG_ROOT
 
 SAMPLE_RATE = 16000          # 契約：殼交付 16kHz mono PCM16
@@ -59,8 +61,8 @@ from muse_lexicon import Lexicon, apply_opencc, smart_punct_zh  # noqa: E402
 PUNCT_STYLE_SEED = "好的，我知道了。我們用 Claude 跟 TouchDesigner 來做，這樣就對了！"
 
 # 優先專名（prompt 尾端 — whisper 對超長 prompt 只保留尾部 piece，放尾端最保險）。
-# 校準 v1/v2 實證：這些詞不進解碼端就會不斷變形（IRCAM 三輪三種錯法）。
-# 詞庫 _canonical 幾乎全是人名，生態系詞彙由 daemon 這份補上（dictate 專屬優先級）。
+# 校準實證：專名不進解碼端就會不斷變形，而且同一個詞每次錯法還不一樣。
+# 詞庫 _canonical 多半是人名，領域詞彙由 product config 的 PRIORITY_TERMS 補上。
 DICTATE_PRIORITY_TERMS = PRIORITY_TERMS
 
 # ---------------------------------------------------------------------------
@@ -70,11 +72,60 @@ DICTATE_PRIORITY_TERMS = PRIORITY_TERMS
 # ---------------------------------------------------------------------------
 PUNCT_LLM_URL = env("PUNCT_LLM_URL", "http://127.0.0.1:11434/api/chat")
 PUNCT_LLM_MODEL = env("PUNCT_MODEL", "qwen3.6:35b-a3b-coding-nvfp4")
-# keep_alive：2026-07-16 事故實證（14:59:57 TimeoutError）——30m 過期後 21.9GB 冷載吃光
-# 8s timeout，首句必 fallback。128G 統一記憶體養 24h 常駐（17%），本機本來就是大模型節點。
+# keep_alive：實測過的失敗鏈——預設 30m 過期後，下一句要付整顆模型的冷載成本，
+# 直接吃光逾時預算，於是「久沒用的第一句」必定退回規則層。設 24h 常駐可根治；
+# 記憶體吃緊的機器可以調回較短值，代價就是冷載那一句。
 PUNCT_LLM_KEEP_ALIVE = env("KEEP_ALIVE", "24h")
-PUNCT_LLM_TIMEOUT_S = 8.0
 PUNCT_LLM_MAX_CHARS = 800   # 超長段直接走規則層（延遲考量）
+
+# 逾時預算：長度感知（v0.5.3）
+#
+# 舊版是固定 8.0s。這個工作要 LLM 重寫整段，decode 成本隨文長線性成長，
+# 固定預算配變動成本 ⇒ 長句結構上不可能做完，而代價不是「標點差一點」，
+# 是先白等一輪逾時、再拿到比較差的標點。
+#
+# ⚠️ 誠實標：長度**不是**逾時的唯一成因。把生產環境曾逾時的樣本原樣重跑，
+# 二十字的句子只要約 0.3 秒、一個字的只要約 0.1 秒——短句根本不缺時間，
+# 它們是被整機資源競爭卡住的。所以這條改的是「長句本來就不該用短句的預算」，
+# 不宣稱它能解決全部逾時；真正的補救是下面 except 分支把現場證據印出來。
+PUNCT_LLM_TIMEOUT_BASE_S = float(env("PUNCT_BASE_S", "4.0"))
+PUNCT_LLM_TIMEOUT_PER_CHAR_S = float(env("PUNCT_PER_CHAR_S", "0.025"))
+# ⚠️ CAP 跟殼的逾時是一組契約，不可以只改一邊 ⚠️
+# 殼 AppDelegate.swift `transcribeTimeout()` = max(15, 音檔秒/6 + llmHeadroom)，
+# llmHeadroom 現值 12 秒。CAP 開超過 10 會讓長口述出現
+# 「殼判定 daemon 離線、daemon 其實在背景跑完」的假離線。要往上調，兩邊一起調。
+PUNCT_LLM_TIMEOUT_CAP_S = float(env("PUNCT_CAP_S", "10.0"))
+
+
+def punct_timeout_for(n_chars: int) -> float:
+    """長度感知逾時預算（秒）。40 字→5.0s／150 字→7.8s／240 字以上→cap。"""
+    return min(PUNCT_LLM_TIMEOUT_BASE_S + n_chars * PUNCT_LLM_TIMEOUT_PER_CHAR_S,
+               PUNCT_LLM_TIMEOUT_CAP_S)
+
+
+def _machine_load() -> str:
+    """逾時當下的整機負載快照。純唯讀、失敗不影響主流程。
+
+    存在的理由：逾時最常見的成因是整機資源競爭，而事後很難重建當時的機器狀態。
+    把 load 與記憶體壓力印在逾時那一行，下一個讀 log 的人就不必靠推理。
+    """
+    try:
+        l1, l5, _ = os.getloadavg()
+        parts = [f"load {l1:.1f}/{l5:.1f}"]
+    except OSError:
+        parts = ["load ?"]
+    try:
+        import subprocess
+        out = subprocess.run(["memory_pressure"], capture_output=True, text=True, timeout=2).stdout
+        for line in out.splitlines():
+            if "percentage" in line.lower():
+                parts.append(line.strip())
+                break
+    except Exception:  # noqa: BLE001 — 診斷用，壞掉就少一欄，不能影響聽寫
+        pass
+    return "，".join(parts)
+
+
 PUNCT_LLM_PROMPT_HEAD = (
     "為下面文字修復繁體中文標點（該用頓號用頓號、對話加「」引號、列舉用冒號、保留原有正確標點）。"
     "只能插入或替換標點符號，絕對不能改動、增加或刪除任何字。"
@@ -136,15 +187,20 @@ def llm_punct_and_fix(text: str, contextual_pairs: list[tuple[str, str]],
     }
     req = urllib.request.Request(PUNCT_LLM_URL, data=json.dumps(body).encode("utf-8"),
                                  headers={"Content-Type": "application/json"})
+    budget_s = punct_timeout_for(len(text))
     try:
         t0 = time.perf_counter()
-        with urllib.request.urlopen(req, timeout=PUNCT_LLM_TIMEOUT_S) as r:
+        with urllib.request.urlopen(req, timeout=budget_s) as r:
             out = (json.load(r).get("message") or {}).get("content", "").strip()
         ms = int((time.perf_counter() - t0) * 1000)
     except (urllib.error.URLError, OSError, TimeoutError, json.JSONDecodeError) as e:
-        log_line(f"llm_punct 不可用（{e.__class__.__name__}）→ fallback 規則層")
+        # 逾時當場留證據：字數/預算/實耗分辨「預算不夠」vs「被卡住」，
+        # 機器負載分辨「模型慢」vs「整機忙」。少了這些就只能事後推理。
+        spent = int((time.perf_counter() - t0) * 1000)
+        log_line(f"llm_punct 不可用（{e.__class__.__name__}，{len(text)} 字／"
+                 f"預算 {budget_s:.1f}s／實耗 {spent}ms／{_machine_load()}）→ fallback 規則層")
         return None
-    out = apply_opencc(out)  # 簡體傾向正規化（qwen 主權軸已知）→ 再進閘門
+    out = apply_opencc(out)  # 部分模型傾向輸出簡體 → 正規化後再進閘門
     if not out:
         log_line(f"llm_punct 空輸出 → fallback（{ms}ms）")
         return None
@@ -221,6 +277,60 @@ def is_no_speech(result: dict) -> bool:
     if all_high and not _content_chars(result.get("text") or ""):
         return True
     return False
+
+
+# ---------------------------------------------------------------------------
+# 迴圈幻覺「尾巴」層（v0.5.3）
+#
+# Whisper 在極短音訊與長音訊兩端都會陷入 token 迴圈，把同一個字或片語重複到
+# 視窗結束（「多多多多…」「安安安安」「好，我們來看看…」×N）。實測分佈是雙峰的：
+# <3s 與 >=30s 兩端各有約 20% 的輸出被污染，中間長度幾乎不受影響。
+#
+# 為什麼放在 daemon 而不是 lexicon 引擎：`Lexicon.correct()` 的行內迴圈收斂
+# 刻意把迴圈**收斂成一份**而不是刪掉（它的 docstring 明寫「lib 不做整行移除，
+# 殘渣去留交上層」），所以長口述尾巴會固定掛一個殘字。daemon 就是那個上層。
+#
+# 為什麼要在 lex.correct() **之前**跑：correct() 一旦收斂完，迴圈就不存在了，
+# 這裡只會看到一個殘字，判不出來。順序是這層的正確性條件，不是風格選擇。
+#
+# 門檻取捨（守「寧可漏改，不可錯改」）：
+#   - 只處理貼著結尾的迴圈；句中重複交給 lexicon 保守的門檻
+#   - 前面有實質內容時 4 次即算失控；內容很短時拉到 6 次
+#   - token 上限 40 而非 12：長片語迴圈（十多個字重複四次）用 12 會直接漏掉
+#   - 「加油加油加油」「對對對對」「嗯嗯嗯」這類正常強調不受影響
+# ---------------------------------------------------------------------------
+TAIL_LOOP = re.compile(r"(.{1,40}?)(?:[,，、。\.\s]?\1){2,}[。\.!！?？,，、\s]*$")
+TAIL_MIN_BODY = 8            # 前面剩這麼多字才算「有實質內容」
+TAIL_REPS_WITH_BODY = 4      # 有實質內容時，重複四次就算失控
+TAIL_REPS_SHORT_BODY = 6     # 內容很短時門檻拉高，避免誤傷「我說好好好好」這種
+TAIL_SHORT_BODY_MIN_SPAN = 16
+# 短 body 的第二觸發：迴圈本身夠長就算失控，不必等到六次。
+# 理由是次數門檻對長 token 不公平——「four」重複五次＝20 個字的垃圾，
+# 但只算五次；而「好好好好」只有四個字，同樣四次卻是正常語氣。
+# 量「垃圾佔了多長」比量「重複幾次」更貼近我們真正想擋的東西。
+_WORDISH = re.compile(r"[\w㐀-䶿一-鿿]")
+
+
+def strip_tail_hallucination(text: str) -> tuple[str, str | None]:
+    """砍掉貼著結尾的迴圈幻覺。回傳 (文字, 說明)；文字為空 = 呼叫端應判 no_speech。"""
+    s = (text or "").rstrip()
+    m = TAIL_LOOP.search(s)
+    if not m:
+        return text, None
+    tok = m.group(1)
+    if not tok.strip() or not _WORDISH.search(tok):
+        return text, None                       # 純標點/空白的重複不碰
+    reps = len(re.findall(re.escape(tok), m.group()))
+    body = s[: m.start()].strip()
+    if len(body) >= TAIL_MIN_BODY:
+        if reps >= TAIL_REPS_WITH_BODY:
+            return body, f"tail_loop {tok!r}x{reps} ({len(m.group())} chars)"
+        return text, None
+    if reps >= TAIL_REPS_SHORT_BODY or len(m.group()) >= TAIL_SHORT_BODY_MIN_SPAN:
+        if len(body) >= 2:
+            return body, f"tail_loop {tok!r}x{reps} (short body, span {len(m.group())})"
+        return "", f"all_loop {tok!r}x{reps}"
+    return text, None
 
 
 # ---------------------------------------------------------------------------
@@ -395,8 +505,17 @@ class DictationDaemon:
                                     total_ms=self._ms(t_total0), error="no_speech")
                 return {"ok": False, "error": "no_speech"}
 
+            # -- 迴圈幻覺尾巴層（v0.5.3）：必須在 lex.correct() 之前，見該函式註解
+            deloop, deloop_why = strip_tail_hallucination(raw)
+            if not deloop:
+                log_line(f"🔁 整句迴圈幻覺 → no_speech（{deloop_why}）")
+                self._log_utterance(dur, raw=raw, text="", changes=[], asr_ms=asr_ms,
+                                    total_ms=self._ms(t_total0), error="no_speech",
+                                    dehall=deloop_why)
+                return {"ok": False, "error": "no_speech"}
+
             # -- 確定性校正（詞庫命中才改，絕無 LLM，見契約§校正哲學）
-            text, changes = self.lex.correct(raw)
+            text, changes = self.lex.correct(deloop)
 
             # -- 標點層（v0.4 三模式；raw 欄位永遠是原始輸出）
             #    smart_zh＝規則層；llm_zh＝LLM 標點+受控語境錯字（閘門 v2 不過自動退回）；raw＝原樣
@@ -414,7 +533,8 @@ class DictationDaemon:
 
             total_ms = self._ms(t_total0)
             self._log_utterance(dur, raw=raw, text=text, changes=changes,
-                                asr_ms=asr_ms, total_ms=total_ms, punct=punct_mode)
+                                asr_ms=asr_ms, total_ms=total_ms, punct=punct_mode,
+                                dehall=deloop_why)
             return {"ok": True, "text": text, "raw": raw, "changes": changes,
                     "punct": punct_mode, "asr_ms": asr_ms, "total_ms": total_ms}
         finally:
@@ -442,7 +562,7 @@ class DictationDaemon:
         return int(round((time.perf_counter() - t0) * 1000))
 
     def _log_utterance(self, wav_dur_s, *, raw, text, changes, asr_ms, total_ms,
-                       error=None, punct=None):
+                       error=None, punct=None, dehall=None):
         """每句 → ~/.open-dictate/dictation-log/YYYY-MM-DD.jsonl（本機私有，絕不進 git）。"""
         try:
             LOG_DIR.mkdir(parents=True, exist_ok=True)
@@ -459,6 +579,8 @@ class DictationDaemon:
                 entry["punct"] = punct
             if error:
                 entry["error"] = error
+            if dehall:
+                entry["dehall"] = dehall   # 尾巴層動過手 → 留痕，供回歸掃描對帳
             day = datetime.now().strftime("%Y-%m-%d")
             with open(LOG_DIR / f"{day}.jsonl", "a", encoding="utf-8") as f:
                 f.write(json.dumps(entry, ensure_ascii=False) + "\n")

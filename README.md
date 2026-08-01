@@ -96,6 +96,17 @@ Full setup: [`docs/SETUP.md`](docs/SETUP.md)
 - Push-to-talk: `fn` or right Option.
 - 16 kHz mono PCM16 recording → Python daemon → corrected text insertion.
 - Short-press and silence gates reduce accidental hallucinations.
+- **Repetition-loop guard (v0.5.3)**: Whisper degenerates into token loops at both
+  ends of the duration range — very short clips and long dictations — repeating one
+  character or phrase until the window ends. A deterministic tail pass removes the
+  runaway and falls back to `no_speech` when the whole utterance is a loop. It is
+  conservative by design: natural emphasis such as `對對對對` is left untouched.
+- **Length-aware punctuation budget (v0.5.3)**: the optional LLM punctuation pass
+  rewrites the whole segment, so its cost grows with text length. A fixed timeout made
+  long dictations structurally impossible to complete. The budget is now
+  `min(4.0 + chars × 0.025, 10.0)` seconds. Note that length is not the only cause of
+  timeouts — machine-wide contention is at least as common — so the timeout log line
+  now prints characters, budget, elapsed time and machine load.
 - Text insertion uses Accessibility direct insertion when possible, then paste fallback.
 - Optional microphone selection.
 

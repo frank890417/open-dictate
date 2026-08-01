@@ -123,7 +123,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     /// 但轉錄其實成功（daemon 端 error_count 0）。改隨音檔長度 + llm_zh 最壞情況 headroom 動態抓。
     private static func transcribeTimeout(forAudioSeconds audioSeconds: Double) -> TimeInterval {
         let asrHeadroom = audioSeconds / 6  // 實測長音檔 ASR ≈ audio 的 1/13（117.4s→8.86s），抓 2x 安全係數
-        let llmHeadroom: TimeInterval = 12  // llm_zh 全流程（PUNCT_LLM_TIMEOUT_S=8s + 閘門驗證）觀測 <8.1s，抓 buffer
+        // ⚠️ 這個數字跟 daemon 的 PUNCT_LLM_TIMEOUT_CAP_S 是一組契約，不可以只改一邊 ⚠️
+        // daemon 的標點預算是長度感知的 min(4.0 + 字數×0.025, CAP)，CAP 目前 10.0，
+        // 這裡的 12 是留給它 + 閘門驗證的 headroom。把 CAP 調大而不動這裡，
+        // 長口述就會出現「殼判定 daemon 離線、daemon 其實在背景跑完」的假離線。
+        let llmHeadroom: TimeInterval = 12
         return max(15, asrHeadroom + llmHeadroom)
     }
 

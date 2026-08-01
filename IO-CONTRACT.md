@@ -39,11 +39,21 @@ Responses:
 
 ```json
 {"ok": true, "text": "校正後文字", "raw": "whisper 原始輸出", "changes": [["誤聽", "正確"]], "punct": "smart_zh", "asr_ms": 210, "total_ms": 260}
-{"ok": true, "pong": true, "model": "mlx-community/whisper-large-v3-turbo", "warm": true, "version": "0.5.2"}
+{"ok": true, "pong": true, "model": "mlx-community/whisper-large-v3-turbo", "warm": true, "version": "0.5.3"}
 {"ok": false, "error": "no_speech"}
 ```
 
 Error codes: `no_speech`, `file_not_found`, `asr_failed`, `bad_request`, `unknown_cmd`, `add_pair_failed`.
+
+When the repetition-loop guard removes a runaway tail, the local JSONL log entry
+carries an extra `dehall` field describing what was removed. It never appears on the
+wire response; the socket contract is unchanged.
+
+⚠️ **Timeout contract**: the shell's `transcribeTimeout()` allows
+`max(15, audioSeconds/6 + llmHeadroom)` and the daemon's punctuation budget caps at
+`PUNCT_LLM_TIMEOUT_CAP_S`. These two constants are one contract. Raising the cap
+without raising the shell headroom produces a false "daemon offline" state while the
+daemon actually completes the work in the background.
 
 ## Audio Format
 
