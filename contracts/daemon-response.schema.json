@@ -18,13 +18,28 @@
         "maxItems": 2
       }
     },
-    "punct": {"enum": ["raw", "smart_zh", "llm_zh", "smart_zh_fallback"]},
+    "punct": {"enum": ["raw", "smart_zh", "llm_zh", "llm_zh_partial", "smart_zh_fallback"]},
     "asr_ms": {"type": "integer", "minimum": 0},
     "total_ms": {"type": "integer", "minimum": 0},
+    "pre_asr_ms": {"type": "integer", "minimum": 0},
+    "load_ms": {"type": "integer", "minimum": 0},
+    "lex_ms": {"type": "integer", "minimum": 0},
+    "punct_ms": {"type": "integer", "minimum": 0},
     "pong": {"type": "boolean"},
     "model": {"type": "string"},
     "warm": {"type": "boolean"},
-    "version": {"type": "string"}
+    "version": {"type": "string"},
+    "punct_llm": {
+      "type": "object",
+      "description": "ping only (daemon ≥0.6.0): LLM punctuation warm-keeper status",
+      "properties": {
+        "enabled": {"type": "boolean"},
+        "loading": {"type": "boolean"},
+        "ready_age_s": {"type": ["number", "null"]},
+        "last_load_s": {"type": ["number", "null"]},
+        "last_error": {"type": ["string", "null"]}
+      }
+    }
   },
   "allOf": [
     {

@@ -104,14 +104,15 @@ def slice_wav(src: Path, start: float, end: float) -> np.ndarray:
 
 def build_prompt(lex: Lexicon) -> str:
     """與 daemon._build_prompt 同構（生產 prompt，兩模型同一份＝公平）。"""
-    return dictated.PUNCT_STYLE_SEED + lex.build_initial_prompt(max_chars=150) + "、" + dictated.DICTATE_PRIORITY_TERMS
+    return dictated.build_whisper_prompt(lex)
 
 
 def transcribe(model: str, audio: np.ndarray, prompt: str) -> tuple[str, int]:
     import mlx_whisper
     t0 = time.perf_counter()
     result = mlx_whisper.transcribe(audio, path_or_hf_repo=model,
-                                    language="zh", initial_prompt=prompt)
+                                    language="zh", initial_prompt=prompt,
+                                    **dictated.asr_decode_options(len(audio) / SR))
     ms = int((time.perf_counter() - t0) * 1000)
     return (result.get("text") or "").strip(), ms
 

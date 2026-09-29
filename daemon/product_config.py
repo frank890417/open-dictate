@@ -27,6 +27,9 @@ DAEMON_LAUNCH_LABEL = env("DAEMON_LABEL", "org.opendictate.daemon")
 SHELL_LAUNCH_LABEL = env("SHELL_LABEL", "org.opendictate.shell")
 DEFAULT_LEXICON_ROOT = Path(__file__).resolve().parents[1] / "vendor"
 LEXICON_ROOT = Path(env("LEXICON_ROOT", str(DEFAULT_LEXICON_ROOT))).expanduser()
+# Whisper initial_prompt 最前面的「必進」詞（「、」分隔），例如使用者自己的名字。
+# 預算不夠時最先被擠掉的是詞庫專名，不是這些。公開預設為空。
+PROMPT_CORE_TERMS = env("PROMPT_CORE_TERMS", "")
 PRIORITY_TERMS = env(
     "PRIORITY_TERMS",
     "Open Dictate、OpenDictate、TouchDesigner、p5.js、Obsidian、Notion、"

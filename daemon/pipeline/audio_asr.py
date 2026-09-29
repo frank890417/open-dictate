@@ -37,8 +37,45 @@ def is_audio_path(path: Path) -> bool:
     return path.suffix.lower() in SUPPORTED_AUDIO_SUFFIXES
 
 
+# whisper 解碼器只保留 initial_prompt 的最後 223 個 token（mlx_whisper decoding.py：
+# `prompt_tokens[-(n_ctx // 2 - 1):]`），超過的開頭會被無聲丟掉。舊版把風格句放在開頭、
+# 後面接專名串，外部詞庫一大就正好把風格句砍掉。改成：詞表在前、風格句在尾，整串控制在預算內
+# （與聽寫 daemon 的 build_whisper_prompt 同一個結構；聽寫那邊有 A/B，會議模式尚未另做 A/B）。
+PROMPT_TOKEN_BUDGET = 200
+_TOKENIZER = None
+
+
+def _token_len(text: str) -> int:
+    global _TOKENIZER
+    if _TOKENIZER is None:
+        try:
+            from mlx_whisper.tokenizer import get_tokenizer  # type: ignore
+            _TOKENIZER = get_tokenizer(True, num_languages=100, language="zh", task="transcribe")
+        except Exception:  # noqa: BLE001 — 沒有 tokenizer（測試環境）就用字數保守估
+            _TOKENIZER = False
+    if _TOKENIZER:
+        return len(_TOKENIZER.encode(text))
+    return int(len(text) * 1.3) + 1
+
+
 def build_initial_prompt(lex: Lexicon) -> str:
-    return PROMPT_STYLE_SEED + lex.build_initial_prompt(max_chars=180) + "、" + PRIORITY_TERMS
+    seen: set[str] = set()
+    pool: list[str] = []
+    names = [t.strip() for t in lex.build_initial_prompt(max_chars=600).split(",")]
+    for t in (*PRIORITY_TERMS.split("、"), *names):
+        t = t.strip()
+        if t and t not in seen:
+            seen.add(t)
+            pool.append(t)
+    used = _token_len(" " + PROMPT_STYLE_SEED) + 2
+    chosen: list[str] = []
+    for t in pool:
+        cost = _token_len("、" + t)
+        if used + cost > PROMPT_TOKEN_BUDGET:
+            continue
+        chosen.append(t)
+        used += cost
+    return "、".join(chosen) + "。" + PROMPT_STYLE_SEED
 
 
 def _transcribe_backend(audio_path: Path, *, model: str, language: str, initial_prompt: str) -> dict[str, Any]:

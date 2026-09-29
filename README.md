@@ -107,6 +107,13 @@ Full setup: [`docs/SETUP.md`](docs/SETUP.md)
   `min(4.0 + chars × 0.025, 10.0)` seconds. Note that length is not the only cause of
   timeouts — machine-wide contention is at least as common — so the timeout log line
   now prints characters, budget, elapsed time and machine load.
+- **Robustness pass (v0.6.0)**: a background warm keeper stops cold-model requests from
+  cancelling the punctuation model load; only contextual pairs present in the sentence
+  are sent to the LLM; the daemon respects the shell deadline; ASR decode guards
+  (`sample_len` by duration, temperature capped at 0.4), a false-trigger gate, a
+  subtitle-credit hallucination filter, a 200-token Whisper prompt with the style
+  sentence at the end, and a fix for a regex that could block the daemon for minutes.
+  Details: IO-CONTRACT §Daemon 0.6.0 robustness notes.
 - Text insertion uses Accessibility direct insertion when possible, then paste fallback.
 - Optional microphone selection.
 
