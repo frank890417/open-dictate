@@ -10,6 +10,10 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: '3.12'
+      # daemon/dictated.py imports numpy at module level (the daemon needs it at runtime via
+      # mlx-whisper); without it every test that loads the daemon fails at import time.
+      # main has been red since fa50a2a for exactly this reason.
+      - run: python3 -m pip install numpy
       - run: python3 -m compileall daemon scripts vendor
       - run: bash -n install.sh uninstall.sh scripts/doctor.sh scripts/smoke-test.sh
       - run: python3 scripts/public-safety-scan.py
