@@ -303,7 +303,9 @@ class AsrGuards(unittest.TestCase):
         self.assertEqual(dictated.asr_decode_options(None), {})
 
     def test_small_forms_are_normalized(self) -> None:
-        self.assertEqual(dictated.normalize_small_forms("好﹐我知道﹖對﹗"), "好，我知道？對！")
+        # v0.6.1: ﹐﹑﹗﹖ are pause marks (see test_dictate_v061.py); ﹒﹔﹕ map one-to-one.
+        self.assertEqual(dictated.normalize_small_forms("好﹐我知道﹖對﹗"), "好，我知道，對。")
+        self.assertEqual(dictated.normalize_small_forms("好﹒對﹕是﹔"), "好。對：是；")
 
     def test_anomaly_needs_voiced_long_audio(self) -> None:
         self.assertTrue(dictated.asr_output_anomalous("整個", 30.0, 0.6))

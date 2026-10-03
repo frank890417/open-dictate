@@ -114,6 +114,11 @@ Full setup: [`docs/SETUP.md`](docs/SETUP.md)
   subtitle-credit hallucination filter, a 200-token Whisper prompt with the style
   sentence at the end, and a fix for a regex that could block the daemon for minutes.
   Details: IO-CONTRACT §Daemon 0.6.0 robustness notes.
+- **Punctuation fixes (v0.6.1)**: Whisper's small-form marks (`﹐﹑﹗﹖`) are treated as
+  pauses, not tone (comma mid-sentence, full stop at the end; `﹖` stays `？` only when
+  the clause has a question word), and an enumeration comma right before a coordinating
+  conjunction is removed or turned into a comma after the punctuation layer.
+  Daemon-internal; wire protocol stays 1.0.
 - Text insertion uses Accessibility direct insertion when possible, then paste fallback.
 - Optional microphone selection.
 

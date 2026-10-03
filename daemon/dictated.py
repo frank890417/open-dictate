@@ -35,7 +35,7 @@ except ImportError:  # direct script execution: python daemon/dictated.py
     from product_config import (LOG_ROOT, LEXICON_ROOT, PRIORITY_TERMS, SOCKET_PATH, env,
                                 PROMPT_CORE_TERMS as PROMPT_CORE_TERMS_RAW)
 
-__version__ = "0.6.0"
+__version__ = "0.6.1"
 
 # ---------------------------------------------------------------------------
 # 常數（路徑皆契約 SSOT，見 IO-CONTRACT.md §路徑約定）
@@ -108,12 +108,75 @@ def asr_output_anomalous(content: str, dur: float | None, voiced: float | None) 
 
 # 小寫形標點（U+FE50–FE57）→ 一般全形。large-v3 在中文標點 prompt 下會吐「﹐」「﹖」
 # （重放：24 段裡 14 段出現），規則層與 LLM 閘門都不認得它們。
-_SMALL_FORMS = str.maketrans({"﹐": "，", "﹑": "、", "﹒": "。", "﹔": "；", "﹕": "：",
-                              "﹖": "？", "﹗": "！"})
+#
+# v0.6.1：「﹐﹑﹗﹖」是停頓記號，不是語氣。v0.6.0 逐字對應成「，、！？」，
+# 結果同一句裡可能整句都是「！」或整句都是「、」——模型每句擲一次骰子決定停頓長什麼樣。
+# 實際用量裡這四種小寫形：﹗ 幾乎都不是真驚嘆、﹑ 幾乎都不是列舉、﹐ 是逗號，
+# ﹖ 只有一部分是真問句。句末標點（。？！）ASR 本來就幾乎不吐，句型是 llm_zh 在判斷。
+# ⇒ 四種停頓形一律當停頓：句中「，」、整段結尾「。」；列舉頓號交給 llm_zh。
+#   唯一例外是「﹖」前面那段話本身有疑問詞：保留「？」。這步不能交給 llm_zh——
+#   「哪裡啊，可以幫我放到硬碟嗎，應該還裝得下吧。」它看到逗號就照留，問號全掉。
+#   ASR 的﹖（弱訊號）加上疑問詞（第二個訊號）兩個都有才算問句。
+#   ﹒﹔﹕ 語意明確，照舊。
+_PAUSE_FORMS = "﹐﹑﹗﹖"
+_SMALL_FORMS = str.maketrans({"﹒": "。", "﹔": "；", "﹕": "：", **{c: "，" for c in _PAUSE_FORMS}})
+_CLAUSE_BREAK = "，,、。.！!？?；;：:﹐﹑﹒﹔﹕﹖﹗\n"
+_QUESTION_CLAUSE = re.compile(
+    r"(?:嗎|呢|吧|沒有?)\s*$"                                   # 句尾語氣詞
+    r"|什麼|甚麼|怎麼|怎樣|為什麼|為何|如何|哪|誰|幾[個點次天年歲]|多少|多久|是否"  # 疑問詞
+    r"|(\w)不\1"                                                # 是不是／要不要／可不可以
+)
+
+
+def _small_question_is_real(text: str, i: int) -> bool:
+    """text[i] 是﹖：往前取到上一個標點為止的那段話，有疑問詞才算真問句。"""
+    j = i
+    while j > 0 and text[j - 1] not in _CLAUSE_BREAK:
+        j -= 1
+    return bool(_QUESTION_CLAUSE.search(text[j:i]))
 
 
 def normalize_small_forms(text: str) -> str:
-    return (text or "").translate(_SMALL_FORMS)
+    text = text or ""
+    if "﹖" in text:
+        text = "".join("？" if c == "﹖" and _small_question_is_real(text, i) else c
+                       for i, c in enumerate(text))
+    body = text.rstrip()
+    if body and body[-1] in _PAUSE_FORMS:
+        text = body[:-1] + "。" + text[len(body):]
+    return text.translate(_SMALL_FORMS)
+
+
+# 並列連接詞前的頓號（v0.6.1）：頓號分隔並列的詞語，中間已經有「跟／和／與／及／或」就不再加
+# （教育部《重訂標點符號手冊》頓號條）。llm_zh 的 prompt 寫「該用頓號用頓號」，它會在
+# 「A跟B」中間插一個（「連結、跟相關資訊」）；句子層的接續詞（然後、還有…）前也常見（「顏色、還有字體」）。
+# 句子層的接續詞前換成逗號。並列連接詞前：單獨一個就拿掉頓號（「連結跟相關資訊」）；
+# 是口述的列舉串或平行句就換逗號——同一句有兩個以上
+# （「打鼓課，或是鋼琴課，或是學電吉他」，全刪會變成沒有停頓的一長串），
+# 或頓號前那段也用了同一個連接詞。只動標點，閘門不受影響。
+_DUNHAO_BEFORE_CONJ = re.compile(r"、(?=(以及|或是|或者|跟|和|與|及(?!時)|或(?!許)))")
+_DUNHAO_BEFORE_CLAUSE = re.compile(r"、(?=然後|還有|但是|可是|所以|因為)")
+_SENTENCE_END = re.compile(r"(?<=[。！？!?；;\n])")
+
+
+def fix_dunhao_before_conj(text: str) -> str:
+    out = []
+    for sent in _SENTENCE_END.split(_DUNHAO_BEFORE_CLAUSE.sub("，", text or "")):
+        chained = len(_DUNHAO_BEFORE_CONJ.findall(sent)) >= 2
+
+        def repl(m: re.Match, sent: str = sent, chained: bool = chained) -> str:
+            j = m.start()
+            while j > 0 and sent[j - 1] not in _CLAUSE_BREAK:
+                j -= 1
+            return "，" if chained or m.group(1) in sent[j:m.start()] else ""
+
+        out.append(_DUNHAO_BEFORE_CONJ.sub(repl, sent))
+    return "".join(out)
+
+
+def postprocess_punct(text: str) -> str:
+    """標點層之後的確定性收尾（llm_zh／smart_zh 都過，raw 不過）。只動標點符號。"""
+    return fix_dunhao_before_conj(text)
 
 
 # ---------------------------------------------------------------------------
@@ -1238,6 +1301,8 @@ class DictationDaemon:
                                                     deadline=t_mono0 + shell_deadline_s(dur))
             elif punct_mode == "smart_zh":
                 text = smart_punct_zh(text)
+            if punct_mode.startswith(("llm_zh", "smart_zh")):
+                text = postprocess_punct(text)
             punct_ms = self._ms(t_punct0)
 
             total_ms = self._ms(t_total0)

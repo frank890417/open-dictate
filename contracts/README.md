@@ -9,6 +9,13 @@ transcript, speaker profile, token, absolute local path, or private adapter.
 - `daemon-message.schema.json` and `daemon-response.schema.json` describe JSONL payloads.
 - `product-config.schema.json` defines the branding and runtime values an overlay may supply.
 - `product-config.open-dictate.json` is the public product configuration.
+  Optional (additive) fields: `runtime.model` (ASR model), `runtime.promptCoreTerms`
+  (names that must survive Whisper prompt budgeting), `product.signingIdentity`
+  (codesign certificate name; the default flavor leaves it unset), and
+  `product.runtimeLogRoot` (launchd stdout/stderr; default `<dataRoot>/runtime-logs`).
+  Unset fields leave the daemon on its built-in defaults.
+  `scripts/install-product.sh --render-dir <dir>` writes the launchd plists for
+  inspection without installing anything.
 - `overlay-lock.schema.json` defines how an overlay pins an exact upstream release.
 
 Run `python3 scripts/check-contracts.py`. A private overlay can additionally run:
