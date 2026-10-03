@@ -1,0 +1,56 @@
+# Open Dictate
+
+> Local-first push-to-talk dictation and meeting transcription for Traditional Chinese on Apple Silicon Macs. Hold a hotkey (fn or right Option), speak, release: a Swift menu-bar app records 16 kHz mono audio, a local Python daemon transcribes it with MLX Whisper (whisper-large-v3-turbo), applies the user's deterministic glossary pairs and full-width punctuation, and the app inserts the text at the cursor. Audio, transcripts, logs and glossaries stay on the Mac. MIT license. Early public seed (daemon 0.6.1).
+
+Site: https://frank890417.github.io/open-dictate/ (English) · https://frank890417.github.io/open-dictate/zh/ (繁體中文, Traditional Chinese)
+Repository: https://github.com/frank890417/open-dictate
+Author: Che-Yu Wu 吳哲宇 (https://cheyuwu.com)
+
+## Core concepts
+
+- **Pipeline (dictation)**: hold key → record WAV → daemon over Unix socket `/tmp/open-dictate.sock` (newline-delimited JSON) → MLX Whisper → glossary pairs → punctuation (`smart_zh` rules by default; optional local LLM `llm_zh` behind a no-rewrite gate; or `raw`) → JSON response → Accessibility insertion at the cursor (paste fallback).
+- **Glossary pair**: a deterministic `wrong → right` replacement owned by the user. Only matching pairs are applied; sentences are never rewritten. Risky pairs live in `_contextual`, suggestions in `_review_queue`, decisions in `_history`.
+- **Design rule**: the system may flag and suggest, but it must not silently rewrite meaning. Prefer missed corrections over wrong corrections. Numbers are not changed automatically.
+- **Meeting Mode**: `daemon/meeting_cli.py` turns a local audio file or JSON/JSONL segments into Markdown, JSONL, SRT, VTT and meeting-result.json, with anonymous speaker labels (SPEAKER_00…) and QA flags.
+- **Self-evolving glossary**: a scanner flags possible mishearings as candidates; the user accepts, edits or rejects (`daemon/glossary/cli.py`); only accepted pairs reach the glossary.
+- **Privacy**: everything under `~/.open-dictate/`; speaker embeddings are biometric data, local only, never committed. Network use: PyPI at install, the Whisper model from Hugging Face (first run; the library may check for updates when loading), optional LLM punctuation via Ollama on 127.0.0.1.
+
+## Status (from the README)
+
+Public seed: push-to-talk dictation, local MLX Whisper daemon, deterministic glossary correction, Traditional Chinese punctuation, menu-bar teaching flow, meeting transcript package, local audio ASR for Meeting Mode. MVP: post-transcription mishearing flags, review-first glossary queue (CLI), anonymous speaker labels. Planned: local speaker identity, menu-bar review UI, glossary import/export, a self-contained signed and notarized app (see docs/MACOS-DISTRIBUTION-ROADMAP.md), an MCP server (see docs/MCP-ROADMAP.md; none exists yet).
+
+## Install (Apple Silicon, macOS 14+, Xcode Command Line Tools, Python 3.11+)
+
+```bash
+git clone https://github.com/frank890417/open-dictate.git
+cd open-dictate
+./install.sh                         # venv, builds OpenDictate.app into /Applications, LaunchAgents, model warm-up
+./scripts/doctor.sh                  # read-only diagnostics
+python3 daemon/dictate_cli.py ping   # daemon health
+```
+
+Then the user must allow OpenDictate under Microphone, Accessibility and Input Monitoring (System Settings → Privacy & Security) and set "Press fn key to" → Do Nothing. An agent cannot grant these. Never delete `~/.open-dictate` (user glossary and logs); `./uninstall.sh` keeps it.
+
+## Develop
+
+- Read IO-CONTRACT.md before changing `daemon/` or `OpenDictate/`. Readers ignore unknown fields; keep the wire protocol (1.0) backward compatible.
+- Tests: `python3 -m unittest discover tests`, `python3 scripts/golden-bench.py --skip-daemon`, `python3 scripts/public-safety-scan.py`, `./build.sh` for Swift, `./scripts/smoke-test.sh` for releases.
+- Public fixtures must be fictional. Never commit real audio, transcripts, logs, personal glossaries or speaker profiles.
+
+## Docs
+
+- [README](https://raw.githubusercontent.com/frank890417/open-dictate/main/README.md): overview, feature status, quick start, architecture, roadmap.
+- [IO-CONTRACT.md](https://raw.githubusercontent.com/frank890417/open-dictate/main/IO-CONTRACT.md): paths, socket protocol, glossary schema, correction rules, quality gates. Source of truth.
+- [Setup](https://raw.githubusercontent.com/frank890417/open-dictate/main/docs/SETUP.md): requirements, permissions, hotkey conflicts, doctor, uninstall.
+- [Privacy](https://raw.githubusercontent.com/frank890417/open-dictate/main/docs/PRIVACY.md): data classes and where they live.
+- [Meeting Mode](https://raw.githubusercontent.com/frank890417/open-dictate/main/docs/MEETING.md): inputs, pipeline, segment schema.
+- [Self-evolving glossary](https://raw.githubusercontent.com/frank890417/open-dictate/main/docs/SELF-EVOLVING-GLOSSARY.md): the review loop and its commands.
+- [Speaker identity](https://raw.githubusercontent.com/frank890417/open-dictate/main/docs/SPEAKER-ID.md): anonymous labels now, optional local profiles later.
+- [Contributing](https://raw.githubusercontent.com/frank890417/open-dictate/main/CONTRIBUTING.md) · [Security](https://raw.githubusercontent.com/frank890417/open-dictate/main/SECURITY.md)
+- [Full text](https://frank890417.github.io/open-dictate/llms-full.txt): README, contract and every doc in one file.
+
+## Optional
+
+- [macOS distribution roadmap](https://raw.githubusercontent.com/frank890417/open-dictate/main/docs/MACOS-DISTRIBUTION-ROADMAP.md): self-contained app, Developer ID signing, notarization, updates (Traditional Chinese).
+- [MCP roadmap](https://raw.githubusercontent.com/frank890417/open-dictate/main/docs/MCP-ROADMAP.md): a local, read-only stdio server first, consent-gated actions later.
+- [open-audiovisual](https://openaudiovisual.com/): sibling project by the same author.

@@ -1,0 +1,599 @@
+<!DOCTYPE html>
+<html lang="zh-Hant-TW">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Open Dictate｜macOS 上本地優先的繁體中文語音輸入</title>
+<meta name="description" content="按住快捷鍵、說話、放開。Open Dictate 在你的 Apple Silicon Mac 上用 MLX Whisper 轉錄繁體中文，用你自己的確定性詞庫校正專有名詞，再把整句話打進游標所在的位置。音檔留在本機。開源，MIT 授權。">
+<link rel="canonical" href="https://frank890417.github.io/open-dictate/zh/">
+<link rel="alternate" hreflang="en" href="https://frank890417.github.io/open-dictate/">
+<link rel="alternate" hreflang="zh-Hant" href="https://frank890417.github.io/open-dictate/zh/">
+<link rel="alternate" hreflang="x-default" href="https://frank890417.github.io/open-dictate/">
+<link rel="alternate" type="text/markdown" href="../llms.txt" title="llms.txt">
+<meta name="theme-color" content="#0b0b0c">
+<meta name="color-scheme" content="dark">
+<meta property="og:type" content="website">
+<meta property="og:site_name" content="Open Dictate">
+<meta property="og:title" content="Open Dictate｜macOS 上本地優先的繁體中文語音輸入">
+<meta property="og:description" content="按住、說話、放開，字就出現在游標。你的聲音不會離開你的 Mac。">
+<meta property="og:url" content="https://frank890417.github.io/open-dictate/zh/">
+<meta property="og:locale" content="zh_TW">
+<meta property="og:image" content="https://frank890417.github.io/open-dictate/assets/og.png">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta name="twitter:card" content="summary_large_image">
+<link rel="icon" href="data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20viewBox%3D%220%200%2032%2032%22%3E%3Crect%20width%3D%2232%22%20height%3D%2232%22%20rx%3D%226%22%20fill%3D%22%230b0b0c%22%2F%3E%3Cpath%20d%3D%22M4%2016c1.6%200%201.8-6.5%203.6-6.5s2%2013%203.8%2013%202-6.5%203.6-6.5%22%20fill%3D%22none%22%20stroke%3D%22%23edebe5%22%20stroke-width%3D%222.4%22%20stroke-linecap%3D%22round%22%2F%3E%3Crect%20x%3D%2220.5%22%20y%3D%226.5%22%20width%3D%223.4%22%20height%3D%2219%22%20rx%3D%22.6%22%20fill%3D%22%232ee6c6%22%2F%3E%3C%2Fsvg%3E">
+<link rel="preload" href="../assets/fonts/archivo-var-latin.woff2" as="font" type="font/woff2" crossorigin>
+<link rel="stylesheet" href="../assets/site.css">
+<noscript><style>.key { pointer-events: none; } .key-hint, .copy, .status #status-text { display: none; }</style></noscript>
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "SoftwareApplication",
+  "name": "Open Dictate",
+  "alternateName": "open-dictate",
+  "description": "Apple Silicon Mac 上本地優先的繁體中文語音輸入與會議轉錄工具：按住快捷鍵時由 Swift 選單列 app 錄音，本機的 Python daemon 用 MLX Whisper 轉錄，套用使用者的確定性詞庫與全形標點，再把文字插入游標位置。音檔、逐字稿與詞庫都留在本機。",
+  "url": "https://frank890417.github.io/open-dictate/zh/",
+  "inLanguage": "zh-Hant-TW",
+  "applicationCategory": "UtilitiesApplication",
+  "operatingSystem": "macOS 14 or later, Apple Silicon",
+  "softwareVersion": "0.6.1",
+  "softwareRequirements": "Apple Silicon Mac; macOS 14+; Xcode Command Line Tools; Python 3.11+",
+  "featureList": [
+    "按住 fn 或右側 Option 說話的語音輸入",
+    "在 Apple Silicon 上用 MLX Whisper 本地轉錄",
+    "使用者擁有的確定性詞庫校正",
+    "繁體中文全形標點",
+    "會議逐字稿輸出 Markdown、JSONL、SRT、VTT",
+    "從疑似誤聽出發、審核優先的詞庫成長"
+  ],
+  "downloadUrl": "https://github.com/frank890417/open-dictate",
+  "installUrl": "https://frank890417.github.io/open-dictate/zh/#start",
+  "license": "https://opensource.org/licenses/MIT",
+  "isAccessibleForFree": true,
+  "offers": {
+    "@type": "Offer",
+    "price": "0",
+    "priceCurrency": "USD"
+  },
+  "author": {
+    "@type": "Person",
+    "name": "Che-Yu Wu",
+    "alternateName": "吳哲宇",
+    "url": "https://cheyuwu.com"
+  },
+  "sameAs": [
+    "https://github.com/frank890417/open-dictate"
+  ],
+  "image": "https://frank890417.github.io/open-dictate/assets/og.png"
+}
+</script>
+</head>
+<body>
+<a class="skip" href="#main">跳到主要內容</a>
+
+<header class="top">
+  <a class="brand" href="./" aria-label="Open Dictate 首頁"><svg class="mark" viewBox="0 0 32 32" aria-hidden="true" focusable="false"><path d="M3 16c1.7 0 1.9-7 3.9-7s2.1 14 4.1 14 2.1-7 3.9-7"/><rect x="21" y="6" width="3.2" height="20" rx=".6"/></svg><span>open-dictate</span></a>
+  <nav class="nav" aria-label="頁面區塊">
+    <a href="#how">運作方式</a>
+    <a href="#privacy">隱私</a>
+    <a href="#start">安裝</a>
+    <a href="#develop">開發</a>
+    <a href="#agents">給 AI 代理</a>
+  </nav>
+  <div class="top-end">
+    <div class="langs" role="group" aria-label="語言">
+      <a href="../" hreflang="en" lang="en" data-lang="en">EN</a><span aria-hidden="true">|</span><a href="./" hreflang="zh-Hant" lang="zh-Hant-TW" data-lang="zh" aria-current="page">中文</a>
+    </div>
+    <a class="gh" href="https://github.com/frank890417/open-dictate">GitHub</a>
+  </div>
+</header>
+
+<main id="main">
+
+  <!-- ═════ 01 · hold, speak, release: the demo ═════ -->
+  <section class="hero" id="demo" aria-labelledby="hero-title">
+    <h1 id="hero-title"><span class="wordmark">open-dictate</span> <span class="h1-sub">按住、說話、放開，字就出現在游標。</span></h1>
+    <div class="hero-grid">
+      <div class="hero-text">
+        <p class="lede">Apple Silicon Mac 上的繁體中文語音輸入，本地優先。<em>MLX Whisper</em> 在你自己的電腦上把聲音轉成字，<em>你自己的詞庫</em>校正它認得的詞，整句話<em>直接打進游標所在的位置</em>。系統可以標記、可以建議，但不能靜默改寫你的意思。</p>
+        <p class="eyebrow facts">早期公開版 · daemon 0.6.1 · MIT 授權 · macOS 14 以上 · Apple Silicon</p>
+      </div>
+      <nav class="doors" aria-label="從哪裡開始">
+        <a class="door door-1" href="#start"><span class="door-who">我想用</span><span class="door-what">需要什麼、怎麼安裝、現在還做不到什麼</span><span class="door-arrow" aria-hidden="true">→</span></a>
+        <a class="door door-2" href="#develop"><span class="door-who">我寫程式</span><span class="door-what">daemon 契約、架構、測試</span><span class="door-arrow" aria-hidden="true">→</span></a>
+        <a class="door door-3" href="../llms.txt"><span class="door-who">我是 AI 代理</span><span class="door-what">先讀 /llms.txt，再讀 IO-CONTRACT.md</span><span class="door-arrow" aria-hidden="true">→</span></a>
+      </nav>
+    </div>
+
+    <div class="desk" id="desk" aria-labelledby="desk-title">
+      <h2 class="desk-title" id="desk-title"><span class="eyebrow">01 · 示範</span> 一次語音輸入，一步一步看</h2>
+      <div class="field">
+        <div class="field-bar"><span>任何 app 的任何輸入框</span><span class="field-tag">示範動畫</span></div>
+        <div class="doc" id="doc">
+          <p class="doc-h">週會筆記</p>
+          <p class="line is-new">幫我把 <span class="fix" data-was="touch designer">TouchDesigner</span> 的檔案放上 <span class="fix" data-was="git hub">GitHub</span> 的專案頁<span class="pm">，</span>明天下午三點前寄給大家<span class="pm">。</span><span class="caret" aria-hidden="true"></span></p>
+        </div>
+        <p class="doc-note" id="doc-note">Whisper 把兩個專有名詞聽成小寫、拆開的英文，你教過的兩組詞庫對照把它們改回來。「三點」照你說的留著。</p>
+      </div>
+      <div class="keyrow">
+        <button type="button" class="key" id="key" aria-label="fn：按住，輸入示範的下一句" aria-describedby="key-hint">fn</button>
+        <canvas class="wave" id="wave" width="600" height="56" aria-hidden="true"></canvas>
+        <span class="timer" id="timer">3.4 s</span>
+      </div>
+      <p class="status" id="desk-status"><span class="led" aria-hidden="true"></span><span id="status-text">按住 fn，輸入下一句。</span></p>
+      <aside class="bay" aria-labelledby="bay-title">
+        <div class="bay-head"><h3 id="bay-title">處理流程</h3><span class="bay-live"><span class="led" aria-hidden="true"></span>本機</span></div>
+        <ol class="pipe" id="pipe">
+          <li class="step step-0" data-st="done"><span class="step-n">01</span><span class="step-name">錄音<small>app · 16 kHz 單聲道 WAV</small></span><span class="step-v" id="v0">3.4 s · 16 kHz mono</span></li>
+          <li class="step step-1" data-st="done"><span class="step-n">02</span><span class="step-name">轉錄<small>daemon · MLX Whisper</small></span><span class="step-v" id="v1">幫我把 touch designer 的檔案放上 git hub 的專案頁,明天下午三點前寄給大家.</span></li>
+          <li class="step step-2" data-st="done"><span class="step-n">03</span><span class="step-name">校正<small>daemon · 你的詞庫</small></span><span class="step-v" id="v2"><span><s>touch designer</s> → <b>TouchDesigner</b></span><span><s>git hub</s> → <b>GitHub</b></span></span></li>
+          <li class="step step-3" data-st="done"><span class="step-n">04</span><span class="step-name">標點<small>daemon · smart_zh</small></span><span class="step-v" id="v3">, → ，   . → 。</span></li>
+          <li class="step step-4" data-st="done"><span class="step-n">05</span><span class="step-name">插入<small>app · 游標位置</small></span><span class="step-v" id="v4">已打進游標</span></li>
+        </ol>
+        <div class="wire">
+          <p class="wire-h">socket 上的訊息</p>
+          <pre id="wire"><code>→ {"cmd": "transcribe", "wav": "/tmp/open-dictate-rec-….wav", "punct": "smart_zh"}
+← {"ok": true,
+   "text": "幫我把 TouchDesigner 的檔案放上 GitHub 的專案頁，明天下午三點前寄給大家。",
+   "raw": "幫我把 touch designer 的檔案放上 git hub 的專案頁,明天下午三點前寄給大家.",
+   "changes": [["touch designer", "TouchDesigner"], ["git hub", "GitHub"]],
+   "punct": "smart_zh"}</code></pre>
+        </div>
+        <p class="bay-legend">每一列都是真的處理階段，順序也一樣。JSON 的形狀和 socket 上真正的訊息相同，句子是為這段示範寫的。</p>
+      </aside>
+      <p class="key-hint" id="key-hint">用滑鼠、手指或空白鍵按住上面的 fn，再放開。句子是事先寫好的，這一頁不會聽你說話。</p>
+    </div>
+    <p class="desk-caption">這是示範動畫。句子事先寫好，這一頁不會碰你的麥克風。真正在做事的，是你 Mac 上的選單列 app 和 daemon。 <a href="https://github.com/frank890417/open-dictate/blob/main/IO-CONTRACT.md">讀介面契約 →</a></p>
+    <noscript><p class="desk-caption">關掉 JavaScript 時，看到的是示範的最後一格。</p></noscript>
+  </section>
+
+  <!-- ═════ 02 · how it works ═════ -->
+  <section class="sec" id="how" aria-labelledby="how-title">
+    
+    <header class="sec-head">
+      <p class="eyebrow">02 · 運作方式</p>
+      <h2 id="how-title">五個步驟，一條規則</h2>
+      <p class="sec-lede">你按住快捷鍵時，Swift 寫的選單列 app 開始錄音，放開後把 WAV 檔交給一直保持載入的 Python daemon。daemon 轉錄、校正、加標點，回傳文字，app 再把字打進游標所在的位置。轉錄之後，能改動你字詞的只有你放進詞庫的那些對照。</p>
+    </header>
+    <ol class="layers">
+      <li class="layer layer-1">
+        <p class="layer-tag"><span>01</span> 錄音</p>
+        <p class="layer-quote">按住鍵的時候</p>
+        <p class="layer-text">按住 <kbd>fn</kbd> 或右側 Option，app 錄下 16 kHz 單聲道音訊。不到半秒的按壓直接丟掉，另有一道語音形狀檢查，擋下只錄到環境噪音的誤觸。</p>
+        <p class="layer-spec"><code><span class="k">rec</span> = <b data-live="rec">3.4 s</b></code><small>數值來自上面的示範</small></p>
+      </li>
+      <li class="layer layer-2">
+        <p class="layer-tag"><span>02</span> 轉錄</p>
+        <p class="layer-quote">說了什麼</p>
+        <p class="layer-text">MLX Whisper 在 Apple Silicon 上執行，模型一直載入在 daemon 裡。進下一步之前，先濾掉已知的字幕署名幻覺，截斷失控的重複迴圈。</p>
+        <p class="layer-spec"><code><span class="k">model</span> = <b>large-v3-turbo</b></code><small>數值來自上面的示範</small></p>
+      </li>
+      <li class="layer layer-3">
+        <p class="layer-tag"><span>03</span> 校正</p>
+        <p class="layer-quote">你的意思</p>
+        <p class="layer-text">詞庫是一張<em>誤聽 → 正確</em>的對照表，只有命中的詞會被替換，整句話不會被改寫。寧可漏改，不可錯改。</p>
+        <p class="layer-spec"><code><span class="k">changes</span> = <b data-live="changes">2</b></code><small>數值來自上面的示範</small></p>
+      </li>
+      <li class="layer layer-4">
+        <p class="layer-tag"><span>04</span> 標點</p>
+        <p class="layer-quote">讀起來的樣子</p>
+        <p class="layer-text">預設的 <code>smart_zh</code> 規則只在中文語境把標點轉成全形，英文、數字、網址都不動。可以另外開本機 LLM 補完整標點，它只要動到標點以外的任何一個字，整段結果就作廢。</p>
+        <p class="layer-spec"><code><span class="k">punct</span> = <b>"smart_zh"</b></code><small>數值來自上面的示範</small></p>
+      </li>
+      <li class="layer layer-5">
+        <p class="layer-tag"><span>05</span> 插入</p>
+        <p class="layer-quote">字落在哪裡</p>
+        <p class="layer-text">文字透過輔助使用（Accessibility）API 直接插入，不行再改用貼上。app 不會把焦點從你正在打字的輸入框搶走。</p>
+        <p class="layer-spec"><code><span class="k">insert</span> → <b>AX</b> <span class="c">· paste</span></code><small>數值來自上面的示範</small></p>
+      </li>
+    </ol>
+
+    <div class="how-grid">
+      <div>
+        <h3>快捷鍵之外</h3>
+        <dl class="spines">
+          <div><dt>會議模式 Meeting Mode</dt><dd>本機錄音檔，或已經轉好的 JSON/JSONL 分段，整理成可審核的逐字稿包：Markdown、JSONL、SRT、VTT。用的是同一個 Whisper、同一份詞庫。</dd></div>
+          <div><dt>審核佇列 Review queue</dt><dd>掃描器把疑似誤聽和數字標成候選。你決定接受、修改或拒絕，只有接受的才進詞庫，每個決定都能復原。</dd></div>
+          <div><dt>說話者標籤 Speaker labels</dt><dd>逐字稿使用匿名標籤 <code>SPEAKER_00</code>、<code>SPEAKER_01</code>。辨識是誰在說話，規劃成另一層選用、只在本機的功能。</dd></div>
+          <div><dt>選單列 Menu bar</dt><dd>從上一句或選取的文字教詞庫、回報誤聽，也在這裡切換快捷鍵、麥克風和標點模式。</dd></div>
+        </dl>
+      </div>
+      <div>
+        <h3>七條規則</h3>
+        <ol class="rules">
+          <li><strong>只換詞，不改句。</strong> 詞庫對照可以修正一個詞，系統不能改寫整句話。</li>
+          <li><strong>寧可漏改，不可錯改。</strong> 一組錯的對照會污染之後每一次轉錄，所以有風險的對照要等上下文或你的審核。</li>
+          <li><strong>可以統一字形，不能改變意思。</strong> 繁體中文字形可以正規化，數字不會被自動改動。</li>
+          <li><strong>音檔留在本機。</strong> 錄音、轉錄、校正，全部在你的 Mac 上執行。</li>
+          <li><strong>不搶焦點。</strong> 介面不會把焦點從你正在使用的輸入框拿走。</li>
+          <li><strong>聲音屬於生物特徵資料。</strong> 說話者資料和聲紋 embedding 只放本機，永遠不進 Git。</li>
+          <li><strong>靠審核成長。</strong> 詞庫從你接受的建議慢慢變好，不會自己偷偷改。</li>
+        </ol>
+      </div>
+    </div>
+
+    <h3 class="glossary-title">這一頁用到的詞</h3>
+    <dl class="glossary">
+      <div><dt><dfn>按住說話 Push-to-talk</dfn></dt><dd>說話時按住一個鍵，放開就結束。Open Dictate 用 <kbd>fn</kbd> 或右側 Option。</dd></div>
+      <div><dt><dfn>常駐程式 Daemon</dfn></dt><dd><code>dictated.py</code>，在背景一直把模型載入著的程式，短句不用等冷啟動。app 透過 Unix socket 跟它溝通。</dd></div>
+      <div><dt><dfn>MLX Whisper</dfn></dt><dd>在 Apple 的 MLX 框架上執行的 Whisper 語音辨識模型。預設是 <code>whisper-large-v3-turbo</code>。</dd></div>
+      <div><dt><dfn>詞庫對照 Glossary pair</dfn></dt><dd>一筆 <code>誤聽 → 正確</code>，例如 <code>git hub → GitHub</code>。只要誤聽那一邊出現，就照寫好的字替換。</dd></div>
+      <div><dt><dfn>語境對照 Contextual pair</dfn></dt><dd>只在某些句子裡才安全的對照。它不會被盲目套用，要等上下文或你來判斷。</dd></div>
+      <div><dt><dfn>審核佇列 Review queue</dfn></dt><dd>等你接受、修改或拒絕的候選對照。每個決定都留在歷史紀錄裡，可以復原。</dd></div>
+      <div><dt><dfn>smart_zh</dfn></dt><dd>預設的規則式標點：中文後面的半形標點轉成全形。結果固定，重跑幾次都一樣。</dd></div>
+      <div><dt><dfn>不改寫閘門 No-rewrite gate</dfn></dt><dd>選用 LLM 的輸出必須通過的檢查：拿掉標點之後，除了授權過的詞庫對照，必須和輸入一字不差。</dd></div>
+      <div><dt><dfn>SPEAKER_00</dfn></dt><dd>會議逐字稿裡的匿名說話者標籤。系統不確定是誰時寫 <code>unknown</code>，不硬猜人名。</dd></div>
+    </dl>
+  </section>
+
+  <!-- ═════ 03 · status ═════ -->
+  <section class="sec" id="status" aria-labelledby="status-title">
+    
+    <header class="sec-head">
+      <p class="eyebrow">03 · 現況</p>
+      <h2 id="status-title">現在能用的</h2>
+      <p class="sec-lede">Open Dictate 是早期公開版（public seed），從一套每天在用的私人工具抽出來。語音輸入這條路已經能在 Apple Silicon Mac 上使用，會議、審核、說話者這幾層刻意保守。下面每一項的狀態都照抄 README。</p>
+    </header>
+    <div class="status-grid">
+      <div>
+        <h3>功能</h3>
+        <ul class="feats">
+          <li><span class="feat-name">按住說話輸入</span><span class="chip chip-seed">公開版</span></li>
+          <li><span class="feat-name">本地 MLX Whisper daemon</span><span class="chip chip-seed">公開版</span></li>
+          <li><span class="feat-name">確定性詞庫校正</span><span class="chip chip-seed">公開版</span></li>
+          <li><span class="feat-name">繁中全形標點</span><span class="chip chip-seed">公開版</span></li>
+          <li><span class="feat-name">選單列教詞庫</span><span class="chip chip-seed">公開版</span></li>
+          <li><span class="feat-name">會議逐字稿包</span><span class="chip chip-seed">公開版</span><span class="feat-note">音檔，或 JSON/JSONL 分段</span></li>
+          <li><span class="feat-name">會議模式的本機音檔轉錄</span><span class="chip chip-seed">公開版</span><span class="feat-note">MLX Whisper adapter</span></li>
+          <li><span class="feat-name">轉錄後誤聽偵測</span><span class="chip chip-mvp">MVP</span><span class="feat-note">審核標記</span></li>
+          <li><span class="feat-name">審核優先的詞庫成長</span><span class="chip chip-mvp">MVP</span><span class="feat-note">命令列佇列</span></li>
+          <li><span class="feat-name">匿名說話者標籤</span><span class="chip chip-mvp">MVP</span></li>
+          <li><span class="feat-name">本機說話者身分</span><span class="chip chip-planned">規劃中</span><span class="feat-note">敏感、選用的一層</span></li>
+        </ul>
+      </div>
+      <div>
+        <h3>安裝前先知道</h3>
+        <ul class="limits">
+          <li><strong>只支援 Apple Silicon、macOS 14 以上。</strong>Intel Mac 不支援。</li>
+          <li><strong>目前從原始碼安裝。</strong>需要 Git、Xcode Command Line Tools 和 Python 3.11 以上，還沒有 DMG。</li>
+          <li><strong>裝好的 app 依賴你 clone 下來的資料夾。</strong>搬動資料夾之後，跑一次 doctor，再重新安裝。</li>
+          <li><strong>app 目前是 ad-hoc 簽章。</strong>重新建置後，macOS 可能要你把權限關掉再打開。</li>
+          <li><strong>第一次執行會下載模型，</strong>載入可能要兩分鐘左右。</li>
+        </ul>
+      </div>
+    </div>
+    <h3 class="phases-title">變成一般 Mac app 的路</h3>
+    <ol class="phases">
+      <li><span class="phase-n">階段 0</span><strong>發布架構。</strong> 產品設定集中成一份，資料搬到 Application Support，執行時不再依賴 clone。</li>
+      <li><span class="phase-n">階段 1</span><strong>自帶執行環境的 beta。</strong> Python 包進 app，首次啟動引導權限與模型下載，產出測試用 DMG。目標：在乾淨的 Mac 上只靠 Finder，十分鐘內完成第一次語音輸入。</li>
+      <li><span class="phase-n">階段 2</span><strong>簽章與公證。</strong> Developer ID 簽章、Apple 公證，打開時不跳 Gatekeeper 警告，附 checksum。</li>
+      <li><span class="phase-n">階段 3</span><strong>更新與回滾。</strong> 簽章過的 app 內更新，Stable 與 Beta 兩個頻道，更新失敗自動退回，不碰你的資料。</li>
+      <li><span class="phase-n">階段 4</span><strong>更多管道。</strong> Homebrew Cask。Mac App Store 要等 sandbox 的問題確認之後再評估。</li>
+    </ol>
+    <p><a class="more" href="https://github.com/frank890417/open-dictate/blob/main/docs/MACOS-DISTRIBUTION-ROADMAP.md">macOS 發布路線圖 →</a></p>
+  </section>
+
+  <!-- ═════ 04 · privacy ═════ -->
+  <section class="sec" id="privacy" aria-labelledby="privacy-title">
+    
+    <header class="sec-head">
+      <p class="eyebrow">04 · 隱私</p>
+      <h2 id="privacy-title">聲音留在你的 Mac</h2>
+      <p class="sec-lede">音檔、逐字稿、日誌、審核佇列和說話者資料都留在你的電腦，除非你自己匯出。語音輸入不需要伺服器，也不需要帳號。</p>
+    </header>
+    <div class="privacy-grid">
+      <div>
+        <h3>資料放在哪裡</h3>
+        <table class="data">
+          <thead><tr><th scope="col">資料</th><th scope="col">位置</th><th scope="col">可以進公開 repo 嗎</th></tr></thead>
+          <tbody>
+            <tr class="repo-no"><th scope="row">語音輸入日誌</th><td><code>~/.open-dictate/dictation-log/</code></td><td>不行</td></tr>
+            <tr class="repo-no"><th scope="row">會議逐字稿</th><td><code>~/.open-dictate/meetings/</code></td><td>不行</td></tr>
+            <tr class="repo-no"><th scope="row">審核佇列</th><td><code>~/.open-dictate/review-queue/</code></td><td>不行</td></tr>
+            <tr class="repo-default"><th scope="row">個人詞庫</th><td><code>~/.open-dictate/glossaries/</code></td><td>預設不行</td></tr>
+            <tr class="repo-never"><th scope="row">說話者資料</th><td><code>~/.open-dictate/speakers/</code></td><td>永遠不行</td></tr>
+            <tr class="repo-yes"><th scope="row">公開測試資料</th><td><code>fixtures/ · examples/</code></td><td>可以，只限虛構內容</td></tr>
+          </tbody>
+        </table>
+      </div>
+      <div>
+        <h3>什麼時候會用到網路</h3>
+        <ol class="net">
+          <li><strong>安裝時。</strong>Python 套件從 PyPI 下載。</li>
+          <li><strong>模型。</strong>第一次執行會從 Hugging Face 下載 <code>mlx-community/whisper-large-v3-turbo</code>。daemon 載入模型時，下載用的函式庫可能會檢查有沒有新版。這個請求只帶模型名稱，不含你的音檔或文字。</li>
+          <li><strong>LLM 標點，如果你打開它。</strong>它連到 <code>127.0.0.1</code> 上的 Ollama，也就是你自己 Mac 上的伺服器。如果你把 <code>OPEN_DICTATE_PUNCT_LLM_URL</code> 指到別台機器，文字就會送到那裡。</li>
+          <li><strong>會議模式加上 <code>--model</code>。</strong>你指定的模型第一次使用時會下載。</li>
+        </ol>
+        <p class="net-end">就這些。模型下載到本機之後，沒有網路也能繼續語音輸入。</p>
+      </div>
+    </div>
+    <figure class="pull pull-voice">
+      <blockquote><p>說話者 embedding 和聲紋屬於<strong>生物特徵資料</strong>。</p></blockquote>
+      <figcaption>只放本機、不進 Git、不貼到 issue，取得同意才建檔。要分享逐字稿時，用匿名標籤。</figcaption>
+    </figure>
+    <p><a class="more" href="https://github.com/frank890417/open-dictate/blob/main/docs/PRIVACY.md">完整隱私模型 →</a></p>
+  </section>
+
+  <!-- ═════ 05 · start (people who want to use it) ═════ -->
+  <section class="sec" id="start" aria-labelledby="start-title">
+    
+    <header class="sec-head">
+      <p class="eyebrow">05 · 安裝</p>
+      <h2 id="start-title">裝起來</h2>
+      <p class="sec-lede">Open Dictate 目前用一支腳本從原始碼安裝。需要 macOS 14 以上的 Apple Silicon Mac、Xcode Command Line Tools，以及 Python 3.11 以上。</p>
+    </header>
+    <div class="start-grid">
+      <div class="start-run">
+        
+      <div class="term ">
+        <div class="term-bar"><span>terminal</span><button type="button" class="copy" data-copy="cmd-install">複製</button></div>
+        <pre id="cmd-install"><code>git clone https://github.com/frank890417/open-dictate.git
+cd open-dictate
+./install.sh        <span class="tc"># venv, app, LaunchAgents, model warm-up</span></code></pre>
+      </div>
+        <p>安裝程式會建立虛擬環境、把 <code>OpenDictate.app</code> 建置到「應用程式」資料夾、依你的 clone 路徑寫好兩個 LaunchAgent，然後載入模型。要等 daemon 真的回應 ping 才算成功，只有 socket 檔案不算。</p>
+        <p class="note">第一次會下載模型，可能要兩分鐘左右。網路慢的話：<code>OPEN_DICTATE_WARM_TIMEOUT=300 ./install.sh</code>。</p>
+      </div>
+      <div>
+        <h3>接著開三個權限，設定一個鍵</h3>
+        <ol class="perms">
+          <li>系統設定 → 隱私權與安全性：在<strong>麥克風</strong>、<strong>輔助使用</strong>、<strong>輸入監控</strong>裡允許 OpenDictate。</li>
+          <li>系統設定 → 鍵盤：把按下 fn（地球）鍵的動作設成<strong>不執行任何動作</strong>。關掉 Apple 聽寫的 fn 快捷鍵，也關掉其他會搶同一個鍵的語音輸入 app。</li>
+          <li>點進任何輸入框，按住 <kbd>fn</kbd>，說話，放開。想改用右側 Option，從選單列切換快捷鍵。</li>
+        </ol>
+      </div>
+    </div>
+    <div class="start-grid start-more">
+      <div>
+        <h3>出狀況的時候</h3>
+        
+      <div class="term term-quiet">
+        <div class="term-bar"><span>terminal</span><button type="button" class="copy" data-copy="cmd-maint">複製</button></div>
+        <pre id="cmd-maint"><code>./scripts/doctor.sh            <span class="tc"># read-only checks, then a real ping</span>
+./uninstall.sh                 <span class="tc"># removes the app and LaunchAgents, keeps ~/.open-dictate</span>
+./uninstall.sh --purge-data    <span class="tc"># shows where your data is; never deletes it</span></code></pre>
+      </div>
+        <p class="note">doctor 會檢查 app、簽章、LaunchAgent、clone 路徑、socket，最後實際 ping 一次，什麼都不改。權限的部分它只能提醒，因為它不讀 macOS 受保護的權限資料庫。</p>
+      </div>
+      <div>
+        <h3>會議和詞庫，從終端機操作</h3>
+        
+      <div class="term term-quiet">
+        <div class="term-bar"><span>terminal</span><button type="button" class="copy" data-copy="cmd-cli">複製</button></div>
+        <pre id="cmd-cli"><code><span class="tc"># Meeting Mode: a local recording in, a reviewable package out</span>
+python3 daemon/meeting_cli.py transcribe ~/Desktop/meeting.m4a --out /tmp/od-meeting --language zh
+
+<span class="tc"># the review queue: look, then decide</span>
+python3 daemon/glossary/cli.py candidates
+python3 daemon/glossary/cli.py accept cand_xxxxx</code></pre>
+      </div>
+        <p class="note">中英混雜的會議用 <code>--language auto</code>。輸出 Markdown、JSONL、SRT、VTT，外加一份 JSON 摘要。</p>
+      </div>
+    </div>
+    <p><a class="more" href="https://github.com/frank890417/open-dictate/blob/main/docs/SETUP.md">完整安裝說明 →</a></p>
+  </section>
+
+  <!-- ═════ 06 · develop ═════ -->
+  <section class="sec" id="develop" aria-labelledby="develop-title">
+    
+    <header class="sec-head">
+      <p class="eyebrow">06 · 開發</p>
+      <h2 id="develop-title">一起開發</h2>
+      <p class="sec-lede">兩支程式，一份契約。Swift app 負責快捷鍵、麥克風和插入文字，Python daemon 負責轉錄和校正。兩邊透過 Unix socket 傳換行分隔的 JSON，<code>IO-CONTRACT.md</code> 是雙方共同的依據。</p>
+    </header>
+    <div class="dev-grid">
+      <div>
+        <h3>兩條路線</h3>
+        
+      <div class="term term-diagram">
+        <div class="term-bar"><span>語音輸入</span></div>
+        <pre id="arch-dictate"><code>hold fn
+  |
+OpenDictate.app (Swift)       records 16 kHz mono PCM16 WAV
+  |  {"cmd": "transcribe", "wav": "/tmp/...wav", "punct": "smart_zh"}
+  v
+/tmp/open-dictate.sock        newline-delimited JSON
+  |
+dictated.py (Python, warm)
+  |-- MLX Whisper             audio -&gt; raw text
+  |-- glossary pairs          raw -&gt; corrected   (muse_lexicon)
+  |-- punctuation             smart_zh | llm_zh (gated) | raw
+  |-- log                     ~/.open-dictate/dictation-log/
+  v
+{"ok": true, "text": "...", "raw": "...", "changes": [...]}
+  |
+OpenDictate.app  -&gt;  Accessibility insert (paste fallback)  -&gt;  cursor</code></pre>
+      </div>
+        
+      <div class="term term-diagram">
+        <div class="term-bar"><span>會議模式</span></div>
+        <pre id="arch-meeting"><code>meeting.m4a   or   segments.json / .jsonl
+  |
+meeting_cli.py transcribe
+  |-- MLX Whisper             audio files only
+  |-- glossary pairs          the same deterministic table
+  |-- speaker labels          SPEAKER_00, SPEAKER_01 (anonymous)
+  |-- QA flags                possible mishearings, numbers
+  v
+transcript.md  .jsonl  .srt  .vtt  meeting-result.json</code></pre>
+      </div>
+      </div>
+      <div>
+        <h3>socket 協定</h3>
+        <p>五個指令。讀取端會忽略不認得的欄位，所以 daemon 加診斷資訊不會弄壞 app。<code>no_speech</code> 是正常結果，不算錯誤。</p>
+        
+      <div class="term term-quiet">
+        <div class="term-bar"><span>IO-CONTRACT.md</span></div>
+        <pre id="proto"><code><span class="tc"># requests: one JSON object per line on /tmp/open-dictate.sock</span>
+{<span class="ts">"cmd"</span>: <span class="ts">"transcribe"</span>, <span class="ts">"wav"</span>: <span class="ts">"/tmp/open-dictate-rec-....wav"</span>, <span class="ts">"punct"</span>: <span class="ts">"smart_zh"</span>}
+{<span class="ts">"cmd"</span>: <span class="ts">"ping"</span>}
+{<span class="ts">"cmd"</span>: <span class="ts">"reload_lexicon"</span>}
+{<span class="ts">"cmd"</span>: <span class="ts">"add_pair"</span>, <span class="ts">"wrong"</span>: <span class="ts">"誤聽"</span>, <span class="ts">"right"</span>: <span class="ts">"正確"</span>, <span class="ts">"source"</span>: <span class="ts">"dictate-ui"</span>}
+{<span class="ts">"cmd"</span>: <span class="ts">"stats"</span>}
+
+<span class="tc"># responses</span>
+{<span class="ts">"ok"</span>: true, <span class="ts">"text"</span>: <span class="ts">"校正後文字"</span>, <span class="ts">"raw"</span>: <span class="ts">"whisper 原始輸出"</span>, <span class="ts">"changes"</span>: [[<span class="ts">"誤聽"</span>, <span class="ts">"正確"</span>]], <span class="ts">"punct"</span>: <span class="ts">"smart_zh"</span>}
+{<span class="ts">"ok"</span>: false, <span class="ts">"error"</span>: <span class="ts">"no_speech"</span>}</code></pre>
+      </div>
+        <p class="note">app 的轉錄逾時和 daemon 的標點預算，這兩個常數本身就是一組契約。只調其中一個，app 會以為 daemon 離線，daemon 其實在背景把事情做完。公式寫在契約裡。</p>
+      </div>
+    </div>
+    <div class="dev-grid dev-more">
+      <div>
+        <h3>東西在哪裡</h3>
+        <table class="comps">
+          <thead><tr><th scope="col">元件</th><th scope="col">路徑</th></tr></thead>
+          <tbody>
+            <tr><th scope="row">Swift 選單列 app</th><td><a href="https://github.com/frank890417/open-dictate/tree/main/OpenDictate/"><code>OpenDictate/</code></a></td></tr>
+            <tr><th scope="row">語音輸入 daemon</th><td><a href="https://github.com/frank890417/open-dictate/blob/main/daemon/dictated.py"><code>daemon/dictated.py</code></a></td></tr>
+            <tr><th scope="row">會議 CLI</th><td><a href="https://github.com/frank890417/open-dictate/blob/main/daemon/meeting_cli.py"><code>daemon/meeting_cli.py</code></a></td></tr>
+            <tr><th scope="row">誤聽掃描器</th><td><a href="https://github.com/frank890417/open-dictate/blob/main/daemon/qa/mishear_detector.py"><code>daemon/qa/mishear_detector.py</code></a></td></tr>
+            <tr><th scope="row">審核佇列</th><td><a href="https://github.com/frank890417/open-dictate/tree/main/daemon/glossary/"><code>daemon/glossary/</code></a></td></tr>
+            <tr><th scope="row">說話者層</th><td><a href="https://github.com/frank890417/open-dictate/tree/main/daemon/speaker/"><code>daemon/speaker/</code></a></td></tr>
+            <tr><th scope="row">內建詞庫</th><td><a href="https://github.com/frank890417/open-dictate/tree/main/vendor/tools/td-subtitle/glossaries/"><code>vendor/tools/td-subtitle/glossaries/</code></a></td></tr>
+            <tr><th scope="row">詞庫引擎</th><td><a href="https://github.com/frank890417/open-dictate/blob/main/vendor/tools/muse-lexicon/muse_lexicon.py"><code>vendor/tools/muse-lexicon/muse_lexicon.py</code></a></td></tr>
+            <tr><th scope="row">語音輸入日誌（本機）</th><td><code>~/.open-dictate/dictation-log/</code></td></tr>
+          </tbody>
+        </table>
+      </div>
+      <div>
+        <h3>建置與測試</h3>
+        
+      <div class="term ">
+        <div class="term-bar"><span>terminal</span><button type="button" class="copy" data-copy="cmd-test">複製</button></div>
+        <pre id="cmd-test"><code>./build.sh
+python3 -m unittest discover tests
+python3 scripts/golden-bench.py --skip-daemon
+python3 scripts/public-safety-scan.py
+./scripts/smoke-test.sh        <span class="tc"># builds, tests, exports a meeting demo, checks the signed app</span></code></pre>
+      </div>
+        <h4>發 pull request 之前</h4>
+        <ul class="contrib">
+          <li>範例只用虛構或公有領域的內容。</li>
+          <li>不要 commit 真實音檔、逐字稿、語音輸入日誌、私人路徑、個人詞庫或說話者資料。</li>
+          <li>優先用確定性校正和審核佇列，不要靜默改寫。</li>
+          <li>跑安全掃描和測試，有動到 Swift 就再跑 <code>./build.sh</code>。</li>
+        </ul>
+      </div>
+    </div>
+    <h3 class="docs-title">文件</h3>
+    <p class="note">文件中英混合，有幾份只有單一語言。</p>
+    <ul class="docs">
+      <li><a href="https://github.com/frank890417/open-dictate/blob/main/IO-CONTRACT.md">IO-CONTRACT.md</a><span>路徑、socket 協定、詞庫 schema、校正規則、品質關卡</span></li>
+      <li><a href="https://github.com/frank890417/open-dictate/blob/main/docs/SETUP.md">安裝</a><span>系統需求、權限、快捷鍵衝突、doctor、解除安裝</span></li>
+      <li><a href="https://github.com/frank890417/open-dictate/blob/main/docs/PRIVACY.md">隱私模型</a><span>資料分類、存放位置、哪些永遠不能 commit</span></li>
+      <li><a href="https://github.com/frank890417/open-dictate/blob/main/docs/MEETING.md">會議模式</a><span>輸入格式、處理流程、分段 schema、安全規則</span></li>
+      <li><a href="https://github.com/frank890417/open-dictate/blob/main/docs/SELF-EVOLVING-GLOSSARY.md">自我進化詞庫</a><span>審核閉環、指令，和四個資料桶</span></li>
+      <li><a href="https://github.com/frank890417/open-dictate/blob/main/docs/SPEAKER-ID.md">說話者辨識</a><span>現在是匿名標籤，之後是選用的本機身分</span></li>
+      <li><a href="https://github.com/frank890417/open-dictate/blob/main/docs/MACOS-DISTRIBUTION-ROADMAP.md">macOS 發布</a><span>從安裝腳本到簽章、公證、可以更新的 app</span></li>
+      <li><a href="https://github.com/frank890417/open-dictate/blob/main/docs/MCP-ROADMAP.md">MCP 路線圖</a><span>本機、需要你同意才會動手的 MCP 伺服器，分階段規劃</span></li>
+      <li><a href="https://github.com/frank890417/open-dictate/blob/main/CONTRIBUTING.md">貢獻指南</a><span>基本規則和要跑的指令</span></li>
+    </ul>
+  </section>
+
+  <!-- ═════ 07 · for AI agents ═════ -->
+  <section class="sec sec-agents" id="agents" aria-labelledby="agents-title">
+    
+    <header class="sec-head">
+      <p class="eyebrow">07 · 給 AI 代理</p>
+      <h2 id="agents-title">給 AI 代理</h2>
+      <p class="sec-lede">程式代理（coding agent）可以在終端機裡安裝、診斷、擴充 Open Dictate，需要的東西都是純文字：這一頁、<code>/llms.txt</code> 和介面契約。它做不到的是開 macOS 權限，這一步留給你。</p>
+    </header>
+    <div class="agents-grid">
+      <div>
+        <h3>在這台 Mac 安裝：貼給 Claude Code</h3>
+        <div class="term term-prompt">
+          <div class="term-bar"><span>prompt</span><button type="button" class="copy" data-copy="prompt-install">複製</button></div>
+          <pre id="prompt-install"><code>Clone https://github.com/frank890417/open-dictate，先讀 README.md、docs/SETUP.md 和 docs/PRIVACY.md。
+確認這台 Mac 是 Apple Silicon、macOS 14 以上（uname -m、sw_vers）。不符合就停下來告訴我。
+執行 ./install.sh。完成後跑 ./scripts/doctor.sh 和 python3 daemon/dictate_cli.py ping，把結果告訴我。
+告訴我要在系統設定開哪三個權限、fn 鍵要怎麼設。這些你沒辦法幫我開。
+
+不要刪除 ~/.open-dictate 底下任何東西，裡面是我的詞庫和日誌。</code></pre>
+        </div>
+      </div>
+      <div>
+        <h3>改程式：貼給 Claude Code</h3>
+        <div class="term term-prompt">
+          <div class="term-bar"><span>prompt</span><button type="button" class="copy" data-copy="prompt-dev">複製</button></div>
+          <pre id="prompt-dev"><code>Clone https://github.com/frank890417/open-dictate。動 daemon/ 或 OpenDictate/ 之前先讀 IO-CONTRACT.md，那是兩邊之間的契約。
+
+任務：&lt;描述要改的東西，例如「在 stats 回應裡加一個欄位」&gt;
+
+repo 的規則：校正只用詞庫對照，不改寫句子，寧可漏改，不可錯改。socket 協定要向下相容。fixture 和測試只用虛構資料。
+完成的條件：python3 -m unittest discover tests、python3 scripts/golden-bench.py --skip-daemon、python3 scripts/public-safety-scan.py 都通過，有改 Swift 的話 ./build.sh 也要成功。</code></pre>
+        </div>
+      </div>
+    </div>
+    <div class="agents-grid">
+      <div>
+        <h3>給機器讀的</h3>
+        <ul class="files">
+          <li><a href="../llms.txt">/llms.txt</a><span>這是什麼、處理流程、規則、所有文件，llmstxt.org 格式</span></li>
+          <li><a href="../llms-full.txt">/llms-full.txt</a><span>README、IO-CONTRACT.md 和所有文件合成一個檔</span></li>
+          <li><a href="https://github.com/frank890417/open-dictate/blob/main/IO-CONTRACT.md">IO-CONTRACT.md</a><span>app、daemon、詞庫引擎之間的共同依據</span></li>
+          <li><code>application/ld+json</code><span>這一頁帶有 SoftwareApplication 的 JSON-LD</span></li>
+          <li><a href="../" hreflang="en">/</a><span>這一頁的英文版</span></li>
+        </ul>
+      </div>
+      <div>
+        <h3>MCP：規劃中，還沒做</h3>
+        <p>目前還沒有 MCP 伺服器。路線圖的第一步是本機、唯讀、走 stdio 的伺服器，提供狀態、功能清單和詞庫數量。之後每個會動手的工具，都要在使用當下取得你的同意。用麥克風錄音仍然只能在 app 裡進行，沒有背景錄音，也沒有一次給到底的同意。</p>
+        <p><a class="more" href="https://github.com/frank890417/open-dictate/blob/main/docs/MCP-ROADMAP.md">MCP 路線圖 →</a></p>
+      </div>
+    </div>
+  </section>
+
+  <!-- ═════ 08 · lineage ═════ -->
+  <section class="sec" id="lineage" aria-labelledby="lineage-title">
+    
+    <header class="sec-head">
+      <p class="eyebrow">08 · 來歷</p>
+      <h2 id="lineage-title">從哪裡來</h2>
+      
+    </header>
+    <div class="lineage-grid">
+      <div class="prose">
+        <p>Open Dictate 從一套每天在用的私人語音輸入工具抽出來，再重新整理成公開安全、沒有歷史包袱的 repo：沒有錄音、沒有逐字稿、沒有個人詞庫，只留下引擎、介面契約和虛構的範例。</p>
+        <p>現在公開 repo 是唯一的依據。作者自己的私人版本，只在同一套核心與打包流程上保留個人設定和 adapter。姊妹專案 <a href="https://openaudiovisual.com/zh/">open-audiovisual</a> 也是這樣公開的：先在真實的工作裡用過，再拿出來。</p>
+      </div>
+      <figure class="pull">
+        <blockquote><p>系統可以標記、可以建議，但不能<strong>靜默改寫意思</strong>。</p></blockquote>
+        <figcaption>設計原則 · README</figcaption>
+      </figure>
+    </div>
+    <h3>接下來，摘自路線圖</h3>
+    <ol class="next">
+      <li>本機的說話者資料，取得同意才建檔，只存在你的 Mac</li>
+      <li>在選單列審核詞庫候選</li>
+      <li>匯入、匯出屬於你自己的詞庫包</li>
+      <li>不依賴 clone、開發用 Python 或 Xcode 工具就能執行的 app</li>
+      <li>Developer ID 簽章、經過公證、在乾淨 Mac 上測過的 DMG</li>
+      <li>簽章過的 app 內更新、回滾、Stable 與 Beta 頻道</li>
+    </ol>
+    <p><a class="more" href="https://github.com/frank890417/open-dictate#路線圖--roadmap">README 裡的路線圖 →</a></p>
+  </section>
+
+</main>
+
+<footer class="foot">
+  <p class="foot-mark" aria-hidden="true">open-dictate</p>
+  <div class="foot-grid">
+    <div>
+      <p>MIT 授權。<a href="https://cheyuwu.com/zh/">吳哲宇 Che-Yu Wu</a> 製作。</p>
+      <p class="note"><a href="https://openaudiovisual.com/zh/">open-audiovisual</a> 的姊妹專案。</p>
+    </div>
+    <nav aria-label="給機器讀的">
+      <a href="https://github.com/frank890417/open-dictate">GitHub</a>
+      <a href="../llms.txt">llms.txt</a>
+      <a href="../llms-full.txt">llms-full.txt</a>
+      <a href="https://github.com/frank890417/open-dictate/blob/main/IO-CONTRACT.md">IO-CONTRACT.md</a>
+    </nav>
+  </div>
+</footer>
+
+<script type="application/json" id="od-demo">{"u":[{"dur":3.4,"ignored":false,"segs":[{"t":"幫我把 "},{"t":"TouchDesigner","was":"touch designer"},{"t":" 的檔案放上 "},{"t":"GitHub","was":"git hub"},{"t":" 的專案頁，明天下午三點前寄給大家。"}],"rows":["3.4 s · 16 kHz mono","幫我把 touch designer 的檔案放上 git hub 的專案頁,明天下午三點前寄給大家.",["touch designer → TouchDesigner","git hub → GitHub"],", → ，   . → 。","已打進游標"],"wire":"→ {\"cmd\": \"transcribe\", \"wav\": \"/tmp/open-dictate-rec-….wav\", \"punct\": \"smart_zh\"}\n← {\"ok\": true,\n   \"text\": \"幫我把 TouchDesigner 的檔案放上 GitHub 的專案頁，明天下午三點前寄給大家。\",\n   \"raw\": \"幫我把 touch designer 的檔案放上 git hub 的專案頁,明天下午三點前寄給大家.\",\n   \"changes\": [[\"touch designer\", \"TouchDesigner\"], [\"git hub\", \"GitHub\"]],\n   \"punct\": \"smart_zh\"}","teach":null,"teachWire":"","note":"Whisper 把兩個專有名詞聽成小寫、拆開的英文，你教過的兩組詞庫對照把它們改回來。「三點」照你說的留著。"},{"dur":3.1,"ignored":false,"segs":[{"t":"那個","was":"那個那個那個那個"},{"t":"，我們下週在"},{"t":"台灣","was":"臺灣"},{"t":"辦一場工作坊，名額三十人。"}],"rows":["3.1 s · 16 kHz mono","那個那個那個那個,我們下週在臺灣辦一場工作坊,名額三十人.",["那個那個那個那個 → 那個","臺灣 → 台灣"],", → ，   . → 。","已打進游標"],"wire":"→ {\"cmd\": \"transcribe\", \"wav\": \"/tmp/open-dictate-rec-….wav\", \"punct\": \"smart_zh\"}\n← {\"ok\": true,\n   \"text\": \"那個，我們下週在台灣辦一場工作坊，名額三十人。\",\n   \"raw\": \"那個那個那個那個,我們下週在臺灣辦一場工作坊,名額三十人.\",\n   \"changes\": [[\"那個那個那個那個\", \"那個\"], [\"臺灣\", \"台灣\"]],\n   \"punct\": \"smart_zh\"}","teach":null,"teachWire":"","note":"起頭的口頭禪重複了四次，內建的預設詞庫把它收成一個，「臺」也統一成「台」。「三十」照原樣保留，數字不會被自動改寫。"},{"dur":0.3,"ignored":true,"segs":[],"rows":["0.3 s \u003c 0.5 s","—","—","—","沒有輸入"],"wire":"（沒有送出）","teach":null,"teachWire":"","note":"只碰了 0.3 秒。不到半秒的按壓在任何處理開始前就丟掉，手滑碰到鍵不會變成字。"},{"dur":2.2,"ignored":false,"segs":[{"t":"記得把筆記同步到"},{"t":"阿布西店","heard":true},{"t":"。"}],"rows":["2.2 s · 16 kHz mono","記得把筆記同步到阿布西店.",["沒有命中的詞庫對照，一字未改"],". → 。","已打進游標"],"wire":"→ {\"cmd\": \"transcribe\", \"wav\": \"/tmp/open-dictate-rec-….wav\", \"punct\": \"smart_zh\"}\n← {\"ok\": true,\n   \"text\": \"記得把筆記同步到阿布西店。\",\n   \"raw\": \"記得把筆記同步到阿布西店.\",\n   \"changes\": [],\n   \"punct\": \"smart_zh\"}","teach":["阿布西店","Obsidian"],"teachWire":"→ {\"cmd\": \"add_pair\", \"wrong\": \"阿布西店\", \"right\": \"Obsidian\", \"source\": \"dictate-ui\"}\n← {\"ok\": true}","note":"Whisper 把 Obsidian 聽成「阿布西店」，詞庫裡沒有這一對，所以照聽到的字打出來，系統不會自己猜。你在選單列教它一次。"},{"dur":2.3,"ignored":false,"segs":[{"t":"記得把筆記同步到"},{"t":"Obsidian","was":"阿布西店"},{"t":"。"}],"rows":["2.3 s · 16 kHz mono","記得把筆記同步到阿布西店.",["阿布西店 → Obsidian"],". → 。","已打進游標"],"wire":"→ {\"cmd\": \"transcribe\", \"wav\": \"/tmp/open-dictate-rec-….wav\", \"punct\": \"smart_zh\"}\n← {\"ok\": true,\n   \"text\": \"記得把筆記同步到Obsidian。\",\n   \"raw\": \"記得把筆記同步到阿布西店.\",\n   \"changes\": [[\"阿布西店\", \"Obsidian\"]],\n   \"punct\": \"smart_zh\"}","teach":null,"teachWire":"","note":"同一句話，下一次：你教過的那一組對照生效了。"}],"s":{"idle":"按住 fn，輸入下一句。","auto":"示範正在自動播放。按住 fn 就換你。","you":"換你了：句子是寫好的，按住多久是真的。","rec":"錄音中，放開就開始轉錄。","short":"不到 0.5 秒，直接略過：不送出，也不打字。","teach":"從選單列教一次，下次同一個詞就會套用。","typed":"已打進游標","transcribing":"轉錄中…","taught":"從選單列教過","nothingSent":"（沒有送出）","copy":"複製","copied":"已複製"}}</script>
+<script src="../assets/site.js" defer></script>
+</body>
+</html>

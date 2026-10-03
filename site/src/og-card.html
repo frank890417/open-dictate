@@ -1,0 +1,48 @@
+<!DOCTYPE html>
+<!-- The social card, site/assets/og.png (1200×630). To regenerate: open this file in
+     Chrome at a 1200×630 viewport and take a screenshot, e.g. headless:
+       "Google Chrome" --headless=new --window-size=1200,630 --screenshot=og.png site/src/og-card.html
+     (any screenshot tool works; the card has no script and no network). -->
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>open-dictate social card</title>
+<style>
+@font-face { font-family: 'Archivo'; src: url(../assets/fonts/archivo-var-latin.woff2) format('woff2'); font-weight: 400 800; font-stretch: 100% 112%; }
+@font-face { font-family: 'DM Mono'; src: url(../assets/fonts/dm-mono-400-latin.woff2) format('woff2'); font-weight: 400; }
+:root { --ink: #0b0b0c; --line: #242428; --line-2: #36363c; --fg: #edebe5; --fg-2: #aaa8a1; --fg-3: #8a8882; --sig: #2ee6c6; }
+* { box-sizing: border-box; }
+html, body { margin: 0; width: 1200px; height: 630px; overflow: hidden; background: var(--ink); color: var(--fg);
+  font-family: 'Archivo', 'PingFang TC', 'Noto Sans TC', sans-serif; -webkit-font-smoothing: antialiased; }
+.card { position: relative; width: 1200px; height: 630px; padding: 54px 64px; }
+.top { display: flex; justify-content: space-between; align-items: center; font: 400 19px 'DM Mono', monospace; color: var(--fg-2); letter-spacing: .02em; }
+.brand { display: flex; align-items: center; gap: 12px; color: var(--fg); }
+.brand svg { width: 34px; height: 34px; }
+.brand path { fill: none; stroke: var(--fg); stroke-width: 2.4; stroke-linecap: round; }
+.brand rect { fill: var(--sig); }
+.mark { margin: 40px 0 0 -6px; white-space: nowrap; font: 800 150px/.86 'Archivo'; font-stretch: 112%; letter-spacing: -.045em; }
+.sub { margin: 26px 0 0; font: 500 36px/1.2 'Archivo'; letter-spacing: -.01em; }
+.zh { margin: 8px 0 0; font: 600 28px/1.3 'PingFang TC', 'Noto Sans TC', sans-serif; color: var(--fg-2); letter-spacing: .04em; }
+.line { position: absolute; left: 64px; right: 64px; bottom: 50px; padding-top: 40px; white-space: nowrap; font: 500 25px/1.4 'Archivo', 'PingFang TC', sans-serif; letter-spacing: .02em; }
+.line::before { content: ''; position: absolute; left: 0; right: 0; top: 0; height: 17px;
+  background: repeating-linear-gradient(to bottom, var(--line) 0 1px, transparent 1px 4px); }
+.fix { position: relative; background: linear-gradient(var(--sig), var(--sig)) 0 92% / 100% 3px no-repeat; }
+.fix::before { content: attr(data-was); position: absolute; left: 0; bottom: 100%; margin-bottom: -2px; font: 400 15px/1 'DM Mono', monospace;
+  color: var(--fg-3); text-decoration: line-through; white-space: nowrap; letter-spacing: 0; }
+.pm { color: #8ff0de; }
+.caret { display: inline-block; width: 3px; height: 1.05em; margin-left: 3px; vertical-align: -.14em; background: var(--sig); }
+</style>
+</head>
+<body>
+<div class="card">
+  <div class="top">
+    <span class="brand"><svg viewBox="0 0 32 32" aria-hidden="true"><path d="M3 16c1.7 0 1.9-7 3.9-7s2.1 14 4.1 14 2.1-7 3.9-7"/><rect x="21" y="6" width="3.2" height="20" rx=".6"/></svg>open-dictate</span>
+    <span>local-first · macOS · MIT</span>
+  </div>
+  <div class="mark">open-dictate</div>
+  <p class="sub">Hold a key, speak, let go. The words land at your cursor.</p>
+  <p class="zh">按住、說話、放開，字就出現在游標。</p>
+  <p class="line">幫我把 <span class="fix" data-was="touch designer">TouchDesigner</span> 的檔案放上 <span class="fix" data-was="git hub">GitHub</span> 的專案頁<span class="pm">，</span>明天下午三點前寄給大家<span class="pm">。</span><span class="caret"></span></p>
+</div>
+</body>
+</html>

@@ -5,7 +5,13 @@ on:
     branches: [main]
     paths:
       - 'site/**'
-      - 'docs/assets/open-dictate-screenshot.svg'
+      # the site build reads these: llms-full.txt bundles the docs, the page reports the daemon version
+      - 'README.md'
+      - 'IO-CONTRACT.md'
+      - 'CONTRIBUTING.md'
+      - 'SECURITY.md'
+      - 'docs/**'
+      - 'daemon/dictated.py'
       - '.github/workflows/pages.yml'
   workflow_dispatch:
 
@@ -27,6 +33,16 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      # Regenerate en / zh pages, llms.txt, llms-full.txt, robots.txt and sitemap.xml from
+      # site/src, so docs edited elsewhere still reach llms-full.txt; then test both pages.
+      - name: Build and test the site
+        run: |
+          node site/build.mjs
+          node --test site/test/site.test.mjs
       - name: Configure Pages
         uses: actions/configure-pages@v5
       - name: Upload site artifact

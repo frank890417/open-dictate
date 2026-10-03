@@ -1,5 +1,1 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64">
-  <rect width="64" height="64" rx="8" fill="#080b0d"/>
-  <rect x="7" y="7" width="50" height="50" rx="4" fill="none" stroke="#1fffe0" stroke-width="2"/>
-  <text x="32" y="39" fill="#1fffe0" font-family="ui-monospace, monospace" font-size="21" font-weight="700" text-anchor="middle">OD</text>
-</svg>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32"><rect width="32" height="32" rx="6" fill="#0b0b0c"/><path d="M4 16c1.6 0 1.8-6.5 3.6-6.5s2 13 3.8 13 2-6.5 3.6-6.5" fill="none" stroke="#edebe5" stroke-width="2.4" stroke-linecap="round"/><rect x="20.5" y="6.5" width="3.4" height="19" rx=".6" fill="#2ee6c6"/></svg>

@@ -1,0 +1,6 @@
+User-agent: *
+Allow: /
+
+# A short guide for language models: https://frank890417.github.io/open-dictate/llms.txt
+# Everything in one file:          https://frank890417.github.io/open-dictate/llms-full.txt
+Sitemap: https://frank890417.github.io/open-dictate/sitemap.xml

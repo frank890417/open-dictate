@@ -1,127 +1,599 @@
-<!doctype html>
-<html lang="zh-Hant">
+<!DOCTYPE html>
+<html lang="en">
 <head>
-  <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1">
-  <meta name="description" content="Open Dictate：Apple Silicon 上本地優先的繁體中文語音輸入與會議轉錄工具。">
-  <meta name="theme-color" content="#080b0d">
-  <meta property="og:title" content="Open Dictate — 聲音，成為你能掌握的文字">
-  <meta property="og:description" content="Apple Silicon 上本地優先的繁體中文語音輸入與會議轉錄工具。">
-  <meta property="og:type" content="website">
-  <meta property="og:url" content="https://frank890417.github.io/open-dictate/">
-  <link rel="canonical" href="https://frank890417.github.io/open-dictate/">
-  <link rel="icon" href="favicon.svg" type="image/svg+xml">
-  <title>Open Dictate — 聲音，成為你能掌握的文字</title>
-  <link rel="stylesheet" href="styles.css">
-  <script src="script.js" defer></script>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Open Dictate · local-first Traditional Chinese dictation for macOS</title>
+<meta name="description" content="Hold a key, speak, release. Open Dictate transcribes Traditional Chinese on your Apple Silicon Mac with MLX Whisper, fixes the words you taught it with a deterministic glossary, and types the sentence at your cursor. Audio stays on your Mac. Open source, MIT.">
+<link rel="canonical" href="https://frank890417.github.io/open-dictate/">
+<link rel="alternate" hreflang="en" href="https://frank890417.github.io/open-dictate/">
+<link rel="alternate" hreflang="zh-Hant" href="https://frank890417.github.io/open-dictate/zh/">
+<link rel="alternate" hreflang="x-default" href="https://frank890417.github.io/open-dictate/">
+<link rel="alternate" type="text/markdown" href="./llms.txt" title="llms.txt">
+<meta name="theme-color" content="#0b0b0c">
+<meta name="color-scheme" content="dark">
+<meta property="og:type" content="website">
+<meta property="og:site_name" content="Open Dictate">
+<meta property="og:title" content="Open Dictate · local-first Traditional Chinese dictation for macOS">
+<meta property="og:description" content="Hold a key, speak, let go. The words land at your cursor, and your voice never leaves your Mac.">
+<meta property="og:url" content="https://frank890417.github.io/open-dictate/">
+<meta property="og:locale" content="en_US">
+<meta property="og:image" content="https://frank890417.github.io/open-dictate/assets/og.png">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta name="twitter:card" content="summary_large_image">
+<link rel="icon" href="data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20viewBox%3D%220%200%2032%2032%22%3E%3Crect%20width%3D%2232%22%20height%3D%2232%22%20rx%3D%226%22%20fill%3D%22%230b0b0c%22%2F%3E%3Cpath%20d%3D%22M4%2016c1.6%200%201.8-6.5%203.6-6.5s2%2013%203.8%2013%202-6.5%203.6-6.5%22%20fill%3D%22none%22%20stroke%3D%22%23edebe5%22%20stroke-width%3D%222.4%22%20stroke-linecap%3D%22round%22%2F%3E%3Crect%20x%3D%2220.5%22%20y%3D%226.5%22%20width%3D%223.4%22%20height%3D%2219%22%20rx%3D%22.6%22%20fill%3D%22%232ee6c6%22%2F%3E%3C%2Fsvg%3E">
+<link rel="preload" href="./assets/fonts/archivo-var-latin.woff2" as="font" type="font/woff2" crossorigin>
+<link rel="stylesheet" href="./assets/site.css">
+<noscript><style>.key { pointer-events: none; } .key-hint, .copy, .status #status-text { display: none; }</style></noscript>
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "SoftwareApplication",
+  "name": "Open Dictate",
+  "alternateName": "open-dictate",
+  "description": "Local-first push-to-talk dictation and meeting transcription for Traditional Chinese on Apple Silicon Macs: a Swift menu-bar app records while a hotkey is held, a local Python daemon transcribes with MLX Whisper, applies the user's deterministic glossary pairs and full-width punctuation, and the text is inserted at the cursor. Audio, transcripts and glossaries stay on the Mac.",
+  "url": "https://frank890417.github.io/open-dictate/",
+  "inLanguage": "en",
+  "applicationCategory": "UtilitiesApplication",
+  "operatingSystem": "macOS 14 or later, Apple Silicon",
+  "softwareVersion": "0.6.1",
+  "softwareRequirements": "Apple Silicon Mac; macOS 14+; Xcode Command Line Tools; Python 3.11+",
+  "featureList": [
+    "Push-to-talk dictation with fn or right Option",
+    "Local transcription with MLX Whisper on Apple Silicon",
+    "Deterministic, user-owned glossary correction",
+    "Traditional Chinese full-width punctuation",
+    "Meeting transcripts as Markdown, JSONL, SRT and VTT",
+    "Review-first glossary growth from flagged mishearings"
+  ],
+  "downloadUrl": "https://github.com/frank890417/open-dictate",
+  "installUrl": "https://frank890417.github.io/open-dictate/#start",
+  "license": "https://opensource.org/licenses/MIT",
+  "isAccessibleForFree": true,
+  "offers": {
+    "@type": "Offer",
+    "price": "0",
+    "priceCurrency": "USD"
+  },
+  "author": {
+    "@type": "Person",
+    "name": "Che-Yu Wu",
+    "alternateName": "吳哲宇",
+    "url": "https://cheyuwu.com"
+  },
+  "sameAs": [
+    "https://github.com/frank890417/open-dictate"
+  ],
+  "image": "https://frank890417.github.io/open-dictate/assets/og.png"
+}
+</script>
 </head>
 <body>
-  <a class="skip-link" href="#main">跳到主要內容</a>
-  <header class="site-header">
-    <a class="wordmark" href="#top" aria-label="Open Dictate 首頁">
-      <span class="wordmark-mark" aria-hidden="true">OD</span>
-      <span>OPEN DICTATE</span>
-    </a>
-    <nav aria-label="主要導覽">
-      <a href="#principles">原則</a>
-      <a href="#workflow">流程</a>
-      <a href="https://github.com/frank890417/open-dictate">GitHub ↗</a>
-    </nav>
-  </header>
+<a class="skip" href="#main">Skip to content</a>
 
-  <main id="main">
-    <section class="hero" id="top" aria-labelledby="hero-title">
-      <div class="hero-copy">
-        <p class="eyebrow">LOCAL-FIRST · TRADITIONAL CHINESE · macOS</p>
-        <h1 id="hero-title">聲音，成為<br><em>你能掌握</em>的文字。</h1>
-        <p class="lead">按住快捷鍵、說話、放開。Open Dictate 在 Apple Silicon 上本地轉錄繁體中文，把結果送到游標，而不是送出你的 Mac。</p>
-        <div class="hero-actions">
-          <a class="button primary" href="https://github.com/frank890417/open-dictate#快速開始--quick-start">開始安裝 <span aria-hidden="true">↗</span></a>
-          <a class="button text-button" href="https://github.com/frank890417/open-dictate">查看原始碼</a>
-        </div>
-        <p class="status"><span aria-hidden="true"></span> Early public seed · MIT</p>
+<header class="top">
+  <a class="brand" href="./" aria-label="Open Dictate home"><svg class="mark" viewBox="0 0 32 32" aria-hidden="true" focusable="false"><path d="M3 16c1.7 0 1.9-7 3.9-7s2.1 14 4.1 14 2.1-7 3.9-7"/><rect x="21" y="6" width="3.2" height="20" rx=".6"/></svg><span>open-dictate</span></a>
+  <nav class="nav" aria-label="Sections">
+    <a href="#how">How it works</a>
+    <a href="#privacy">Privacy</a>
+    <a href="#start">Install</a>
+    <a href="#develop">Develop</a>
+    <a href="#agents">For agents</a>
+  </nav>
+  <div class="top-end">
+    <div class="langs" role="group" aria-label="Language">
+      <a href="./" hreflang="en" lang="en" data-lang="en" aria-current="page">EN</a><span aria-hidden="true">|</span><a href="./zh/" hreflang="zh-Hant" lang="zh-Hant-TW" data-lang="zh">中文</a>
+    </div>
+    <a class="gh" href="https://github.com/frank890417/open-dictate">GitHub</a>
+  </div>
+</header>
+
+<main id="main">
+
+  <!-- ═════ 01 · hold, speak, release: the demo ═════ -->
+  <section class="hero" id="demo" aria-labelledby="hero-title">
+    <h1 id="hero-title"><span class="wordmark">open-dictate</span> <span class="h1-sub">Hold a key, speak, let go. The words land at your cursor.</span></h1>
+    <div class="hero-grid">
+      <div class="hero-text">
+        <p class="lede">Local-first dictation for Traditional Chinese on Apple Silicon Macs. <em>MLX Whisper</em> turns your voice into text on your own machine, <em>a glossary you own</em> corrects the words it knows, and the sentence is <em>typed where your cursor is</em>. The system may flag and suggest. It may not silently rewrite what you meant.</p>
+        <p class="eyebrow facts">Early public seed · daemon 0.6.1 · MIT · macOS 14+ · Apple Silicon</p>
       </div>
+      <nav class="doors" aria-label="Where to start">
+        <a class="door door-1" href="#start"><span class="door-who">I want to use it</span><span class="door-what">What it needs, how to install, what it can’t do yet</span><span class="door-arrow" aria-hidden="true">→</span></a>
+        <a class="door door-2" href="#develop"><span class="door-who">I write code</span><span class="door-what">The daemon contract, the architecture, the tests</span><span class="door-arrow" aria-hidden="true">→</span></a>
+        <a class="door door-3" href="./llms.txt"><span class="door-who">I am an AI agent</span><span class="door-what">Read /llms.txt, then IO-CONTRACT.md</span><span class="door-arrow" aria-hidden="true">→</span></a>
+      </nav>
+    </div>
 
-      <div class="console" aria-label="互動語音轉文字示意">
-        <div class="console-top">
-          <span>INPUT / 01</span><span>LOCAL</span>
+    <div class="desk" id="desk" aria-labelledby="desk-title">
+      <h2 class="desk-title" id="desk-title"><span class="eyebrow">01 · Demo</span> One dictation, step by step</h2>
+      <div class="field">
+        <div class="field-bar"><span>Any text field, any app</span><span class="field-tag">demonstration</span></div>
+        <div class="doc" id="doc">
+          <p class="doc-h">週會筆記</p>
+          <p class="line is-new">幫我把 <span class="fix" data-was="touch designer">TouchDesigner</span> 的檔案放上 <span class="fix" data-was="git hub">GitHub</span> 的專案頁<span class="pm">，</span>明天下午三點前寄給大家<span class="pm">。</span><span class="caret" aria-hidden="true"></span></p>
         </div>
-        <button class="voice-pad" type="button" aria-describedby="voice-hint" aria-pressed="false">
-          <span class="wave" aria-hidden="true"></span>
-          <span class="voice-state">按住開始說話</span>
-          <span class="keycap">HOLD <kbd>SPACE</kbd></span>
-        </button>
-        <p id="voice-hint" class="sr-only">按住滑鼠或空白鍵模擬錄音，放開後顯示轉錄結果。</p>
-        <div class="transcript" aria-live="polite" aria-atomic="true">
-          <span class="line-number">001</span>
-          <p data-transcript>語音不出境，文字不失控。</p>
-          <span class="cursor" aria-hidden="true"></span>
-        </div>
-        <div class="console-meta"><span>zh-Hant</span><span>review: ready</span><span>audio: local</span></div>
+        <p class="doc-note" id="doc-note">“Put the TouchDesigner files on the GitHub project page and send them to everyone before 3 p.m. tomorrow.” Two pairs you taught fired. The time stays as spoken.</p>
       </div>
-    </section>
+      <div class="keyrow">
+        <button type="button" class="key" id="key" aria-label="fn: hold to dictate the next line of the demo" aria-describedby="key-hint">fn</button>
+        <canvas class="wave" id="wave" width="600" height="56" aria-hidden="true"></canvas>
+        <span class="timer" id="timer">3.4 s</span>
+      </div>
+      <p class="status" id="desk-status"><span class="led" aria-hidden="true"></span><span id="status-text">Hold fn to dictate the next line.</span></p>
+      <aside class="bay" aria-labelledby="bay-title">
+        <div class="bay-head"><h3 id="bay-title">Pipeline</h3><span class="bay-live"><span class="led" aria-hidden="true"></span>local</span></div>
+        <ol class="pipe" id="pipe">
+          <li class="step step-0" data-st="done"><span class="step-n">01</span><span class="step-name">Record<small>app · 16 kHz mono WAV</small></span><span class="step-v" id="v0">3.4 s · 16 kHz mono</span></li>
+          <li class="step step-1" data-st="done"><span class="step-n">02</span><span class="step-name">Transcribe<small>daemon · MLX Whisper</small></span><span class="step-v" id="v1">幫我把 touch designer 的檔案放上 git hub 的專案頁,明天下午三點前寄給大家.</span></li>
+          <li class="step step-2" data-st="done"><span class="step-n">03</span><span class="step-name">Correct<small>daemon · your glossary</small></span><span class="step-v" id="v2"><span><s>touch designer</s> → <b>TouchDesigner</b></span><span><s>git hub</s> → <b>GitHub</b></span></span></li>
+          <li class="step step-3" data-st="done"><span class="step-n">04</span><span class="step-name">Punctuate<small>daemon · smart_zh</small></span><span class="step-v" id="v3">, → ，   . → 。</span></li>
+          <li class="step step-4" data-st="done"><span class="step-n">05</span><span class="step-name">Insert<small>app · at the cursor</small></span><span class="step-v" id="v4">typed at the cursor</span></li>
+        </ol>
+        <div class="wire">
+          <p class="wire-h">On the socket</p>
+          <pre id="wire"><code>→ {"cmd": "transcribe", "wav": "/tmp/open-dictate-rec-….wav", "punct": "smart_zh"}
+← {"ok": true,
+   "text": "幫我把 TouchDesigner 的檔案放上 GitHub 的專案頁，明天下午三點前寄給大家。",
+   "raw": "幫我把 touch designer 的檔案放上 git hub 的專案頁,明天下午三點前寄給大家.",
+   "changes": [["touch designer", "TouchDesigner"], ["git hub", "GitHub"]],
+   "punct": "smart_zh"}</code></pre>
+        </div>
+        <p class="bay-legend">Each row is a real stage, in the real order. The JSON has the shape of the actual socket messages; the sentences are written for this demo.</p>
+      </aside>
+      <p class="key-hint" id="key-hint">Hold the fn key above with mouse, finger or Space, then let go. The sentences are scripted; nothing here listens.</p>
+    </div>
+    <p class="desk-caption">This is a demonstration animation. The sentences are scripted and this page never touches your microphone. The real thing is a menu-bar app and a daemon on your Mac. <a href="https://github.com/frank890417/open-dictate/blob/main/IO-CONTRACT.md">Read the contract →</a></p>
+    <noscript><p class="desk-caption">With JavaScript off you see the last frame of the demo.</p></noscript>
+  </section>
 
-    <section class="manifesto" id="principles" aria-labelledby="principles-title">
+  <!-- ═════ 02 · how it works ═════ -->
+  <section class="sec" id="how" aria-labelledby="how-title">
+    
+    <header class="sec-head">
+      <p class="eyebrow">02 · How it works</p>
+      <h2 id="how-title">Five steps, one rule</h2>
+      <p class="sec-lede">A Swift menu-bar app records while you hold the key and hands a WAV file to a Python daemon that keeps the model warm. The daemon transcribes, corrects and punctuates, then answers with text, and the app types it where your cursor is. After transcription, nothing changes your words except pairs you put in the glossary.</p>
+    </header>
+    <ol class="layers">
+      <li class="layer layer-1">
+        <p class="layer-tag"><span>01</span> Record</p>
+        <p class="layer-quote">while you hold the key</p>
+        <p class="layer-text">Hold <kbd>fn</kbd> or right Option. The app records 16 kHz mono audio. Presses under half a second are dropped, and a speech-shape gate catches accidental recordings of room noise.</p>
+        <p class="layer-spec"><code><span class="k">rec</span> = <b data-live="rec">3.4 s</b></code><small>values from the demo above</small></p>
+      </li>
+      <li class="layer layer-2">
+        <p class="layer-tag"><span>02</span> Transcribe</p>
+        <p class="layer-quote">what was said</p>
+        <p class="layer-text">MLX Whisper runs on Apple Silicon inside a daemon that stays loaded. Guards drop known subtitle-credit hallucinations and cut runaway repetition before anything goes further.</p>
+        <p class="layer-spec"><code><span class="k">model</span> = <b>large-v3-turbo</b></code><small>values from the demo above</small></p>
+      </li>
+      <li class="layer layer-3">
+        <p class="layer-tag"><span>03</span> Correct</p>
+        <p class="layer-quote">what you meant</p>
+        <p class="layer-text">Your glossary is a table of <em>wrong → right</em> pairs. Only pairs that match are applied; the sentence is never rewritten. A missed correction is better than a wrong one.</p>
+        <p class="layer-spec"><code><span class="k">changes</span> = <b data-live="changes">2</b></code><small>values from the demo above</small></p>
+      </li>
+      <li class="layer layer-4">
+        <p class="layer-tag"><span>04</span> Punctuate</p>
+        <p class="layer-quote">how it reads</p>
+        <p class="layer-text">The default <code>smart_zh</code> rules make marks full-width in Chinese context and leave English, numbers and URLs alone. An optional local LLM pass adds fuller punctuation and is thrown away if it changes anything else.</p>
+        <p class="layer-spec"><code><span class="k">punct</span> = <b>"smart_zh"</b></code><small>values from the demo above</small></p>
+      </li>
+      <li class="layer layer-5">
+        <p class="layer-tag"><span>05</span> Insert</p>
+        <p class="layer-quote">where it lands</p>
+        <p class="layer-text">The text goes in through the Accessibility API, with paste as the fallback. The app never takes focus from the field you were typing in.</p>
+        <p class="layer-spec"><code><span class="k">insert</span> → <b>AX</b> <span class="c">· paste</span></code><small>values from the demo above</small></p>
+      </li>
+    </ol>
+
+    <div class="how-grid">
       <div>
-        <p class="section-index">01 / CONTROL</p>
-        <h2 id="principles-title">不是把聲音<br>交給黑箱。</h2>
+        <h3>Beyond the hotkey</h3>
+        <dl class="spines">
+          <div><dt>Meeting Mode</dt><dd>A local recording, or pre-transcribed JSON/JSONL segments, becomes a reviewable package: Markdown, JSONL, SRT and VTT. Same Whisper, same glossary.</dd></div>
+          <div><dt>Review queue</dt><dd>A scanner flags likely mishearings and numbers as candidates. You accept, edit or reject; only accepted pairs reach the glossary, and every decision can be undone.</dd></div>
+          <div><dt>Speaker labels</dt><dd>Transcripts use anonymous labels, <code>SPEAKER_00</code>, <code>SPEAKER_01</code>. Knowing who is speaking is planned as an optional, local-only layer.</dd></div>
+          <div><dt>Menu bar</dt><dd>Teach a pair from the last sentence or from selected text, report a mishearing, and choose the hotkey, the microphone and the punctuation mode.</dd></div>
+        </dl>
       </div>
-      <div class="principle-copy">
-        <p class="pullquote">「系統可以標記、可以建議，<br>但不能靜默改寫意思。」</p>
-        <p>Open Dictate 用 MLX Whisper 在本機轉錄，再套用你擁有的確定性詞庫。它寧可漏改，也不錯改；每個候選詞都先經過你審核。</p>
+      <div>
+        <h3>Seven rules</h3>
+        <ol class="rules">
+          <li><strong>Replace words, never sentences.</strong> Glossary pairs may correct a word. The system may not rewrite the sentence.</li>
+          <li><strong>A missed correction beats a wrong one.</strong> One bad pair would poison every transcript after it, so risky pairs wait for context or review.</li>
+          <li><strong>Normalise the script, keep the meaning.</strong> Traditional Chinese normalisation is allowed. Numbers are not changed automatically.</li>
+          <li><strong>Audio stays local.</strong> Recording, transcription and correction all run on your Mac.</li>
+          <li><strong>Never steal focus.</strong> The interface does not pull focus from the text field you are working in.</li>
+          <li><strong>Voices are biometric data.</strong> Speaker profiles and voice embeddings stay local and are never committed.</li>
+          <li><strong>Grow by review.</strong> The glossary improves from suggestions you accept, never by silent self-mutation.</li>
+        </ol>
       </div>
-    </section>
+    </div>
 
-    <section class="feature-strip" aria-label="核心特點">
-      <article><span class="feature-no">A</span><h3>本地運算</h3><p>核心語音路徑在 Apple Silicon macOS 上執行，音檔預設留在本機。</p></article>
-      <article><span class="feature-no">B</span><h3>按住即說</h3><p>Push-to-talk：按住 <kbd>fn</kbd> 或右側 Option，放開便把文字送到游標。</p></article>
-      <article><span class="feature-no">C</span><h3>會議模式</h3><p>把本機音檔整理成可審核的 Markdown、JSONL、SRT 或 VTT 逐字稿包。</p></article>
-      <article><span class="feature-no">D</span><h3>詞庫會進化</h3><p>疑似誤聽進入候選佇列；只有接受後，才成為下一次的確定校正。</p></article>
-    </section>
+    <h3 class="glossary-title">Words used on this page</h3>
+    <dl class="glossary">
+      <div><dt><dfn>Push-to-talk</dfn></dt><dd>Hold a key while you speak, release to finish. Open Dictate uses <kbd>fn</kbd> or right Option.</dd></div>
+      <div><dt><dfn>Daemon</dfn></dt><dd><code>dictated.py</code>, the background process that keeps the model loaded so a short sentence needs no cold start. The app talks to it over a Unix socket.</dd></div>
+      <div><dt><dfn>MLX Whisper</dfn></dt><dd>The Whisper speech model running on Apple’s MLX framework. Default: <code>whisper-large-v3-turbo</code>.</dd></div>
+      <div><dt><dfn>Glossary pair</dfn></dt><dd>One <code>wrong → right</code> entry, such as <code>git hub → GitHub</code>. Applied exactly as written wherever the wrong side appears.</dd></div>
+      <div><dt><dfn>Contextual pair</dfn></dt><dd>A pair that is only safe in some sentences. It is never applied blindly; it waits for context or for you.</dd></div>
+      <div><dt><dfn>Review queue</dfn></dt><dd>Candidate pairs waiting for accept, edit or reject. Decisions are kept in a history and can be undone.</dd></div>
+      <div><dt><dfn>smart_zh</dfn></dt><dd>The default, rule-based punctuation: half-width marks after Chinese become full-width. Deterministic and idempotent.</dd></div>
+      <div><dt><dfn>No-rewrite gate</dfn></dt><dd>The check an optional LLM output must pass: with punctuation removed, it must match the input except for authorised glossary pairs.</dd></div>
+      <div><dt><dfn>SPEAKER_00</dfn></dt><dd>An anonymous speaker label in a meeting transcript. When the system is unsure who spoke, it says <code>unknown</code> rather than guess a name.</dd></div>
+    </dl>
+  </section>
 
-    <section class="workflow" id="workflow" aria-labelledby="workflow-title">
-      <div class="workflow-heading">
-        <p class="section-index">02 / THE LOOP</p>
-        <h2 id="workflow-title">每一次使用，<br>都更像你的語言。</h2>
+  <!-- ═════ 03 · status ═════ -->
+  <section class="sec" id="status" aria-labelledby="status-title">
+    
+    <header class="sec-head">
+      <p class="eyebrow">03 · Status</p>
+      <h2 id="status-title">What works today</h2>
+      <p class="sec-lede">Open Dictate is an early public seed, extracted from a private tool used every day. The dictation path works on Apple Silicon Macs; meeting, review and speaker layers are conservative on purpose. Every status below is copied from the README.</p>
+    </header>
+    <div class="status-grid">
+      <div>
+        <h3>Features</h3>
+        <ul class="feats">
+          <li><span class="feat-name">Push-to-talk dictation</span><span class="chip chip-seed">Public seed</span></li>
+          <li><span class="feat-name">Local MLX Whisper daemon</span><span class="chip chip-seed">Public seed</span></li>
+          <li><span class="feat-name">Deterministic glossary correction</span><span class="chip chip-seed">Public seed</span></li>
+          <li><span class="feat-name">Traditional Chinese full-width punctuation</span><span class="chip chip-seed">Public seed</span></li>
+          <li><span class="feat-name">Menu-bar teaching flow</span><span class="chip chip-seed">Public seed</span></li>
+          <li><span class="feat-name">Meeting transcript package</span><span class="chip chip-seed">Public seed</span><span class="feat-note">audio, or JSON/JSONL segments</span></li>
+          <li><span class="feat-name">Local audio transcription for Meeting Mode</span><span class="chip chip-seed">Public seed</span><span class="feat-note">MLX Whisper adapter</span></li>
+          <li><span class="feat-name">Post-transcription mishearing check</span><span class="chip chip-mvp">MVP</span><span class="feat-note">review flags</span></li>
+          <li><span class="feat-name">Review-first glossary growth</span><span class="chip chip-mvp">MVP</span><span class="feat-note">command-line queue</span></li>
+          <li><span class="feat-name">Anonymous speaker labels</span><span class="chip chip-mvp">MVP</span></li>
+          <li><span class="feat-name">Local speaker identity</span><span class="chip chip-planned">Planned</span><span class="feat-note">sensitive, optional layer</span></li>
+        </ul>
       </div>
-      <ol class="signal-path">
-        <li><span>01</span><strong>說話 / 錄音</strong><small>Speak or record</small></li>
-        <li><span>02</span><strong>本機轉錄</strong><small>Local transcription</small></li>
-        <li><span>03</span><strong>標記疑似誤聽</strong><small>Flag candidates</small></li>
-        <li><span>04</span><strong>人工審核</strong><small>Human review</small></li>
-        <li><span>05</span><strong>個人詞庫進化</strong><small>Your glossary improves</small></li>
-      </ol>
-    </section>
+      <div>
+        <h3>Know this before you install</h3>
+        <ul class="limits">
+          <li><strong>Apple Silicon and macOS 14 or later only.</strong> Intel Macs are not supported.</li>
+          <li><strong>It installs from source.</strong> You need Git, Xcode Command Line Tools and Python 3.11+. There is no DMG yet.</li>
+          <li><strong>The installed app depends on your clone.</strong> If you move the folder, run the doctor and install again.</li>
+          <li><strong>The app is ad-hoc signed.</strong> After a rebuild, macOS may ask you to switch its permissions off and on again.</li>
+          <li><strong>The first run downloads the model</strong> and warming it up can take about two minutes.</li>
+        </ul>
+      </div>
+    </div>
+    <h3 class="phases-title">On the way to an ordinary Mac app</h3>
+    <ol class="phases">
+      <li><span class="phase-n">Phase 0</span><strong>Release architecture.</strong> One product config, data in Application Support, nothing at runtime that needs the clone.</li>
+      <li><span class="phase-n">Phase 1</span><strong>Self-contained beta.</strong> Python inside the app, a welcome flow for permissions and the model, a test DMG. Goal: first dictation in ten minutes on a clean Mac, Finder only.</li>
+      <li><span class="phase-n">Phase 2</span><strong>Signed and notarized.</strong> Developer ID, Apple notarization, a DMG that opens without Gatekeeper warnings, with checksums.</li>
+      <li><span class="phase-n">Phase 3</span><strong>Updates and rollback.</strong> Signed in-app updates, Stable and Beta channels, automatic rollback that never touches your data.</li>
+      <li><span class="phase-n">Phase 4</span><strong>More channels.</strong> Homebrew Cask; the Mac App Store only after the sandbox questions are answered.</li>
+    </ol>
+    <p><a class="more" href="https://github.com/frank890417/open-dictate/blob/main/docs/MACOS-DISTRIBUTION-ROADMAP.md">The distribution roadmap →</a></p>
+  </section>
 
-    <section class="machine" aria-labelledby="machine-title">
-      <div class="machine-label"><span>OPEN / VERIFIABLE</span><span>EARLY PUBLIC SEED</span></div>
-      <div class="machine-grid">
-        <div>
-          <p class="section-index">03 / INSIDE</p>
-          <h2 id="machine-title">看得見的<br>語音管線。</h2>
-          <p>Swift 選單列外殼、常駐 MLX daemon、會議 CLI、QA 掃描與審核佇列，全都能在公開 repo 裡閱讀與檢驗。</p>
+  <!-- ═════ 04 · privacy ═════ -->
+  <section class="sec" id="privacy" aria-labelledby="privacy-title">
+    
+    <header class="sec-head">
+      <p class="eyebrow">04 · Privacy</p>
+      <h2 id="privacy-title">Your voice stays on your Mac</h2>
+      <p class="sec-lede">Audio, transcripts, logs, review queues and speaker profiles stay on your machine unless you export them yourself. Dictation needs no server and no account.</p>
+    </header>
+    <div class="privacy-grid">
+      <div>
+        <h3>Where your data lives</h3>
+        <table class="data">
+          <thead><tr><th scope="col">Data</th><th scope="col">Location</th><th scope="col">In the public repo?</th></tr></thead>
+          <tbody>
+            <tr class="repo-no"><th scope="row">Dictation logs</th><td><code>~/.open-dictate/dictation-log/</code></td><td>No</td></tr>
+            <tr class="repo-no"><th scope="row">Meeting transcripts</th><td><code>~/.open-dictate/meetings/</code></td><td>No</td></tr>
+            <tr class="repo-no"><th scope="row">Review queue</th><td><code>~/.open-dictate/review-queue/</code></td><td>No</td></tr>
+            <tr class="repo-default"><th scope="row">Personal glossary</th><td><code>~/.open-dictate/glossaries/</code></td><td>Not by default</td></tr>
+            <tr class="repo-never"><th scope="row">Speaker profiles</th><td><code>~/.open-dictate/speakers/</code></td><td>Never</td></tr>
+            <tr class="repo-yes"><th scope="row">Public test data</th><td><code>fixtures/ · examples/</code></td><td>Yes, fictional only</td></tr>
+          </tbody>
+        </table>
+      </div>
+      <div>
+        <h3>When it does use the network</h3>
+        <ol class="net">
+          <li><strong>Installing.</strong> Python packages come from PyPI.</li>
+          <li><strong>The model.</strong> The first run downloads <code>mlx-community/whisper-large-v3-turbo</code> from Hugging Face. When the daemon loads it, the download library may check for a newer copy; that request names the model and carries none of your audio or text.</li>
+          <li><strong>LLM punctuation, if you turn it on.</strong> It talks to Ollama at <code>127.0.0.1</code>, a server on your own Mac. If you point <code>OPEN_DICTATE_PUNCT_LLM_URL</code> at another machine, your text goes there.</li>
+          <li><strong>Meeting Mode with <code>--model</code>.</strong> A model you name is downloaded the first time.</li>
+        </ol>
+        <p class="net-end">That is the whole list. Once the model is on disk, dictation keeps working without a connection.</p>
+      </div>
+    </div>
+    <figure class="pull pull-voice">
+      <blockquote><p>Speaker embeddings and voiceprints are <strong>biometric data</strong>.</p></blockquote>
+      <figcaption>Keep them local, never commit them, never paste them into issues, and enroll a voice only with consent. Share transcripts with anonymous labels.</figcaption>
+    </figure>
+    <p><a class="more" href="https://github.com/frank890417/open-dictate/blob/main/docs/PRIVACY.md">The full privacy model →</a></p>
+  </section>
+
+  <!-- ═════ 05 · start (people who want to use it) ═════ -->
+  <section class="sec" id="start" aria-labelledby="start-title">
+    
+    <header class="sec-head">
+      <p class="eyebrow">05 · Install</p>
+      <h2 id="start-title">Install it</h2>
+      <p class="sec-lede">Today Open Dictate installs from source with one script. You need an Apple Silicon Mac on macOS 14 or later, Xcode Command Line Tools and Python 3.11 or newer.</p>
+    </header>
+    <div class="start-grid">
+      <div class="start-run">
+        
+      <div class="term ">
+        <div class="term-bar"><span>terminal</span><button type="button" class="copy" data-copy="cmd-install">Copy</button></div>
+        <pre id="cmd-install"><code>git clone https://github.com/frank890417/open-dictate.git
+cd open-dictate
+./install.sh        <span class="tc"># venv, app, LaunchAgents, model warm-up</span></code></pre>
+      </div>
+        <p>The installer creates a virtual environment, builds <code>OpenDictate.app</code> into Applications, writes two LaunchAgents for your clone and warms the model. It reports success only after a real ping to the daemon; a socket file alone does not count.</p>
+        <p class="note">The first run downloads the model, which can take about two minutes. On a slow connection: <code>OPEN_DICTATE_WARM_TIMEOUT=300 ./install.sh</code>.</p>
+      </div>
+      <div>
+        <h3>Then three permissions and one key</h3>
+        <ol class="perms">
+          <li>System Settings → Privacy &amp; Security: allow OpenDictate under <strong>Microphone</strong>, <strong>Accessibility</strong> and <strong>Input Monitoring</strong>.</li>
+          <li>System Settings → Keyboard: set “Press fn key to” to <strong>Do Nothing</strong>. Turn off Apple Dictation’s fn shortcut and quit other dictation apps that use the key.</li>
+          <li>Click into any text field, hold <kbd>fn</kbd>, speak, let go. Prefer right Option? Switch the hotkey from the menu bar.</li>
+        </ol>
+      </div>
+    </div>
+    <div class="start-grid start-more">
+      <div>
+        <h3>When something is off</h3>
+        
+      <div class="term term-quiet">
+        <div class="term-bar"><span>terminal</span><button type="button" class="copy" data-copy="cmd-maint">Copy</button></div>
+        <pre id="cmd-maint"><code>./scripts/doctor.sh            <span class="tc"># read-only checks, then a real ping</span>
+./uninstall.sh                 <span class="tc"># removes the app and LaunchAgents, keeps ~/.open-dictate</span>
+./uninstall.sh --purge-data    <span class="tc"># shows where your data is; never deletes it</span></code></pre>
+      </div>
+        <p class="note">The doctor checks the app, its signature, the LaunchAgents, the clone paths, the socket and a real ping. It changes nothing. It can only remind you about permissions, because it does not read the protected macOS permission database.</p>
+      </div>
+      <div>
+        <h3>Meetings and the glossary, from the terminal</h3>
+        
+      <div class="term term-quiet">
+        <div class="term-bar"><span>terminal</span><button type="button" class="copy" data-copy="cmd-cli">Copy</button></div>
+        <pre id="cmd-cli"><code><span class="tc"># Meeting Mode: a local recording in, a reviewable package out</span>
+python3 daemon/meeting_cli.py transcribe ~/Desktop/meeting.m4a --out /tmp/od-meeting --language zh
+
+<span class="tc"># the review queue: look, then decide</span>
+python3 daemon/glossary/cli.py candidates
+python3 daemon/glossary/cli.py accept cand_xxxxx</code></pre>
+      </div>
+        <p class="note">Mixed English and Chinese? Use <code>--language auto</code>. Output: Markdown, JSONL, SRT, VTT and a JSON summary.</p>
+      </div>
+    </div>
+    <p><a class="more" href="https://github.com/frank890417/open-dictate/blob/main/docs/SETUP.md">Full setup guide →</a></p>
+  </section>
+
+  <!-- ═════ 06 · develop ═════ -->
+  <section class="sec" id="develop" aria-labelledby="develop-title">
+    
+    <header class="sec-head">
+      <p class="eyebrow">06 · Develop</p>
+      <h2 id="develop-title">Build on it</h2>
+      <p class="sec-lede">Two processes and one contract. The Swift app owns the hotkey, the microphone and text insertion; the Python daemon owns transcription and correction. They talk in newline-delimited JSON over a Unix socket, and <code>IO-CONTRACT.md</code> is the source of truth for both.</p>
+    </header>
+    <div class="dev-grid">
+      <div>
+        <h3>Two lanes</h3>
+        
+      <div class="term term-diagram">
+        <div class="term-bar"><span>dictation</span></div>
+        <pre id="arch-dictate"><code>hold fn
+  |
+OpenDictate.app (Swift)       records 16 kHz mono PCM16 WAV
+  |  {"cmd": "transcribe", "wav": "/tmp/...wav", "punct": "smart_zh"}
+  v
+/tmp/open-dictate.sock        newline-delimited JSON
+  |
+dictated.py (Python, warm)
+  |-- MLX Whisper             audio -&gt; raw text
+  |-- glossary pairs          raw -&gt; corrected   (muse_lexicon)
+  |-- punctuation             smart_zh | llm_zh (gated) | raw
+  |-- log                     ~/.open-dictate/dictation-log/
+  v
+{"ok": true, "text": "...", "raw": "...", "changes": [...]}
+  |
+OpenDictate.app  -&gt;  Accessibility insert (paste fallback)  -&gt;  cursor</code></pre>
+      </div>
+        
+      <div class="term term-diagram">
+        <div class="term-bar"><span>meeting mode</span></div>
+        <pre id="arch-meeting"><code>meeting.m4a   or   segments.json / .jsonl
+  |
+meeting_cli.py transcribe
+  |-- MLX Whisper             audio files only
+  |-- glossary pairs          the same deterministic table
+  |-- speaker labels          SPEAKER_00, SPEAKER_01 (anonymous)
+  |-- QA flags                possible mishearings, numbers
+  v
+transcript.md  .jsonl  .srt  .vtt  meeting-result.json</code></pre>
+      </div>
+      </div>
+      <div>
+        <h3>The socket</h3>
+        <p>Five commands. Readers ignore fields they do not know, so the daemon can add diagnostics without breaking the app. <code>no_speech</code> is a normal outcome, not an error.</p>
+        
+      <div class="term term-quiet">
+        <div class="term-bar"><span>IO-CONTRACT.md</span></div>
+        <pre id="proto"><code><span class="tc"># requests: one JSON object per line on /tmp/open-dictate.sock</span>
+{<span class="ts">"cmd"</span>: <span class="ts">"transcribe"</span>, <span class="ts">"wav"</span>: <span class="ts">"/tmp/open-dictate-rec-....wav"</span>, <span class="ts">"punct"</span>: <span class="ts">"smart_zh"</span>}
+{<span class="ts">"cmd"</span>: <span class="ts">"ping"</span>}
+{<span class="ts">"cmd"</span>: <span class="ts">"reload_lexicon"</span>}
+{<span class="ts">"cmd"</span>: <span class="ts">"add_pair"</span>, <span class="ts">"wrong"</span>: <span class="ts">"誤聽"</span>, <span class="ts">"right"</span>: <span class="ts">"正確"</span>, <span class="ts">"source"</span>: <span class="ts">"dictate-ui"</span>}
+{<span class="ts">"cmd"</span>: <span class="ts">"stats"</span>}
+
+<span class="tc"># responses</span>
+{<span class="ts">"ok"</span>: true, <span class="ts">"text"</span>: <span class="ts">"校正後文字"</span>, <span class="ts">"raw"</span>: <span class="ts">"whisper 原始輸出"</span>, <span class="ts">"changes"</span>: [[<span class="ts">"誤聽"</span>, <span class="ts">"正確"</span>]], <span class="ts">"punct"</span>: <span class="ts">"smart_zh"</span>}
+{<span class="ts">"ok"</span>: false, <span class="ts">"error"</span>: <span class="ts">"no_speech"</span>}</code></pre>
+      </div>
+        <p class="note">One constant pair is a contract on its own: the app’s transcription timeout and the daemon’s punctuation budget. Raise one without the other and the app reports the daemon offline while it finishes in the background. The contract explains the formula.</p>
+      </div>
+    </div>
+    <div class="dev-grid dev-more">
+      <div>
+        <h3>Where things are</h3>
+        <table class="comps">
+          <thead><tr><th scope="col">Part</th><th scope="col">Path</th></tr></thead>
+          <tbody>
+            <tr><th scope="row">Swift menu-bar app</th><td><a href="https://github.com/frank890417/open-dictate/tree/main/OpenDictate/"><code>OpenDictate/</code></a></td></tr>
+            <tr><th scope="row">Dictation daemon</th><td><a href="https://github.com/frank890417/open-dictate/blob/main/daemon/dictated.py"><code>daemon/dictated.py</code></a></td></tr>
+            <tr><th scope="row">Meeting CLI</th><td><a href="https://github.com/frank890417/open-dictate/blob/main/daemon/meeting_cli.py"><code>daemon/meeting_cli.py</code></a></td></tr>
+            <tr><th scope="row">Mishearing scanner</th><td><a href="https://github.com/frank890417/open-dictate/blob/main/daemon/qa/mishear_detector.py"><code>daemon/qa/mishear_detector.py</code></a></td></tr>
+            <tr><th scope="row">Review queue</th><td><a href="https://github.com/frank890417/open-dictate/tree/main/daemon/glossary/"><code>daemon/glossary/</code></a></td></tr>
+            <tr><th scope="row">Speaker layer</th><td><a href="https://github.com/frank890417/open-dictate/tree/main/daemon/speaker/"><code>daemon/speaker/</code></a></td></tr>
+            <tr><th scope="row">Starter glossaries</th><td><a href="https://github.com/frank890417/open-dictate/tree/main/vendor/tools/td-subtitle/glossaries/"><code>vendor/tools/td-subtitle/glossaries/</code></a></td></tr>
+            <tr><th scope="row">Glossary engine</th><td><a href="https://github.com/frank890417/open-dictate/blob/main/vendor/tools/muse-lexicon/muse_lexicon.py"><code>vendor/tools/muse-lexicon/muse_lexicon.py</code></a></td></tr>
+            <tr><th scope="row">Dictation log (local)</th><td><code>~/.open-dictate/dictation-log/</code></td></tr>
+          </tbody>
+        </table>
+      </div>
+      <div>
+        <h3>Build and test</h3>
+        
+      <div class="term ">
+        <div class="term-bar"><span>terminal</span><button type="button" class="copy" data-copy="cmd-test">Copy</button></div>
+        <pre id="cmd-test"><code>./build.sh
+python3 -m unittest discover tests
+python3 scripts/golden-bench.py --skip-daemon
+python3 scripts/public-safety-scan.py
+./scripts/smoke-test.sh        <span class="tc"># builds, tests, exports a meeting demo, checks the signed app</span></code></pre>
+      </div>
+        <h4>Before a pull request</h4>
+        <ul class="contrib">
+          <li>Keep examples fictional or public domain.</li>
+          <li>Never commit real audio, transcripts, dictation logs, private paths, personal glossaries or speaker profiles.</li>
+          <li>Prefer deterministic correction and review queues to silent rewriting.</li>
+          <li>Run the safety scan and the tests; run <code>./build.sh</code> if you touched Swift.</li>
+        </ul>
+      </div>
+    </div>
+    <h3 class="docs-title">Docs</h3>
+    <p class="note">Documents mix English and Traditional Chinese; a few are in one language only.</p>
+    <ul class="docs">
+      <li><a href="https://github.com/frank890417/open-dictate/blob/main/IO-CONTRACT.md">IO-CONTRACT.md</a><span>Paths, the socket protocol, glossary schema, correction rules, quality gates</span></li>
+      <li><a href="https://github.com/frank890417/open-dictate/blob/main/docs/SETUP.md">Setup</a><span>Requirements, permissions, hotkey conflicts, doctor, uninstall</span></li>
+      <li><a href="https://github.com/frank890417/open-dictate/blob/main/docs/PRIVACY.md">Privacy model</a><span>Data classes, where they live, what may never be committed</span></li>
+      <li><a href="https://github.com/frank890417/open-dictate/blob/main/docs/MEETING.md">Meeting Mode</a><span>Inputs, the pipeline, the segment schema, the safety rule</span></li>
+      <li><a href="https://github.com/frank890417/open-dictate/blob/main/docs/SELF-EVOLVING-GLOSSARY.md">Self-evolving glossary</a><span>The review loop, its commands and its four buckets</span></li>
+      <li><a href="https://github.com/frank890417/open-dictate/blob/main/docs/SPEAKER-ID.md">Speaker identity</a><span>Anonymous labels now, optional local profiles later</span></li>
+      <li><a href="https://github.com/frank890417/open-dictate/blob/main/docs/MACOS-DISTRIBUTION-ROADMAP.md">macOS distribution</a><span>From install script to a signed, notarized, updatable app</span></li>
+      <li><a href="https://github.com/frank890417/open-dictate/blob/main/docs/MCP-ROADMAP.md">MCP roadmap</a><span>A local, consent-gated MCP server, phase by phase</span></li>
+      <li><a href="https://github.com/frank890417/open-dictate/blob/main/CONTRIBUTING.md">Contributing</a><span>Ground rules and the commands to run</span></li>
+    </ul>
+  </section>
+
+  <!-- ═════ 07 · for AI agents ═════ -->
+  <section class="sec sec-agents" id="agents" aria-labelledby="agents-title">
+    
+    <header class="sec-head">
+      <p class="eyebrow">07 · For agents</p>
+      <h2 id="agents-title">For AI agents</h2>
+      <p class="sec-lede">A coding agent can install, diagnose and extend Open Dictate from a terminal, and everything it needs is plain text: this page, <code>/llms.txt</code> and the contract. What it cannot do is grant macOS permissions; those stay with you.</p>
+    </header>
+    <div class="agents-grid">
+      <div>
+        <h3>Install on this Mac: paste into Claude Code</h3>
+        <div class="term term-prompt">
+          <div class="term-bar"><span>prompt</span><button type="button" class="copy" data-copy="prompt-install">Copy</button></div>
+          <pre id="prompt-install"><code>Clone https://github.com/frank890417/open-dictate and read README.md, docs/SETUP.md and docs/PRIVACY.md first.
+Check that this Mac is Apple Silicon on macOS 14 or later (uname -m, sw_vers). If not, stop and tell me.
+Run ./install.sh. Then run ./scripts/doctor.sh and python3 daemon/dictate_cli.py ping, and report what they say.
+Tell me which three permissions to allow in System Settings and how to set the fn key. You cannot grant them for me.
+
+Do not delete anything under ~/.open-dictate. It holds my glossary and logs.</code></pre>
         </div>
-        <figure class="screenshot-frame">
-          <img src="assets/open-dictate-screenshot.svg" alt="Open Dictate 選單列應用程式介面，顯示本地繁中聽寫與結果">
-        </figure>
       </div>
-    </section>
+      <div>
+        <h3>Change the code: paste into Claude Code</h3>
+        <div class="term term-prompt">
+          <div class="term-bar"><span>prompt</span><button type="button" class="copy" data-copy="prompt-dev">Copy</button></div>
+          <pre id="prompt-dev"><code>Clone https://github.com/frank890417/open-dictate. Read IO-CONTRACT.md before touching daemon/ or OpenDictate/; it is the contract between them.
 
-    <section class="cta" aria-labelledby="cta-title">
-      <p class="eyebrow">YOUR VOICE · YOUR MACHINE · YOUR WORDS</p>
-      <h2 id="cta-title">把聲音留在本機。<br>把決定留給自己。</h2>
-      <div class="cta-links">
-        <a class="button primary" href="https://github.com/frank890417/open-dictate#快速開始--quick-start">閱讀 Quick Start <span aria-hidden="true">↗</span></a>
-        <a href="https://github.com/frank890417/open-dictate/blob/main/docs/PRIVACY.md">Privacy</a>
-        <a href="https://github.com/frank890417/open-dictate/blob/main/LICENSE">MIT License</a>
+Task: &lt;describe the change, e.g. "add a field to the stats response"&gt;
+
+Rules from the repo: correction is glossary pairs only, never sentence rewriting; prefer a missed correction to a wrong one; keep the wire protocol backward compatible; use fictional data in fixtures and tests.
+Done when: python3 -m unittest discover tests, python3 scripts/golden-bench.py --skip-daemon and python3 scripts/public-safety-scan.py pass, and ./build.sh succeeds if Swift changed.</code></pre>
+        </div>
       </div>
-    </section>
-  </main>
+    </div>
+    <div class="agents-grid">
+      <div>
+        <h3>Machine-readable</h3>
+        <ul class="files">
+          <li><a href="./llms.txt">/llms.txt</a><span>What this is, the pipeline, the rules, every doc, in llmstxt.org format</span></li>
+          <li><a href="./llms-full.txt">/llms-full.txt</a><span>README, IO-CONTRACT.md and every doc in one file</span></li>
+          <li><a href="https://github.com/frank890417/open-dictate/blob/main/IO-CONTRACT.md">IO-CONTRACT.md</a><span>The source of truth between the app, the daemon and the glossary engine</span></li>
+          <li><code>application/ld+json</code><span>This page carries SoftwareApplication JSON-LD</span></li>
+          <li><a href="./zh/" hreflang="zh-Hant">/zh/</a><span>This page in Traditional Chinese</span></li>
+        </ul>
+      </div>
+      <div>
+        <h3>MCP: planned, not shipped</h3>
+        <p>There is no MCP server yet. The roadmap starts with a local, read-only stdio server for status, capabilities and glossary counts, and adds actions only behind consent given at the moment of use. Recording from the microphone stays an app interaction: no background or blanket consent.</p>
+        <p><a class="more" href="https://github.com/frank890417/open-dictate/blob/main/docs/MCP-ROADMAP.md">The MCP roadmap →</a></p>
+      </div>
+    </div>
+  </section>
 
-  <footer>
-    <span>OPEN DICTATE</span>
-    <p>Local-first Traditional Chinese dictation for macOS.</p>
-    <a href="https://github.com/frank890417/open-dictate">github.com/frank890417/open-dictate ↗</a>
-  </footer>
+  <!-- ═════ 08 · lineage ═════ -->
+  <section class="sec" id="lineage" aria-labelledby="lineage-title">
+    
+    <header class="sec-head">
+      <p class="eyebrow">08 · Lineage</p>
+      <h2 id="lineage-title">Where it came from</h2>
+      
+    </header>
+    <div class="lineage-grid">
+      <div class="prose">
+        <p>Open Dictate was extracted from a private dictation tool used every day, then rebuilt as a public-safe repository with no history: no recordings, no transcripts, no personal glossary, only the engine, the contract and fictional examples.</p>
+        <p>The public repository is now the single source of truth. The author’s private build keeps only personal settings and adapters on top of this same core and packaging pipeline. Its sibling, <a href="https://openaudiovisual.com/">open-audiovisual</a>, was opened the same way: a tool that served real work first.</p>
+      </div>
+      <figure class="pull">
+        <blockquote><p>The system may flag and suggest, but it must not <strong>silently rewrite meaning</strong>.</p></blockquote>
+        <figcaption>Design rule · README</figcaption>
+      </figure>
+    </div>
+    <h3>Next, from the roadmap</h3>
+    <ol class="next">
+      <li>Local speaker profiles, enrolled with consent, stored only on your Mac</li>
+      <li>A menu-bar view for reviewing glossary candidates</li>
+      <li>Import and export for glossary packages you own</li>
+      <li>An app that runs without the clone, developer Python or Xcode tools</li>
+      <li>A Developer ID signed, notarized DMG tested on clean Macs</li>
+      <li>Signed in-app updates, rollback, Stable and Beta channels</li>
+    </ol>
+    <p><a class="more" href="https://github.com/frank890417/open-dictate#路線圖--roadmap">Roadmap in the README →</a></p>
+  </section>
+
+</main>
+
+<footer class="foot">
+  <p class="foot-mark" aria-hidden="true">open-dictate</p>
+  <div class="foot-grid">
+    <div>
+      <p>MIT License. Made by <a href="https://cheyuwu.com/">Che-Yu Wu</a>.</p>
+      <p class="note">A sibling of <a href="https://openaudiovisual.com/">open-audiovisual</a>.</p>
+    </div>
+    <nav aria-label="Machine-readable">
+      <a href="https://github.com/frank890417/open-dictate">GitHub</a>
+      <a href="./llms.txt">llms.txt</a>
+      <a href="./llms-full.txt">llms-full.txt</a>
+      <a href="https://github.com/frank890417/open-dictate/blob/main/IO-CONTRACT.md">IO-CONTRACT.md</a>
+    </nav>
+  </div>
+</footer>
+
+<script type="application/json" id="od-demo">{"u":[{"dur":3.4,"ignored":false,"segs":[{"t":"幫我把 "},{"t":"TouchDesigner","was":"touch designer"},{"t":" 的檔案放上 "},{"t":"GitHub","was":"git hub"},{"t":" 的專案頁，明天下午三點前寄給大家。"}],"rows":["3.4 s · 16 kHz mono","幫我把 touch designer 的檔案放上 git hub 的專案頁,明天下午三點前寄給大家.",["touch designer → TouchDesigner","git hub → GitHub"],", → ，   . → 。","typed at the cursor"],"wire":"→ {\"cmd\": \"transcribe\", \"wav\": \"/tmp/open-dictate-rec-….wav\", \"punct\": \"smart_zh\"}\n← {\"ok\": true,\n   \"text\": \"幫我把 TouchDesigner 的檔案放上 GitHub 的專案頁，明天下午三點前寄給大家。\",\n   \"raw\": \"幫我把 touch designer 的檔案放上 git hub 的專案頁,明天下午三點前寄給大家.\",\n   \"changes\": [[\"touch designer\", \"TouchDesigner\"], [\"git hub\", \"GitHub\"]],\n   \"punct\": \"smart_zh\"}","teach":null,"teachWire":"","note":"“Put the TouchDesigner files on the GitHub project page and send them to everyone before 3 p.m. tomorrow.” Two pairs you taught fired. The time stays as spoken."},{"dur":3.1,"ignored":false,"segs":[{"t":"那個","was":"那個那個那個那個"},{"t":"，我們下週在"},{"t":"台灣","was":"臺灣"},{"t":"辦一場工作坊，名額三十人。"}],"rows":["3.1 s · 16 kHz mono","那個那個那個那個,我們下週在臺灣辦一場工作坊,名額三十人.",["那個那個那個那個 → 那個","臺灣 → 台灣"],", → ，   . → 。","typed at the cursor"],"wire":"→ {\"cmd\": \"transcribe\", \"wav\": \"/tmp/open-dictate-rec-….wav\", \"punct\": \"smart_zh\"}\n← {\"ok\": true,\n   \"text\": \"那個，我們下週在台灣辦一場工作坊，名額三十人。\",\n   \"raw\": \"那個那個那個那個,我們下週在臺灣辦一場工作坊,名額三十人.\",\n   \"changes\": [[\"那個那個那個那個\", \"那個\"], [\"臺灣\", \"台灣\"]],\n   \"punct\": \"smart_zh\"}","teach":null,"teachWire":"","note":"“Um, we are running a workshop in Taiwan next week, thirty seats.” The starter glossary folds the repeated filler and normalises 臺 to 台. The number 三十 is left exactly as said."},{"dur":0.3,"ignored":true,"segs":[],"rows":["0.3 s \u003c 0.5 s","—","—","—","nothing typed"],"wire":"(nothing sent)","teach":null,"teachWire":"","note":"A 0.3-second tap. Presses under half a second are dropped before anything runs, so a brushed key never becomes words."},{"dur":2.2,"ignored":false,"segs":[{"t":"記得把筆記同步到"},{"t":"阿布西店","heard":true},{"t":"。"}],"rows":["2.2 s · 16 kHz mono","記得把筆記同步到阿布西店.",["no pair matched, nothing changed"],". → 。","typed at the cursor"],"wire":"→ {\"cmd\": \"transcribe\", \"wav\": \"/tmp/open-dictate-rec-….wav\", \"punct\": \"smart_zh\"}\n← {\"ok\": true,\n   \"text\": \"記得把筆記同步到阿布西店。\",\n   \"raw\": \"記得把筆記同步到阿布西店.\",\n   \"changes\": [],\n   \"punct\": \"smart_zh\"}","teach":["阿布西店","Obsidian"],"teachWire":"→ {\"cmd\": \"add_pair\", \"wrong\": \"阿布西店\", \"right\": \"Obsidian\", \"source\": \"dictate-ui\"}\n← {\"ok\": true}","note":"“Remember to sync the notes to Obsidian.” Whisper heard 阿布西店 and no pair matches, so the mishearing goes in as heard. Nothing is guessed. You teach the pair once."},{"dur":2.3,"ignored":false,"segs":[{"t":"記得把筆記同步到"},{"t":"Obsidian","was":"阿布西店"},{"t":"。"}],"rows":["2.3 s · 16 kHz mono","記得把筆記同步到阿布西店.",["阿布西店 → Obsidian"],". → 。","typed at the cursor"],"wire":"→ {\"cmd\": \"transcribe\", \"wav\": \"/tmp/open-dictate-rec-….wav\", \"punct\": \"smart_zh\"}\n← {\"ok\": true,\n   \"text\": \"記得把筆記同步到Obsidian。\",\n   \"raw\": \"記得把筆記同步到阿布西店.\",\n   \"changes\": [[\"阿布西店\", \"Obsidian\"]],\n   \"punct\": \"smart_zh\"}","teach":null,"teachWire":"","note":"The same sentence, next time: the pair you taught fires."}],"s":{"idle":"Hold fn to dictate the next line.","auto":"The demo is dictating. Hold fn to take over.","you":"Your turn: the words are scripted, the length of your press is real.","rec":"Recording. Let go to transcribe.","short":"Shorter than 0.5 s, so it is ignored: nothing sent, nothing typed.","teach":"Taught once from the menu bar. The next time, the pair applies.","typed":"typed at the cursor","transcribing":"transcribing…","taught":"taught from the menu bar","nothingSent":"(nothing sent)","copy":"Copy","copied":"Copied"}}</script>
+<script src="./assets/site.js" defer></script>
 </body>
 </html>
