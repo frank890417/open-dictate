@@ -39,7 +39,7 @@ Responses:
 
 ```json
 {"ok": true, "text": "校正後文字", "raw": "whisper 原始輸出", "changes": [["誤聽", "正確"]], "punct": "smart_zh", "asr_ms": 210, "total_ms": 260}
-{"ok": true, "pong": true, "model": "mlx-community/whisper-large-v3-turbo", "warm": true, "version": "0.6.0", "punct_llm": {"enabled": true, "loading": false, "ready_age_s": 12.3, "last_load_s": 8.9, "last_error": null}}
+{"ok": true, "pong": true, "model": "mlx-community/whisper-large-v3-turbo", "warm": true, "version": "0.6.1", "punct_llm": {"enabled": true, "loading": false, "ready_age_s": 12.3, "last_load_s": 8.9, "last_error": null}}
 {"ok": false, "error": "no_speech"}
 ```
 
