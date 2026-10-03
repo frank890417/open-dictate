@@ -72,7 +72,7 @@ def validate_product(value: dict) -> None:
     product = value["product"]
     product_keys = {"id", "name", "bundleIdentifier", "executable", "daemonLaunchAgentLabel",
                     "shellLaunchAgentLabel", "environmentPrefix", "dataRoot", "logRoot"}
-    require_keys(product, product_keys, product_keys, "product.product")
+    require_keys(product, product_keys, product_keys | {"runtimeLogRoot", "signingIdentity"}, "product.product")
     if not isinstance(product["name"], str) or not product["name"]:
         raise ContractError("product.product.name: required")
     dotted = r"[A-Za-z0-9-]+(?:\.[A-Za-z0-9-]+)+"
@@ -85,9 +85,19 @@ def validate_product(value: dict) -> None:
     for key in ("dataRoot", "logRoot"):
         if not isinstance(product[key], str) or not product[key]:
             raise ContractError(f"product.product.{key}: required")
+    for key in ("runtimeLogRoot", "signingIdentity"):
+        if key in product and (not isinstance(product[key], str) or not product[key].strip()):
+            raise ContractError(f"product.product.{key}: must be a non-empty string when present")
+    identity = product.get("signingIdentity", "")
+    if any(c in identity for c in "\n\r\0"):
+        raise ContractError("product.product.signingIdentity: control characters not allowed")
     runtime = value["runtime"]
     runtime_keys = {"socketPath", "wireProtocolVersion", "updateChannel", "priorityTerms"}
-    require_keys(runtime, runtime_keys, runtime_keys, "product.runtime")
+    require_keys(runtime, runtime_keys, runtime_keys | {"model", "promptCoreTerms"}, "product.runtime")
+    if "model" in runtime:
+        require_pattern(runtime["model"], r"[A-Za-z0-9][A-Za-z0-9._/-]*", "product.runtime.model")
+    if "promptCoreTerms" in runtime and not isinstance(runtime["promptCoreTerms"], str):
+        raise ContractError("product.runtime.promptCoreTerms: must be a string")
     require_pattern(runtime["socketPath"], r"/tmp/[A-Za-z0-9._-]+\.sock", "product.runtime.socketPath")
     require_pattern(runtime["wireProtocolVersion"], r"\d+\.\d+", "product.runtime.wireProtocolVersion")
     if runtime["updateChannel"] not in {"stable", "beta"}:

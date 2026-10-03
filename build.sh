@@ -50,8 +50,8 @@ printf 'APPL????' > "$APP/Contents/PkgInfo"
 
 plutil -lint "$APP/Contents/Info.plist" >/dev/null
 
-SIGN_ID="OpenDictate Local Signing"
-if security find-identity -v -p codesigning 2>/dev/null | grep -q "$SIGN_ID"; then
+SIGN_ID="${PRODUCT_SIGNING_IDENTITY:-OpenDictate Local Signing}"
+if security find-identity -v -p codesigning 2>/dev/null | grep -qF "$SIGN_ID"; then
   echo "▸ codesign（穩定本機憑證：$SIGN_ID — 簽章跨 build 不變，TCC 授權存活）"
   codesign --force --deep --sign "$SIGN_ID" "$APP"
 else

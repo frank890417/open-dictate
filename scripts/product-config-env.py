@@ -43,6 +43,11 @@ def main() -> int:
         "PRODUCT_ENV_PREFIX": p["environmentPrefix"],
         "PRODUCT_PRIORITY_TERMS": r["priorityTerms"],
         "PRODUCT_LEXICON_PROVIDER": lex["provider"],
+        # Optional fields: empty string means "use the built-in default".
+        "PRODUCT_MODEL": r.get("model", ""),
+        "PRODUCT_PROMPT_CORE_TERMS": r.get("promptCoreTerms", ""),
+        "PRODUCT_SIGNING_IDENTITY": p.get("signingIdentity", ""),
+        "PRODUCT_RUNTIME_LOG_ROOT": p.get("runtimeLogRoot") or f"{p['dataRoot'].rstrip('/')}/runtime-logs",
     }
     if lex["provider"] == "bundled":
         lexicon_root = ROOT / lex["starterBundle"]

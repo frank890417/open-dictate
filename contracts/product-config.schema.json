@@ -20,7 +20,11 @@
         "shellLaunchAgentLabel": {"type": "string", "pattern": "^[A-Za-z0-9-]+(\\.[A-Za-z0-9-]+)+$"},
         "environmentPrefix": {"type": "string", "pattern": "^[A-Z][A-Z0-9_]+$"},
         "dataRoot": {"type": "string", "minLength": 1},
-        "logRoot": {"type": "string", "minLength": 1}
+        "logRoot": {"type": "string", "minLength": 1},
+        "runtimeLogRoot": {"type": "string", "minLength": 1,
+          "description": "Where launchd stdout/stderr logs go. Default: <dataRoot>/runtime-logs."},
+        "signingIdentity": {"type": "string", "minLength": 1,
+          "description": "codesign identity (keychain certificate name). Default: 'OpenDictate Local Signing', then ad-hoc."}
       }
     },
     "runtime": {
@@ -31,7 +35,11 @@
         "socketPath": {"type": "string", "pattern": "^/tmp/[A-Za-z0-9._-]+\\.sock$"},
         "wireProtocolVersion": {"type": "string", "pattern": "^[0-9]+\\.[0-9]+$"},
         "updateChannel": {"enum": ["stable", "beta"]},
-        "priorityTerms": {"type": "string"}
+        "priorityTerms": {"type": "string"},
+        "model": {"type": "string", "pattern": "^[A-Za-z0-9][A-Za-z0-9._/-]*$",
+          "description": "ASR model (Hugging Face repo or local path). Default: the daemon's built-in default."},
+        "promptCoreTerms": {"type": "string",
+          "description": "Terms (separated by the ideographic comma) that must survive Whisper prompt budgeting, e.g. the user's own name."}
       }
     },
     "lexicon": {
