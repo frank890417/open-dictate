@@ -6,12 +6,14 @@
      --flag  something left as heard, planned, or never allowed to leave the Mac
    Ornament = things the pipeline actually does: a caret, a waveform, the socket's JSON. */
 
+/* font-display: optional + preload: the fonts are used when they arrive with the first paint (almost
+   always: 64 KB, preloaded); otherwise the page keeps its fallback rather than reflowing under the reader. */
 @font-face { font-family: 'Archivo'; src: url(fonts/archivo-var-latin.woff2) format('woff2');
-  font-weight: 400 800; font-stretch: 100% 112%; font-display: swap; }
+  font-weight: 400 800; font-stretch: 100% 112%; font-display: optional; }
 @font-face { font-family: 'DM Mono'; src: url(fonts/dm-mono-400-latin.woff2) format('woff2');
-  font-weight: 400; font-display: swap; }
+  font-weight: 400; font-display: optional; }
 @font-face { font-family: 'DM Mono'; src: url(fonts/dm-mono-500-latin.woff2) format('woff2');
-  font-weight: 500; font-display: swap; }
+  font-weight: 500; font-display: optional; }
 
 :root {
   --ink: #0b0b0c; --ink-2: #111113; --ink-3: #18181b; --void: #050506;

@@ -302,6 +302,8 @@ export function renderPage(t, { locale, other, version }) {
 <meta name="twitter:card" content="summary_large_image">
 <link rel="icon" href="${FAVICON}">
 <link rel="preload" href="${root}assets/fonts/archivo-var-latin.woff2" as="font" type="font/woff2" crossorigin>
+<link rel="preload" href="${root}assets/fonts/dm-mono-400-latin.woff2" as="font" type="font/woff2" crossorigin>
+<link rel="preload" href="${root}assets/fonts/dm-mono-500-latin.woff2" as="font" type="font/woff2" crossorigin>
 <link rel="stylesheet" href="${root}assets/site.css">
 <noscript><style>.key { pointer-events: none; } .key-hint, .copy, .status #status-text { display: none; }</style></noscript>
 <script type="application/ld+json">

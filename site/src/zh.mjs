@@ -32,7 +32,7 @@ export default {
     langLabel: '語言',
     copy: '複製',
     copied: '已複製',
-    home: 'Open Dictate 首頁',
+    home: 'open-dictate 首頁',
   },
 
   hero: {

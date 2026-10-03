@@ -32,7 +32,7 @@ export default {
     langLabel: 'Language',
     copy: 'Copy',
     copied: 'Copied',
-    home: 'Open Dictate home',
+    home: 'open-dictate: home',
   },
 
   hero: {
