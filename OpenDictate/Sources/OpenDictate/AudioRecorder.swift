@@ -11,6 +11,16 @@ struct RecordingResult {
     let wallSeconds: Double
     /// 實際收到的音訊長度
     let audioSeconds: Double
+    /// 整段錄音裡最大聲那個 buffer 的 RMS（0–1）；判斷「麥克風收到靜音」用
+    let peakRMS: Float
+    /// 這次實際錄音的裝置名稱（給提示訊息用）
+    let deviceName: String
+
+    /// daemon 的能量閘門是整段 RMS < 2e-4 就判 no_speech（dictated.py SILENCE_RMS）。
+    /// 連最大聲的 buffer 都低於它＝整段一定低於它，送 daemon 也只會拿回 no_speech；
+    /// 這種情況通常是麥克風被靜音（例如筆電闔蓋的內建麥克風，實測 -91 dB 平線），要明講不要安靜回 idle。
+    static let silentPeakRMS: Float = 2e-4
+    var isSilent: Bool { peakRMS < Self.silentPeakRMS }
 }
 
 enum AudioRecorderError: Error, CustomStringConvertible {
@@ -38,6 +48,8 @@ final class AudioRecorder {
     private var engine: AVAudioEngine?
     private var resampler: PCM16Resampler?
     private var startedAt: Date?
+    private var peakRMS: Float = 0
+    private var deviceName = "系統預設麥克風"
 
     /// 即時音量回呼（main thread；0.0-1.0，給 HUD 波形用）。
     var onLevel: ((Float) -> Void)?
@@ -53,13 +65,16 @@ final class AudioRecorder {
 
         let newEngine = AVAudioEngine()
 
-        // 偏好麥克風（系統預設則跳過）
-        if let uid = DictateSettings.preferredMicUID,
-           let deviceID = MicDevice.audioDeviceID(forUID: uid) {
+        // 偏好麥克風 → 系統預設；闔蓋時跳過內建麥克風（MicDevice.resolveRecordingDevice）
+        let resolved = MicDevice.resolveRecordingDevice()
+        if let note = resolved.note { mdLog("⚠️ \(note)") }
+        deviceName = resolved.name
+        if let deviceID = resolved.deviceID, deviceID != MicDevice.defaultInputDeviceID() || DictateSettings.preferredMicUID != nil {
             if Self.setInputDevice(newEngine.inputNode, deviceID: deviceID) {
-                mdLog("使用指定麥克風 deviceID=\(deviceID) uid=\(uid.prefix(12))…")
+                mdLog("使用麥克風「\(resolved.name)」deviceID=\(deviceID)")
             } else {
                 mdLog("⚠️ 切換麥克風失敗，改用系統預設")
+                deviceName = MicDevice.defaultInputDeviceID().flatMap(MicDevice.name(of:)) ?? "系統預設麥克風"
             }
         }
 
@@ -73,16 +88,19 @@ final class AudioRecorder {
         }
 
         input.installTap(onBus: 0, bufferSize: 4096, format: hwFormat) { [weak self] buffer, _ in
-            self?.queue.async { [weak self] in
-                self?.resampler?.append(buffer)
-            }
-            if let onLevel = self?.onLevel,
-               let data = buffer.floatChannelData?[0] {
+            var rms: Float = 0
+            if let data = buffer.floatChannelData?[0], buffer.frameLength > 0 {
                 let n = Int(buffer.frameLength)
-                guard n > 0 else { return }
                 var acc: Float = 0
                 for i in 0..<n { acc += data[i] * data[i] }
-                let rms = (acc / Float(n)).squareRoot()
+                rms = (acc / Float(n)).squareRoot()
+            }
+            self?.queue.async { [weak self] in
+                guard let self else { return }
+                self.resampler?.append(buffer)
+                if rms > self.peakRMS { self.peakRMS = rms }
+            }
+            if let onLevel = self?.onLevel, buffer.frameLength > 0 {
                 let level = min(1.0, rms * 9)
                 DispatchQueue.main.async { onLevel(level) }
             }
@@ -96,7 +114,7 @@ final class AudioRecorder {
             throw AudioRecorderError.engineStartFailed(error.localizedDescription)
         }
 
-        queue.sync { self.resampler = newResampler }
+        queue.sync { self.resampler = newResampler; self.peakRMS = 0 }
         engine = newEngine
         startedAt = Date()
         mdLog("錄音開始（hw: \(Int(hwFormat.sampleRate))Hz \(hwFormat.channelCount)ch）")
@@ -113,15 +131,18 @@ final class AudioRecorder {
 
         var pcm = Data()
         var audioSeconds = 0.0
+        var peak: Float = 0
         queue.sync {
             if let r = self.resampler {
                 pcm = r.finish()
                 audioSeconds = r.outputSeconds
             }
             self.resampler = nil
+            peak = self.peakRMS
         }
-        mdLog(String(format: "錄音結束：wall %.2fs, audio %.2fs, %d bytes", wall, audioSeconds, pcm.count))
-        return RecordingResult(pcm16: pcm, wallSeconds: wall, audioSeconds: audioSeconds)
+        let peakDB = 20 * log10(max(peak, 1e-7))
+        mdLog(String(format: "錄音結束：wall %.2fs, audio %.2fs, %d bytes, peak %.1f dB（%@）", wall, audioSeconds, pcm.count, peakDB, deviceName))
+        return RecordingResult(pcm16: pcm, wallSeconds: wall, audioSeconds: audioSeconds, peakRMS: peak, deviceName: deviceName)
     }
 
     func abort() {

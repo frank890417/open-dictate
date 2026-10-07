@@ -88,6 +88,16 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             return
         }
 
+        // 錄到的是靜音（麥克風被靜音／選錯裝置）：送 daemon 也只會 no_speech，直接告訴使用者是哪支麥克風。
+        if result.isSilent {
+            mdLog(String(format: "麥克風收到靜音（%@，peak RMS %.1e）→ 不送 daemon", result.deviceName, result.peakRMS))
+            let hint = MicDevice.isLidClosed()
+                ? "筆電闔著，請接上或在選單「麥克風」選一支外接麥克風"
+                : "到選單「麥克風」換一支，或檢查麥克風是否靜音"
+            showError("麥克風收到靜音", body: "「\(result.deviceName)」沒有聲音。\(hint)", detail: result.deviceName)
+            return
+        }
+
         let wavPath = Self.makeWavPath()
         do {
             try WavWriter.write(pcm16: result.pcm16, to: URL(fileURLWithPath: wavPath))
@@ -302,12 +312,12 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         }
     }
 
-    private func showError(_ title: String, body: String) {
+    private func showError(_ title: String, body: String, detail: String? = nil) {
         state = .idle
         statusController.setState(.error)
         statusController.setLastResult("⚠️ \(title)：\(body)")
         if DictateSettings.hudEnabled {
-            hud.show(.error(message: title))
+            hud.show(.error(message: title, detail: detail))
         } else {
             hud.hide()
         }

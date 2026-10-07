@@ -7,6 +7,7 @@ import AVFoundation
 ///   OpenDictate --probe-reload                    # reload_lexicon
 ///   OpenDictate --probe-transcribe <wav 路徑>     # 送 transcribe
 ///   OpenDictate --probe-wav <輸出路徑>            # 無麥克風：合成 48k 正弦波 → 轉檔管線 → 16k mono PCM16 wav
+///   OpenDictate --probe-mic                       # 印出這次錄音會用哪支麥克風、為什麼（不錄音）
 ///
 /// exit code：0 = 拿到合法 daemon 回應（含 ok:false，如 no_speech）或 wav 產出成功；
 ///            2 = 傳輸層失敗（連不上 / timeout / 格式錯）；64 = 用法錯誤。
@@ -30,6 +31,14 @@ enum ProbeCLI {
                 return 64
             }
             return probeRoundTrip(.transcribe(wavPath: arguments[2], punct: DictateSettings.punctMode))
+        case "--probe-mic":
+            let r = MicDevice.resolveRecordingDevice()
+            print("lid_closed=\(MicDevice.isLidClosed())")
+            print("preferred_uid=\(DictateSettings.preferredMicUID ?? "（系統預設）")")
+            print("system_default=\(MicDevice.defaultInputDeviceID().flatMap(MicDevice.name(of:)) ?? "?")")
+            print("will_use=\(r.name)" + (r.deviceID.map { " deviceID=\($0)" } ?? ""))
+            print("note=\(r.note ?? "—")")
+            return 0
         case "--probe-wav":
             guard arguments.count >= 3 else {
                 FileHandle.standardError.write(Data("用法：--probe-wav <輸出 wav 路徑>\n".utf8))
