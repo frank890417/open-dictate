@@ -1296,7 +1296,9 @@ class DictationDaemon:
                                     total_ms=self._ms(t_total0), pre_asr_ms=pre_asr_ms,
                                     load_ms=load_ms, lex_ms=0, punct_ms=0,
                                     error="asr_failed",
-                                    diag={"uid": uid, "asr_fallback": str(e)[:200]} if router is not None else None)
+                                    diag={"uid": uid, "asr_fallback": str(e)[:200],
+                                          "tag": str(req["tag"])[:40] if req.get("tag") else None}
+                                    if router is not None else None)
                 return {"ok": False, "error": "asr_failed"}
             raw = (result.get("text") or "").strip()
             deloop, deloop_why = self._clean_asr(result)

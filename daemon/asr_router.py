@@ -78,6 +78,7 @@ class RemoteAsr:
         self.timeout_streak = 0
         self.last_error: str | None = None
         self.last_ok_at: float | None = None
+        self.healthy_at: float | None = None
         self.engine_version: str | None = None
 
     def available(self) -> bool:
@@ -95,6 +96,8 @@ class RemoteAsr:
             data = json.loads(r.read() or b"{}")
             conn.close()
             self.engine_version = data.get("engine")
+            if data.get("ok"):
+                self.healthy_at = time.monotonic()
             return data
         except (OSError, ValueError, http.client.HTTPException):
             return None
@@ -356,7 +359,9 @@ class AsrRouter:
 
     @property
     def warm(self) -> bool:
-        return self.local.ready.is_set() or bool(self.remote and self.remote.last_ok_at)
+        """Can transcribe right now without loading a model: local worker warm, or the remote answered."""
+        return self.local.ready.is_set() or bool(self.remote and self.remote.available()
+                                                  and (self.remote.last_ok_at or self.remote.healthy_at))
 
     def status(self) -> dict:
         return {"main": self.main, "shadow": self.shadow_model or None,
