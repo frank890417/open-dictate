@@ -26,6 +26,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         statusController.onCheckDaemon = { [weak self] in self?.pingDaemon() }
         statusController.onRestartDaemon = { [weak self] in self?.restartDaemon() }
         statusController.onReportMishear = { [weak self] wrong, right in self?.addLexiconPair(wrong: wrong, right: right) }
+        statusController.onSetAsrMode = { [weak self] mode in self?.setAsrMode(mode) }
         statusController.onOpenSettings = { [weak self] in self?.openSettings() }
         statusController.onOpenLog = { [weak self] in self?.statusController.openTodayLog() }
         statusController.onHotkeyChanged = { [weak self] in self?.hotkeyMonitor.reconfigure() }
@@ -199,10 +200,12 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
                 switch outcome {
                 case .success(let r) where r.ok && r.pong:
                     let warm = (r.warm ?? false) ? "warm" : "cold"
-                    let model = r.model?.split(separator: "/").last.map(String.init) ?? "?"
+                    let model = (r.asrMain ?? r.model)?.split(separator: "/").last.map(String.init) ?? "?"
                     self?.lastDaemonModel = model
                     let ver = r.version.map { " v\($0)" } ?? ""
-                    let status = "線上 ✓（\(model), \(warm)\(ver)）"
+                    let modeLabel = r.mode == "fast" ? "快・" : (r.mode == "accurate" ? "準・" : "")
+                    let status = "線上 ✓（\(modeLabel)\(model), \(warm)\(ver)）"
+                    self?.statusController.setAsrMode(r.mode)
                     self?.statusController.setDaemonStatus(status)
                     self?.settingsWindow.setDaemonStatus(status, model: r.model)
                 case .success:
@@ -211,6 +214,28 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
                 case .failure:
                     self?.statusController.setDaemonStatus("離線 ✗")
                     self?.settingsWindow.setDaemonStatus("離線 ✗")
+                }
+            }
+        }
+    }
+
+    /// 切辨識模式（daemon v0.7+）：daemon 當場換模型，下一句生效，不用重啟。
+    private func setAsrMode(_ mode: String) {
+        let client = SocketClient(timeout: 5)
+        socketQueue.async { [weak self] in
+            let outcome = Result { try client.roundTrip(.setMode(mode)) }
+            DispatchQueue.main.async {
+                switch outcome {
+                case .success(let r) where r.ok:
+                    self?.statusController.setAsrMode(r.mode)
+                    let label = r.mode == "fast" ? "快" : "準"
+                    Notifier.notify(title: "辨識模式：\(label)", body: r.asrMain ?? "")
+                    self?.pingDaemon()
+                case .success(let r):
+                    Notifier.notify(title: "切換辨識模式失敗", body: r.error ?? "daemon 不支援（要 v0.7＋router 模式）")
+                case .failure(let e):
+                    let why = (e as? SocketClientError)?.description ?? e.localizedDescription
+                    Notifier.notify(title: "切換辨識模式失敗", body: why)
                 }
             }
         }

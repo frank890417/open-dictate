@@ -30,6 +30,16 @@
         "right": {"type": "string", "minLength": 1},
         "source": {"type": "string", "minLength": 1, "default": "dictate-ui"}
       }
+    },
+    {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["cmd", "mode"],
+      "description": "daemon ≥0.7.0, ASR_BACKEND=router: switch recognition mode without restarting",
+      "properties": {
+        "cmd": {"const": "set_mode"},
+        "mode": {"enum": ["fast", "accurate", "快", "準"]}
+      }
     }
   ]
 }

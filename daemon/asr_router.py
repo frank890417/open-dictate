@@ -311,25 +311,45 @@ class LocalWorker:
 # ---------------------------------------------------------------------------
 # Router
 # ---------------------------------------------------------------------------
+# Remote budget per model kind: clip seconds × RTF + BASE. Sized from Studio measurements
+# (2026-10-16, real dictation audio): whisper-large-v3 69–132 ms per second of audio,
+# Qwen3-ASR 1.7B 38–67 ms, plus 12–42 ms network; BASE also absorbs one lower-priority
+# shadow job already running on the server. A remote slower than ~3× its normal time is
+# treated as broken and the local worker takes over.
+REMOTE_BUDGET = {"whisper-v3": (0.25, 1.5), "whisper": (0.15, 1.2), "qwen3_asr": (0.15, 1.2)}
+
+
 class AsrRouter:
     def __init__(self, main_model: str, *, shadow_model: str = "", remote_url: str = "",
                  token: str | None = None, worker_python: str | None = None, log=print,
-                 remote_rtf: float = 0.1, remote_base_s: float = 0.5) -> None:
+                 remote_rtf: float | None = None, remote_base_s: float | None = None,
+                 local_models: list[str] | None = None) -> None:
         self.main = E.resolve(main_model)
         self.shadow_model = E.resolve(shadow_model) if shadow_model else ""
         self.log = log
-        self.remote_rtf, self.remote_base_s = remote_rtf, remote_base_s
+        self.remote_rtf, self.remote_base_s = remote_rtf, remote_base_s   # None = per-model REMOTE_BUDGET
         self.remote = RemoteAsr(remote_url, token, log) if remote_url and token else None
         if remote_url and not token:
             log("⚠️ asr remote configured but no token → local only")
-        self.local = LocalWorker(worker_python or sys.executable, [self.main], log)
+        # The local worker keeps every model a mode can switch to, so a fallback after a
+        # mode switch is still the same model (current main first: it is warm soonest).
+        lm = [self.main] + [E.resolve(m) for m in (local_models or []) if E.resolve(m) != self.main]
+        self.local = LocalWorker(worker_python or sys.executable, lm, log)
         self._shadow_q: queue.Queue = queue.Queue(maxsize=4)
-        if self.remote and self.shadow_model:
+        if self.remote:
             threading.Thread(target=self._shadow_loop, name="asr-shadow", daemon=True).start()
 
     @property
     def native_punct(self) -> bool:
         return bool(E.spec(self.main)["native_punct"])
+
+    def set_models(self, main: str, shadow: str = "") -> None:
+        """Switch the main/shadow model at runtime (mode switch). Takes effect on the next utterance."""
+        main = E.resolve(main)
+        if self.local.models and main not in self.local.models:
+            raise ValueError(f"model {main} is not loaded by the local worker")
+        self.main = main
+        self.shadow_model = E.resolve(shadow) if shadow else ""
 
     def start(self) -> None:
         self.local.start()
@@ -367,13 +387,19 @@ class AsrRouter:
         return {"main": self.main, "shadow": self.shadow_model or None,
                 "remote": self.remote.status() if self.remote else None, "local": self.local.status()}
 
-    def remote_timeout(self, dur: float) -> float:
-        return dur * self.remote_rtf + self.remote_base_s
+    def remote_timeout(self, dur: float, model: str | None = None) -> float:
+        s = E.spec(model or self.main)
+        rtf, base = REMOTE_BUDGET.get(s["key"]) or REMOTE_BUDGET.get(s["kind"]) or (0.15, 1.2)
+        if self.remote_rtf is not None:
+            rtf = self.remote_rtf
+        if self.remote_base_s is not None:
+            base = self.remote_base_s
+        return dur * rtf + base
 
     # -------------------------------------------------------------- main path
     def transcribe(self, audio, dur: float, prompt: str | None, deadline: float,
                    wav_path: str | None = None, body: tuple[bytes, str] | None = None,
-                   hotwords: list[str] | None = None) -> tuple[dict, dict]:
+                   hotwords: list[str] | None = None, model: str | None = None) -> tuple[dict, dict]:
         """audio: float32 array (or None → only the local worker, decoding wav_path).
 
         Returns (result, info). result has text/segments; info has asr_where / asr_model /
@@ -383,6 +409,7 @@ class AsrRouter:
         """
         reasons: list[str] = []
         remote_ok = self.remote is not None and audio is not None
+        model = E.resolve(model) if model else self.main
 
         def remote_try(timeout: float) -> tuple[dict, dict] | None:
             nonlocal body
@@ -390,20 +417,20 @@ class AsrRouter:
             if body is None:
                 body = E.encode_audio(audio)
             try:
-                r = self.remote.transcribe(body[0], body[1], self.main, prompt, timeout, hotwords=hotwords)
+                r = self.remote.transcribe(body[0], body[1], model, prompt, timeout, hotwords=hotwords)
             except RemoteError as e:
                 self.remote.note(e)
                 reasons.append(f"studio_{e.kind}" if e.kind != "error" else f"studio:{e}")
                 return None
             self.remote.note(None)
             wall = int((time.monotonic() - t0) * 1000)
-            return r, {"asr_where": "studio", "asr_model": self.main, "asr_engine_ms": r.get("engine_ms"),
+            return r, {"asr_where": "studio", "asr_model": model, "asr_engine_ms": r.get("engine_ms"),
                        "net_ms": max(0, wall - int(r.get("server_ms") or 0)),
                        "asr_queue_ms": r.get("queue_ms") or None}
 
         if remote_ok:
             if self.remote.available():
-                t = min(self.remote_timeout(dur), deadline - time.monotonic() - 0.3)
+                t = min(self.remote_timeout(dur, model), deadline - time.monotonic() - 0.3)
                 if t > 0.2:
                     got = remote_try(t)
                     if got:
@@ -411,7 +438,7 @@ class AsrRouter:
             else:
                 reasons.append("studio_cooling")
 
-        req: dict = {"model": self.main, "prompt": prompt, "hotwords": hotwords}
+        req: dict = {"model": model, "prompt": prompt, "hotwords": hotwords}
         tmp = None
         try:
             if audio is not None:
@@ -427,7 +454,7 @@ class AsrRouter:
                 msg = self.local.call(req, timeout=max(0.5, deadline - time.monotonic()),
                                       wait_ready=0.0 if remote_ok else None)
                 wall = int((time.monotonic() - t0) * 1000)
-                return self._done((msg, {"asr_where": "local", "asr_model": self.main,
+                return self._done((msg, {"asr_where": "local", "asr_model": model,
                                          "asr_engine_ms": msg.get("engine_ms"), "net_ms": 0,
                                          "ipc_ms": max(0, wall - int(msg.get("engine_ms") or 0))}), reasons, body)
             except WorkerError as e:
@@ -465,20 +492,20 @@ class AsrRouter:
             on_done(None, {"error": "studio_cooling", "model": self.shadow_model})
             return
         try:
-            self._shadow_q.put_nowait((audio, body, dur, prompt, hotwords, on_done))
+            self._shadow_q.put_nowait((self.shadow_model, audio, body, dur, prompt, hotwords, on_done))
         except queue.Full:
             on_done(None, {"error": "shadow_queue_full", "model": self.shadow_model})
 
     def _shadow_loop(self) -> None:
         while True:
-            audio, body, dur, prompt, hotwords, on_done = self._shadow_q.get()
-            info: dict = {"model": self.shadow_model, "where": "studio"}
+            smodel, audio, body, dur, prompt, hotwords, on_done = self._shadow_q.get()
+            info: dict = {"model": smodel, "where": "studio"}
             result = None
             try:
                 if body is None:
                     body = E.encode_audio(audio)
                 t0 = time.monotonic()
-                r = self.remote.transcribe(body[0], body[1], self.shadow_model, prompt,
+                r = self.remote.transcribe(body[0], body[1], smodel, prompt,
                                            timeout=max(15.0, dur * 0.5 + 10.0), priority="shadow",
                                            hotwords=hotwords)
                 wall = int((time.monotonic() - t0) * 1000)

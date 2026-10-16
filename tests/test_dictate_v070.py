@@ -153,7 +153,7 @@ class RemoteFirst(RouterBase):
         self.assertEqual(FakeEngine.calls[0][1], 32000, "the server got the whole clip back from FLAC/WAV")
 
     def test_timeout_falls_back_to_local(self):
-        FakeEngine.delay = 1.5                 # 2 s clip → remote budget 0.7 s
+        FakeEngine.delay = 2.5                 # 2 s clip → remote budget 1.5 s (Qwen: ×0.15 + 1.2)
         r = self.router(self.srv.url)
         res, info = r.transcribe(_speech(), 2.0, None, time.monotonic() + 10)
         self.assertEqual(info["asr_where"], "local")
@@ -233,7 +233,7 @@ class RemoteDownAndCrash(RouterBase):
     def test_loading_worker_is_skipped_when_the_remote_can_take_it(self):
         srv = ServerFixture()
         try:
-            FakeEngine.delay = 1.0                     # 2 s clip → remote budget 0.7 s → times out
+            FakeEngine.delay = 1.7                     # 2 s clip → remote budget 1.5 s → times out
             r = asr_router.AsrRouter("qwen3-asr-1.7b", remote_url=srv.url, token=TOKEN,
                                      worker_python=sys.executable, log=self.logs.append)
             r.local.ready.clear()                      # worker "still loading" (never started)
@@ -241,7 +241,7 @@ class RemoteDownAndCrash(RouterBase):
             res, info = r.transcribe(_speech(), 2.0, None, time.monotonic() + 10)
             self.assertEqual(info["asr_where"], "studio", "second try on the remote with the time left")
             self.assertEqual(info["asr_fallback"], "studio_timeout; local_not_ready")
-            self.assertLess(time.monotonic() - t0, 4.0)
+            self.assertLess(time.monotonic() - t0, 5.0)   # 1.5 budget + queue behind the first job + 1.7
         finally:
             srv.close()
 
@@ -288,7 +288,7 @@ class DaemonWithRouter(unittest.TestCase):
             native_punct = native
             shadows = []
 
-            def transcribe(self, audio, dur, prompt, deadline, wav_path=None, body=None, hotwords=None):
+            def transcribe(self, audio, dur, prompt, deadline, wav_path=None, body=None, hotwords=None, model=None):
                 self.prompt = prompt
                 self.hotwords = hotwords
                 text = "好,我們先看這個作品的聲音,然後再討論燈光" if native else "好 我們先看這個作品的聲音"
@@ -368,6 +368,62 @@ class DaemonWithRouter(unittest.TestCase):
         self.assertIsNone(d.router.prompt)
         self.assertEqual(d.router.hotwords, ["吳哲宇", "Muse"])
         self.assertEqual(d.router.shadows[-1][1:], ("SHORT", None), "whisper shadow gets the prompt")
+
+
+class Modes(unittest.TestCase):
+    """快／準兩檔：set_mode 不用重啟、記住選擇、並排跑另一檔、逾時依模型。"""
+
+    def _daemon(self):
+        class R:
+            main, shadow_model = "whisper-v3", "qwen3-asr-1.7b"
+            calls = []
+
+            def set_models(self, main, shadow=""):
+                self.calls.append((main, shadow))
+                self.main, self.shadow_model = main, shadow
+
+            warm = True
+
+            def status(self):
+                return {}
+
+        d = object.__new__(dictated.DictationDaemon)
+        d.router = R()
+        d.modes = {"fast": "qwen3-asr-1.7b", "accurate": "whisper-v3"}
+        d.mode = "accurate"
+        d.warm = True
+        return d
+
+    def test_set_mode_switches_models_and_persists(self):
+        d = self._daemon()
+        with tempfile.TemporaryDirectory() as tmp:
+            state = Path(tmp) / "mode.json"
+            with mock.patch.object(dictated, "MODE_STATE_PATH", state), \
+                    mock.patch.object(dictated, "ASR_SHADOW_MODEL", "other"), \
+                    mock.patch.object(dictated, "log_line"):
+                out = d.handle({"cmd": "set_mode", "mode": "快"})
+                self.assertEqual(out, {"ok": True, "mode": "fast", "model": "qwen3-asr-1.7b", "shadow": "whisper-v3"})
+                self.assertEqual(d.router.calls[-1], ("qwen3-asr-1.7b", "whisper-v3"))
+                self.assertEqual(json.loads(state.read_text())["mode"], "fast")
+                self.assertEqual(dictated.DictationDaemon._load_mode(), "fast", "a restart keeps the choice")
+                self.assertEqual(d.handle({"cmd": "ping"})["mode"], "fast")
+                self.assertEqual(d.handle({"cmd": "set_mode", "mode": "準"})["model"], "whisper-v3")
+                self.assertFalse(d.handle({"cmd": "set_mode", "mode": "slow"})["ok"])
+
+    def test_inproc_daemon_refuses_set_mode(self):
+        d = object.__new__(dictated.DictationDaemon)
+        d.router = None
+        self.assertEqual(d.handle({"cmd": "set_mode", "mode": "fast"})["error"], "bad_request")
+
+    def test_remote_budget_follows_the_model(self):
+        r = asr_router.AsrRouter("whisper-v3", log=lambda *_: None, local_models=["qwen3-asr-1.7b"])
+        self.assertAlmostEqual(r.remote_timeout(10.0), 4.0)                    # v3: ×0.25 + 1.5
+        self.assertAlmostEqual(r.remote_timeout(10.0, "qwen3-asr-1.7b"), 2.7)  # Qwen: ×0.15 + 1.2
+        r.set_models("qwen3-asr-1.7b", "whisper-v3")
+        self.assertAlmostEqual(r.remote_timeout(10.0), 2.7)
+        with self.assertRaises(ValueError):
+            r.set_models("whisper-turbo")                                      # not loaded locally
+        self.assertEqual(r.local.models, ["whisper-v3", "qwen3-asr-1.7b"])
 
 
 class Version(unittest.TestCase):

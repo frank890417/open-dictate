@@ -30,10 +30,10 @@ from datetime import datetime
 from pathlib import Path
 
 try:
-    from .product_config import (LOG_ROOT, LEXICON_ROOT, PRIORITY_TERMS, SOCKET_PATH, env,
+    from .product_config import (DATA_ROOT, LOG_ROOT, LEXICON_ROOT, PRIORITY_TERMS, SOCKET_PATH, env,
                                  PROMPT_CORE_TERMS as PROMPT_CORE_TERMS_RAW)
 except ImportError:  # direct script execution: python daemon/dictated.py
-    from product_config import (LOG_ROOT, LEXICON_ROOT, PRIORITY_TERMS, SOCKET_PATH, env,
+    from product_config import (DATA_ROOT, LOG_ROOT, LEXICON_ROOT, PRIORITY_TERMS, SOCKET_PATH, env,
                                 PROMPT_CORE_TERMS as PROMPT_CORE_TERMS_RAW)
 
 __version__ = "0.7.0"
@@ -97,8 +97,17 @@ ASR_REMOTE_URL = env("ASR_REMOTE_URL", "")
 ASR_REMOTE_KEYCHAIN = env("ASR_REMOTE_KEYCHAIN", "")     # macOS 鑰匙圈 service 名稱（account＝token）
 ASR_WORKER_PYTHON = env("ASR_WORKER_PYTHON", "") or sys.executable
 ASR_PROMPT = env("ASR_PROMPT", "full")
-ASR_REMOTE_RTF = float(env("ASR_REMOTE_RTF", "0.1"))
-ASR_REMOTE_BASE_S = float(env("ASR_REMOTE_BASE_S", "0.5"))
+# 遠端逾時：不設＝依模型（asr_router.REMOTE_BUDGET，v3 ×0.25＋1.5、Qwen／turbo ×0.15＋1.2）；設了就全部套用
+ASR_REMOTE_RTF = float(env("ASR_REMOTE_RTF", "0") or 0) or None
+ASR_REMOTE_BASE_S = float(env("ASR_REMOTE_BASE_S", "0") or 0) or None
+# 兩檔模式（router 模式才有）：快＝ASR_FAST_MODEL（預設 Qwen3-ASR 1.7B，自帶標點）；準＝ASR_ACCURATE_MODEL（預設 MODEL）。
+# 切換：socket {"cmd":"set_mode","mode":"fast|accurate|快|準"}（dictate_cli.py mode 快、殼選單），不用重啟；
+# 最後一次的選擇存在 DATA_ROOT/dictation-mode.json，重啟後照舊。ASR_SHADOW_MODEL=other ＝ 並排跑另一檔的模型。
+ASR_MODE_DEFAULT = env("ASR_MODE", "accurate")
+ASR_FAST_MODEL = env("ASR_FAST_MODEL", "qwen3-asr-1.7b")
+ASR_ACCURATE_MODEL = env("ASR_ACCURATE_MODEL", "")          # 空＝MODEL
+MODE_STATE_PATH = Path(env("ASR_MODE_STATE", str(DATA_ROOT / "dictation-mode.json"))).expanduser()
+MODE_ALIASES = {"fast": "fast", "快": "fast", "accurate": "accurate", "準": "accurate", "准": "accurate"}
 PUNCT_LLM_ENABLED = env("PUNCT_LLM", "1") != "0"
 # ASR 截止時間＝殼逾時減掉這段（留給詞庫校正、標點、socket 回傳）
 ASR_POST_RESERVE_S = 0.5
@@ -1060,16 +1069,61 @@ class DictationDaemon:
         self.warm = False
         self.model_load_s: float | None = None
         self.router = None
+        self.mode = None
         if ASR_BACKEND == "router":
             token = asr_router.keychain_secret(ASR_REMOTE_KEYCHAIN) if ASR_REMOTE_KEYCHAIN else None
+            self.modes = {"fast": asr_engine.resolve(ASR_FAST_MODEL),
+                          "accurate": asr_engine.resolve(ASR_ACCURATE_MODEL or MODEL)}
+            self.mode = self._load_mode()
+            main, shadow = self._mode_models(self.mode)
             self.router = asr_router.AsrRouter(
-                MODEL, shadow_model=ASR_SHADOW_MODEL, remote_url=ASR_REMOTE_URL, token=token,
+                main, shadow_model=shadow, remote_url=ASR_REMOTE_URL, token=token,
                 worker_python=ASR_WORKER_PYTHON, log=log_line,
-                remote_rtf=ASR_REMOTE_RTF, remote_base_s=ASR_REMOTE_BASE_S)
+                remote_rtf=ASR_REMOTE_RTF, remote_base_s=ASR_REMOTE_BASE_S,
+                local_models=list(self.modes.values()))
         log_line(
             f"lexicon loaded: {len(self.lex.replacements)} replacements, "
             f"prompt {len(self.initial_prompt)} chars"
         )
+
+    # ------------------------------------------------------------ modes (router)
+    def _mode_models(self, mode: str) -> tuple[str, str]:
+        main = self.modes[mode]
+        if ASR_SHADOW_MODEL == "other":
+            other = self.modes["accurate" if mode == "fast" else "fast"]
+            shadow = other if other != main else ""
+        else:
+            shadow = asr_engine.resolve(ASR_SHADOW_MODEL) if ASR_SHADOW_MODEL else ""
+        return main, shadow
+
+    @staticmethod
+    def _load_mode() -> str:
+        try:
+            m = json.loads(MODE_STATE_PATH.read_text(encoding="utf-8")).get("mode")
+            if m in ("fast", "accurate"):
+                return m
+        except (OSError, ValueError, AttributeError):
+            pass
+        return MODE_ALIASES.get(ASR_MODE_DEFAULT, "accurate")
+
+    def handle_set_mode(self, req: dict) -> dict:
+        if getattr(self, "router", None) is None:
+            return {"ok": False, "error": "bad_request"}
+        mode = MODE_ALIASES.get(str(req.get("mode") or "").strip().lower(),
+                                MODE_ALIASES.get(str(req.get("mode") or "").strip()))
+        if not mode:
+            return {"ok": False, "error": "bad_request"}
+        main, shadow = self._mode_models(mode)
+        self.router.set_models(main, shadow)
+        self.mode = mode
+        try:
+            MODE_STATE_PATH.parent.mkdir(parents=True, exist_ok=True)
+            MODE_STATE_PATH.write_text(json.dumps({"mode": mode, "ts": datetime.now().isoformat(timespec="seconds")}),
+                                       encoding="utf-8")
+        except OSError as e:
+            log_line(f"⚠️ mode state write failed: {e}")
+        log_line(f"mode → {mode}（main={main}, shadow={shadow or '-'}）")
+        return {"ok": True, "mode": mode, "model": main, "shadow": shadow or None}
 
     # ------------------------------------------------------------ model
     def warmup(self) -> None:
@@ -1111,6 +1165,7 @@ class DictationDaemon:
             if getattr(self, "router", None) is not None:
                 resp["warm"] = self.router.warm
                 resp["asr"] = self.router.status()
+                resp["mode"] = self.mode
             return resp
         if cmd == "reload_lexicon":
             self.lex.reload()
@@ -1124,6 +1179,8 @@ class DictationDaemon:
                     "prompt_chars": len(self.initial_prompt)}
         if cmd == "add_pair":
             return self.handle_add_pair(req)
+        if cmd == "set_mode":
+            return self.handle_set_mode(req)
         if cmd == "stats":
             return self.handle_stats()
         return {"ok": False, "error": "unknown_cmd"}
@@ -1261,7 +1318,8 @@ class DictationDaemon:
                 adur = len(src) / SAMPLE_RATE
             short = adur is not None and adur < ASR_SHORT_CLIP_S
             router = getattr(self, "router", None)
-            main_kind = asr_engine.spec(router.main)["kind"] if router is not None else "whisper"
+            req_model = router.main if router is not None else None      # 這一句開始時的模型（中途切換不影響這句）
+            main_kind = asr_engine.spec(req_model)["kind"] if router is not None else "whisper"
             # 提示詞＝whisper 的 initial_prompt；熱詞＝Qwen3-ASR 的詞表（同一批專名）。ASR_PROMPT=none 兩者都不給。
             hotwords = None
             if ASR_PROMPT == "none":
@@ -1283,7 +1341,7 @@ class DictationDaemon:
                 audio_in = None if isinstance(src, str) else src
                 r, info = router.transcribe(audio_in, adur or 0.0, prompt, asr_deadline,
                                             wav_path=wav_path if audio_in is None else None,
-                                            body=route.get("body"), hotwords=hotwords)
+                                            body=route.get("body"), hotwords=hotwords, model=req_model)
                 route.update(info)
                 return r
 
@@ -1334,7 +1392,8 @@ class DictationDaemon:
                     "asr_retry": retry_tag, "raw_first": raw_first,
                     "trim_head_s": round(trim_h, 2) or None, "trim_tail_s": round(trim_t, 2) or None}
             if router is not None:
-                diag.update({"uid": uid, **{k: route.get(k) for k in ROUTE_LOG_FIELDS}})
+                diag.update({"uid": uid, "asr_mode": getattr(self, "mode", None),
+                             **{k: route.get(k) for k in ROUTE_LOG_FIELDS}})
             if req.get("tag"):            # 測試／重放送進來的句子自己標記，log 讀者分得出來（殼不送）
                 diag["tag"] = str(req["tag"])[:40]
             if not deloop:
@@ -1359,7 +1418,7 @@ class DictationDaemon:
             punct_req = str(req.get("punct") or "smart_zh")
             punct_mode = punct_req
             t_punct0 = time.perf_counter()
-            if punct_mode != "raw" and router is not None and router.native_punct:
+            if punct_mode != "raw" and router is not None and asr_engine.spec(req_model)["native_punct"]:
                 text = smart_punct_zh(text)
                 punct_mode = "asr_zh"
             elif punct_mode == "llm_zh" and PUNCT_LLM_ENABLED:

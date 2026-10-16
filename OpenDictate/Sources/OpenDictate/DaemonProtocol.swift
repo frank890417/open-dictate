@@ -13,6 +13,8 @@ enum DaemonRequest {
     case addPair(wrong: String, right: String, source: String)
     /// 今日統計（daemon v0.5+；殼也可本機讀 log）
     case stats
+    /// 辨識模式 "fast" | "accurate"（daemon v0.7+，router 模式；不用重啟 daemon）
+    case setMode(String)
 
     func jsonLine() throws -> Data {
         let dict: [String: Any]
@@ -27,6 +29,8 @@ enum DaemonRequest {
             dict = ["cmd": "add_pair", "wrong": wrong, "right": right, "source": source]
         case .stats:
             dict = ["cmd": "stats"]
+        case .setMode(let mode):
+            dict = ["cmd": "set_mode", "mode": mode]
         }
         var data = try JSONSerialization.data(withJSONObject: dict, options: [.sortedKeys])
         data.append(0x0A)
@@ -48,6 +52,10 @@ struct DaemonResponse {
     let warm: Bool?
     let version: String?
     let replacements: Int?
+    /// 辨識模式（daemon v0.7+ router 模式的 ping／set_mode；舊 daemon 為 nil）
+    let mode: String?
+    /// 目前出字的辨識模型（ping 的 asr.main；set_mode 的 model）
+    let asrMain: String?
     let error: String?
     let rawLine: String
 
@@ -79,6 +87,8 @@ struct DaemonResponse {
             warm: dict["warm"] as? Bool,
             version: dict["version"] as? String,
             replacements: int("replacements"),
+            mode: dict["mode"] as? String,
+            asrMain: (dict["asr"] as? [String: Any])?["main"] as? String ?? (dict["mode"] != nil ? dict["model"] as? String : nil),
             error: dict["error"] as? String,
             rawLine: String(data: line, encoding: .utf8) ?? ""
         )

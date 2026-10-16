@@ -39,6 +39,7 @@ final class StatusItemController: NSObject, NSMenuDelegate {
     var onCheckDaemon: (() -> Void)?
     var onRestartDaemon: (() -> Void)?
     var onReportMishear: ((String, String) -> Void)?
+    var onSetAsrMode: ((String) -> Void)?
     var onOpenSettings: (() -> Void)?
     var onOpenLog: (() -> Void)?
     var onHotkeyChanged: (() -> Void)?
@@ -54,6 +55,12 @@ final class StatusItemController: NSObject, NSMenuDelegate {
     private let teachChangesMenuItem = NSMenuItem(title: "從上一句教詞庫", action: nil, keyEquivalent: "")
     private let teachChangesSubmenu = NSMenu()
 
+    // 辨識模式（daemon v0.7+ router）：快＝Qwen3-ASR（走 Mac Studio、自帶標點）／準＝whisper-v3＋提示詞
+    private let asrModeMenuItem = NSMenuItem(title: "辨識模式", action: nil, keyEquivalent: "")
+    private let asrModeSubmenu = NSMenu()
+    private let asrFastItem = NSMenuItem(title: "快（Qwen3-ASR・Mac Studio・自帶標點）", action: #selector(asrModeClicked(_:)), keyEquivalent: "")
+    private let asrAccurateItem = NSMenuItem(title: "準（whisper-v3＋提示詞）", action: #selector(asrModeClicked(_:)), keyEquivalent: "")
+    private var asrMode: String?
     private let punctMenuItem = NSMenuItem(title: "標點模式", action: nil, keyEquivalent: "")
     private let punctSubmenu = NSMenu()
     private let punctSmartItem = NSMenuItem(title: "智慧全形（規則層，快）", action: #selector(punctModeClicked(_:)), keyEquivalent: "")
@@ -138,6 +145,15 @@ final class StatusItemController: NSObject, NSMenuDelegate {
 
         menu.addItem(.separator())
 
+        // 辨識模式（舊 daemon 沒有模式 → 隱藏，第一次 ping 回來才顯示）
+        asrFastItem.target = self; asrFastItem.representedObject = "fast"
+        asrAccurateItem.target = self; asrAccurateItem.representedObject = "accurate"
+        asrModeSubmenu.addItem(asrFastItem)
+        asrModeSubmenu.addItem(asrAccurateItem)
+        asrModeMenuItem.submenu = asrModeSubmenu
+        asrModeMenuItem.isHidden = true
+        menu.addItem(asrModeMenuItem)
+
         // 標點
         punctSmartItem.target = self; punctSmartItem.representedObject = "smart_zh"
         punctLLMItem.target = self; punctLLMItem.representedObject = "llm_zh"
@@ -221,6 +237,16 @@ final class StatusItemController: NSObject, NSMenuDelegate {
         button.title = ""
         button.contentTintColor = state.tint
         button.toolTip = state.tooltip
+    }
+
+    /// daemon 回報的辨識模式（nil＝舊 daemon／沒有模式，選單隱藏）
+    func setAsrMode(_ mode: String?) {
+        asrMode = mode
+        asrModeMenuItem.isHidden = (mode == nil)
+        asrFastItem.state = mode == "fast" ? .on : .off
+        asrAccurateItem.state = mode == "accurate" ? .on : .off
+        asrModeMenuItem.title = mode == "fast" ? "辨識模式（快）" : (mode == "accurate" ? "辨識模式（準）" : "辨識模式")
+        punctMenuItem.title = mode == "fast" ? "標點模式（快：用模型自帶標點，原樣除外）" : "標點模式"
     }
 
     func setDaemonStatus(_ text: String) {
@@ -417,6 +443,11 @@ final class StatusItemController: NSObject, NSMenuDelegate {
     @objc private func reloadLexiconClicked() { onReloadLexicon?() }
     @objc private func restartDaemonClicked() { onRestartDaemon?() }
     @objc private func settingsClicked() { onOpenSettings?() }
+
+    @objc private func asrModeClicked(_ sender: NSMenuItem) {
+        guard let mode = sender.representedObject as? String, mode != asrMode else { return }
+        onSetAsrMode?(mode)
+    }
 
     @objc private func punctModeClicked(_ sender: NSMenuItem) {
         guard let mode = sender.representedObject as? String else { return }
