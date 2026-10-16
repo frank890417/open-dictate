@@ -134,3 +134,42 @@ All changes are daemon-internal; the wire protocol stays 1.0.
   `asr_temp_max`, `asr_retry`, `raw_first`, `trim_head_s`, `trim_tail_s`; `dehall`
   may be `speech_gate` or `known_hallucination …`. `no_speech` is a normal outcome,
   not an error.
+
+## Daemon 0.7.0: ASR router (remote first, local fallback, shadow)
+
+Opt-in with `<PREFIX>_ASR_BACKEND=router` (default `inproc` keeps the 0.6.x behaviour:
+mlx_whisper inside the daemon process). The socket protocol is unchanged; readers
+ignore the new fields.
+
+- **Paths.** Recognition runs in a child process (`daemon/asr_worker.py`, own Python via
+  `ASR_WORKER_PYTHON`, so MLX/mlx-audio versions do not have to match the daemon's).
+  With `ASR_REMOTE_URL` + `ASR_REMOTE_KEYCHAIN` (macOS keychain service, account `token`)
+  each clip is first sent as FLAC to `daemon/asr_server.py` on another machine on a
+  private network. Both sides import `daemon/asr_engine.py`, so the fallback is the
+  same model with the same decoding parameters; `/health` reports the engine version.
+- **Timeouts.** Remote budget = clip seconds × `ASR_REMOTE_RTF` + `ASR_REMOTE_BASE_S`
+  (defaults 0.1 / 0.5, sized for small models; whisper-large-v3 needs about 0.25 / 1.5).
+  Connect failures cool the remote down for 30 s (three timeouts in a row too). A worker
+  that crashes (e.g. an MLX segfault) or hangs past the deadline is killed and respawned,
+  and the utterance goes back to the remote with the time left. A worker that is still
+  loading is skipped when a remote is configured.
+- **Prompt policy.** `ASR_PROMPT=full` (default) builds the Whisper initial prompt as
+  before and gives Qwen3-ASR the same terms as hotwords; `none` sends neither.
+- **Punctuation.** A model with native punctuation (Qwen3-ASR) returns `punct: "asr_zh"`
+  (full-width normalisation + the 0.6.1 conjunction fix, no LLM). `PUNCT_LLM=0` turns
+  `llm_zh` requests into the rule layer (`smart_zh`); the log row keeps `punct_req`.
+- **Shadow.** `ASR_SHADOW_MODEL` sends the same clip to a second model on the remote after
+  the main result is back (lower priority on the server queue). Its output is never
+  returned; it is written to `ASR_SHADOW_LOG_ROOT` (default `<data>/dictation-shadow/`)
+  with the same cleaning + glossary correction, joined to the main row by `uid`.
+- **Log row fields (router mode):** `uid`, `asr_where` (`studio`|`local`), `asr_model`,
+  `asr_engine_ms` (model time), `net_ms` (remote round trip minus server time; 0 local),
+  `ipc_ms` (local), `asr_queue_ms` (waited behind another job on the server),
+  `asr_fallback` (what failed before the path that answered), `punct_req`, `tag`
+  (copied from the request; test/replay traffic marks itself). `asr_ms` keeps its old
+  meaning: wall time of the whole ASR stage including retries.
+- **Wire additions:** transcribe response may carry `asr_where`; ping may carry `asr`
+  (main/shadow/remote/local status); request may carry `tag`.
+- **Server.** Binds one address (refuses 0.0.0.0), token compared in constant time, one
+  inference thread owns MLX, jobs past their client deadline are dropped unrun, only
+  timings are logged (no audio, no text).

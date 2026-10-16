@@ -1,0 +1,4 @@
+# Recognition worker / server environment (daemon >=0.7.0, ASR_BACKEND=router)
+mlx-audio==0.5.7
+mlx-whisper==0.4.3
+soundfile==0.14.0
