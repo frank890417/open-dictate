@@ -12,7 +12,7 @@ fi
 
 UID_N="$(id -u)"
 LA="$HOME/Library/LaunchAgents"
-APP="/Applications/OpenDictate.app"
+APP="${OPEN_DICTATE_APP_DIR:-/Applications}/OpenDictate.app"
 DATA="$HOME/.open-dictate"
 
 echo "▸ 停止 Open Dictate LaunchAgents"
@@ -25,6 +25,7 @@ echo "▸ 移除 app 與 LaunchAgent 設定"
 
 echo "✓ Open Dictate 已解除安裝"
 echo "✓ 使用者資料仍保留：$DATA"
+echo "✓ 模型快取（Hugging Face，快／準模式約 4 GB）與 clone 裡的 .venv-dictate 和 .venv-asr 也保留，不再需要時請自行移到垃圾桶。"
 if [ "$PURGE" -eq 1 ]; then
   echo
   echo "基於安全考量，--purge-data 不會自動刪除資料。"
