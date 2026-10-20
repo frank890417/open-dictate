@@ -33,13 +33,16 @@ Requests:
 {"cmd": "reload_lexicon"}
 {"cmd": "add_pair", "wrong": "誤聽", "right": "正確", "source": "dictate-ui"}
 {"cmd": "stats"}
+{"cmd": "set_mode", "mode": "fast"}
 ```
+
+`set_mode` (daemon ≥0.7.0, router backend only) takes `fast`, `accurate`, `快` or `準`; see §Daemon 0.7.0.
 
 Responses:
 
 ```json
 {"ok": true, "text": "校正後文字", "raw": "whisper 原始輸出", "changes": [["誤聽", "正確"]], "punct": "smart_zh", "asr_ms": 210, "total_ms": 260}
-{"ok": true, "pong": true, "model": "mlx-community/whisper-large-v3-turbo", "warm": true, "version": "0.6.1", "punct_llm": {"enabled": true, "loading": false, "ready_age_s": 12.3, "last_load_s": 8.9, "last_error": null}}
+{"ok": true, "pong": true, "model": "mlx-community/whisper-large-v3-turbo", "warm": true, "version": "0.7.0", "punct_llm": {"enabled": true, "loading": false, "ready_age_s": 12.3, "last_load_s": 8.9, "last_error": null}}
 {"ok": false, "error": "no_speech"}
 ```
 
@@ -173,3 +176,25 @@ ignore the new fields.
 - **Server.** Binds one address (refuses 0.0.0.0), token compared in constant time, one
   inference thread owns MLX, jobs past their client deadline are dropped unrun, only
   timings are logged (no audio, no text).
+
+### Recognition modes (daemon 0.7.0, router backend)
+
+Two recognition models stay loaded in the worker; the daemon picks one per utterance.
+
+- **Modes.** `fast` = `<PREFIX>_ASR_FAST_MODEL` (default `qwen3-asr-1.7b`, native punctuation);
+  `accurate` = `<PREFIX>_ASR_ACCURATE_MODEL`, empty meaning `<PREFIX>_MODEL` (default
+  `mlx-community/whisper-large-v3-turbo`). `<PREFIX>_ASR_MODE` (default `accurate`) is the mode
+  of the first start; afterwards the last `set_mode` wins and is kept in
+  `<data root>/dictation-mode.json`. The model is captured when an utterance starts, so a switch
+  never changes a sentence already being recognised.
+- **`set_mode`.** Request `{"cmd": "set_mode", "mode": "fast"}`; response
+  `{"ok": true, "mode": "fast", "model": "qwen3-asr-1.7b", "shadow": null}`. An unknown mode, or a
+  daemon without the router backend, answers `{"ok": false, "error": "bad_request"}`.
+- **`ping`** carries `mode` (`fast`|`accurate`) and `asr` (main/shadow/remote/local status) in router
+  mode; a daemon without modes omits `mode`, which is how the menu-bar app knows to hide its
+  “辨識模式” menu.
+- **Punctuation.** In `fast`, `punct` is answered as `asr_zh` (the model's punctuation, made
+  full-width) unless the request asked for `raw`; the LLM pass is not used.
+- **Log rows** gain `asr_mode`. `asr_where` is `local` or `studio`; `studio` is this field's name
+  for the optional remote recognition service (`asr_server.py`), whatever machine it runs on.
+- The wire protocol stays 1.0: every field above is an addition readers may ignore.

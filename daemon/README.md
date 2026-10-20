@@ -21,7 +21,9 @@ python3 daemon/dictate_cli.py file /path/to/16k-mono.wav
 
 Production install should use `install.sh`, which generates launchd plists dynamically.
 
-## Remote recognition (daemon ≥0.7.0)
+## Recognition modes and remote recognition (daemon ≥0.7.0)
+
+Fast and accurate modes: [`docs/RECOGNITION-MODES.md`](../docs/RECOGNITION-MODES.md). Benchmark: `scripts/modes-bench.py`.
 
 `ASR_BACKEND=router` moves recognition into `asr_worker.py` and, optionally, to
 `asr_server.py` on another Mac (see IO-CONTRACT §Daemon 0.7.0). Worker/server environment:

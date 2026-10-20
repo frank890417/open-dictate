@@ -23,6 +23,10 @@ The first run also downloads and warms the Whisper model. This can take about tw
 
 If a slow connection needs more time, set `OPEN_DICTATE_WARM_TIMEOUT=300 ./install.sh`.
 
+## Optional: fast and accurate recognition modes
+
+The installer sets up one Whisper model. To keep a second, faster model (Qwen3-ASR) loaded and switch between the two from the menu bar, follow [RECOGNITION-MODES.md](RECOGNITION-MODES.md). It lists the extra downloads (about 4 GB) and their licences. 要同時常駐第二個較快的模型（Qwen3-ASR）並在選單列切換，照 [RECOGNITION-MODES.md](RECOGNITION-MODES.md) 做。文件裡有額外下載量（約 4 GB）與授權。
+
 ## Permissions
 
 Enable OpenDictate in macOS Privacy & Security:
