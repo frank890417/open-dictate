@@ -131,6 +131,10 @@ Full setup: [`docs/SETUP.md`](docs/SETUP.md)
   keeps the single-Whisper setup. Choices, downloads, licences and measured speed:
   [`docs/RECOGNITION-MODES.md`](docs/RECOGNITION-MODES.md).
   快與準兩種辨識模式（v0.7.0，安裝程式從 0.7.1 起預設開啟）：安裝程式從快開始，下載模型前會先問。`./install.sh --recognition off` 維持單一 Whisper。選項、下載內容、授權與實測速度見上述文件。
+- **The punctuation model is loaded only when it is needed (v0.7.2)**: the optional LLM punctuation asks Ollama for
+  a 21 GB model; the daemon now does that only for a sentence that goes to the LLM (accurate mode, `llm_zh`), never in
+  fast mode. `OPEN_DICTATE_PUNCT_WARM=1` loads it at start as before, `=0` never.
+  標點用的 LLM 只在需要時才載入（v0.7.2）：快速模式永遠不載入。`OPEN_DICTATE_PUNCT_WARM=1` 恢復開機載入，`=0` 永遠不暖。
 - Text insertion uses Accessibility direct insertion when possible, then paste fallback.
 - Optional microphone selection.
 

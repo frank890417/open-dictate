@@ -79,6 +79,22 @@ The `OPEN_DICTATE_ASR_MODE` key only decides the very first start; after that th
 
 這一段是 `./install.sh` 為模式做的事，也是你手動會打的指令：建第二個 Python 環境、下載模型、在 daemon 的 LaunchAgent 加 router 設定再重啟、最後檢查。`OPEN_DICTATE_ASR_MODE` 只決定第一次啟動，之後以你最後切換的模式為準。想用 `whisper-large-v3` 當準的模型，另外加 `OPEN_DICTATE_MODEL` = `mlx-community/whisper-large-v3-mlx`（3.1 GB，安裝程式不會下載它，重跑安裝程式會重寫 plist，要再加一次）。
 
+## The punctuation model in Ollama / Ollama 裡的標點模型
+
+LLM punctuation (`llm_zh`, an option in the menu bar) asks a local Ollama for a model (by default `qwen3.6:35b-a3b-coding-nvfp4`, 21 GB). **Since 0.7.2 the daemon loads it only when it is needed.** In fast mode it never does: Qwen3-ASR writes its own punctuation and no LLM is in the path. In accurate mode it does nothing until the first sentence that goes to the LLM; that sentence is punctuated by the rules while the model loads in the background, and the model then stays warm. Switching to fast lets go: the daemon stops reloading it, and Ollama unloads it when its `keep_alive` runs out (24 h by default; the daemon never unloads a model itself, because other programs may be using it).
+
+LLM 標點（`llm_zh`，選單列的選項）會向本機的 Ollama 要一個模型（預設 `qwen3.6:35b-a3b-coding-nvfp4`，21 GB）。**從 0.7.2 起，daemon 只在需要的時候才載入它。**快速模式永遠不會：Qwen3-ASR 自己寫標點，路徑上沒有 LLM。準確模式在第一句要走 LLM 的句子出現之前什麼都不做，那一句先用規則層標點，模型在背景載入，之後保持暖機。切到快速模式就鬆手：daemon 不再重新載入，Ollama 在 `keep_alive` 到期時（預設 24 小時）自己卸載。daemon 不會主動卸載模型，因為別的程式可能也在用。
+
+To change that, set `OPEN_DICTATE_PUNCT_WARM` in the daemon's LaunchAgent (`PlistBuddy -c "Add :EnvironmentVariables:OPEN_DICTATE_PUNCT_WARM string 1" …`, then restart the daemon; re-running `./install.sh` rewrites that file):
+
+| `OPEN_DICTATE_PUNCT_WARM` | what happens |
+|---|---|
+| not set, or `auto` | default: warm only when an LLM-punctuation sentence needs the model |
+| `1` | load at start and keep it resident, whatever the mode (the 0.6.0 to 0.7.1 behaviour) |
+| `0` | never warm; LLM punctuation then asks Ollama directly and may time out while the model loads |
+
+要改的話，在 daemon 的 LaunchAgent 設 `OPEN_DICTATE_PUNCT_WARM`（用法如上，設完重啟 daemon，重跑 `./install.sh` 會重寫那個檔案）。沒設或 `auto`：預設，需要才暖。`1`：開機就載入並常駐，不管什麼模式（0.6.0 到 0.7.1 的行為）。`0`：不暖，LLM 標點會直接問 Ollama，模型載入期間可能逾時。
+
 ## Switch / 切換
 
 No restart, and the sentence you are speaking is never affected: each utterance uses the mode it started in.
