@@ -25,7 +25,10 @@ BLOCK_FILES = [
     r"\.npy$", r"\.pt$", r"\.pth$", r"\.pkl$", r"\.onnx$",
     r"\.sqlite$", r"\.db$", r"\.env",
 ]
-SKIP_DIRS = {".git", ".build", "dist", ".venv", ".venv-dictate", "__pycache__"}
+SKIP_DIRS = {".git", ".build", "dist", "__pycache__"}
+# every virtual environment the installer makes (.venv-dictate, .venv-asr, a developer's .venv): third-party code,
+# not ours, and full of lines like `token = tokenizer.read()`
+SKIP_DIR_PREFIXES = (".venv",)
 SKIP_FILES = {"scripts/public-safety-scan.py"}
 TEXT_SUFFIXES = {".py", ".md", ".json", ".jsonl", ".txt", ".yaml", ".yml", ".sh", ".swift", ".plist", ".toml"}
 
@@ -50,7 +53,7 @@ def line_hits(line: str, text_res: list[re.Pattern]) -> list[re.Pattern]:
 
 
 def skipped(path: Path) -> bool:
-    return any(part in SKIP_DIRS for part in path.parts)
+    return any(part in SKIP_DIRS or part.startswith(SKIP_DIR_PREFIXES) for part in path.parts)
 
 
 def main() -> int:
