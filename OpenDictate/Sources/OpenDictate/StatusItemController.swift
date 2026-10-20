@@ -55,11 +55,11 @@ final class StatusItemController: NSObject, NSMenuDelegate {
     private let teachChangesMenuItem = NSMenuItem(title: "從上一句教詞庫", action: nil, keyEquivalent: "")
     private let teachChangesSubmenu = NSMenu()
 
-    // 辨識模式（daemon v0.7+ router）：快＝Qwen3-ASR（走 Mac Studio、自帶標點）／準＝whisper-v3＋提示詞
+    // 辨識模式（daemon v0.7+ router）：快＝Qwen3-ASR（自帶標點）／準＝Whisper＋提示詞；模型怎麼選見 docs/RECOGNITION-MODES.md
     private let asrModeMenuItem = NSMenuItem(title: "辨識模式", action: nil, keyEquivalent: "")
     private let asrModeSubmenu = NSMenu()
-    private let asrFastItem = NSMenuItem(title: "快（Qwen3-ASR・Mac Studio・自帶標點）", action: #selector(asrModeClicked(_:)), keyEquivalent: "")
-    private let asrAccurateItem = NSMenuItem(title: "準（whisper-v3＋提示詞）", action: #selector(asrModeClicked(_:)), keyEquivalent: "")
+    private let asrFastItem = NSMenuItem(title: "快（Qwen3-ASR・自帶標點）", action: #selector(asrModeClicked(_:)), keyEquivalent: "")
+    private let asrAccurateItem = NSMenuItem(title: "準（Whisper＋提示詞）", action: #selector(asrModeClicked(_:)), keyEquivalent: "")
     private var asrMode: String?
     private let punctMenuItem = NSMenuItem(title: "標點模式", action: nil, keyEquivalent: "")
     private let punctSubmenu = NSMenu()
