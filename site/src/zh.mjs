@@ -12,9 +12,9 @@ export default {
 
   meta: {
     title: 'Open Dictate｜macOS 上本地優先的繁體中文語音輸入',
-    description: '按住快捷鍵、說話、放開。Open Dictate 在你的 Apple Silicon Mac 上用 MLX Whisper（或自己開啟的快速模式 Qwen3-ASR）轉錄繁體中文，用你自己的確定性詞庫校正專有名詞，再把整句話打進游標所在的位置。音檔留在本機。開源，MIT 授權。',
+    description: '按住快捷鍵、說話、放開。Open Dictate 在你的 Apple Silicon Mac 上用 Qwen3-ASR（預設的快速模式）或 MLX Whisper（準確模式）轉錄繁體中文，用你自己的確定性詞庫校正專有名詞，再把整句話打進游標所在的位置。音檔留在本機。開源，MIT 授權。',
     ogDescription: '按住、說話、放開，字就出現在游標。你的聲音不會離開你的 Mac。',
-    ld: 'Apple Silicon Mac 上本地優先的繁體中文語音輸入與會議轉錄工具：按住快捷鍵時由 Swift 選單列 app 錄音，本機的 Python daemon 用 MLX Whisper（自己開啟快速模式時用 Qwen3-ASR）轉錄，套用使用者的確定性詞庫與全形標點，再把文字插入游標位置。音檔、逐字稿與詞庫都留在本機。',
+    ld: 'Apple Silicon Mac 上本地優先的繁體中文語音輸入與會議轉錄工具：按住快捷鍵時由 Swift 選單列 app 錄音，本機的 Python daemon 用 Qwen3-ASR（預設的快速模式）或 MLX Whisper（準確模式）轉錄，套用使用者的確定性詞庫與全形標點，再把文字插入游標位置。音檔、逐字稿與詞庫都留在本機。',
     features: [
       '按住 fn 或右側 Option 說話的語音輸入',
       '在 Apple Silicon 上用 MLX Whisper 本地轉錄',
@@ -39,7 +39,7 @@ export default {
   hero: {
     eyebrow: '早期公開版 · daemon {v} · MIT 授權 · macOS 14 以上 · Apple Silicon',
     sub: '按住、說話、放開，字就出現在游標。',
-    lede: 'Apple Silicon Mac 上的繁體中文語音輸入，本地優先。<em>MLX Whisper</em> 在你自己的電腦上把聲音轉成字，<em>你自己的詞庫</em>校正它認得的詞，整句話<em>直接打進游標所在的位置</em>。系統可以標記、可以建議，但不能靜默改寫你的意思。',
+    lede: 'Apple Silicon Mac 上的繁體中文語音輸入，本地優先。<em>Qwen3-ASR 或 MLX Whisper</em> 在你自己的電腦上把聲音轉成字，<em>你自己的詞庫</em>校正它認得的詞，整句話<em>直接打進游標所在的位置</em>。系統可以標記、可以建議，但不能靜默改寫你的意思。',
     doorsLabel: '從哪裡開始',
     doors: [
       { who: '我想用', what: '需要什麼、怎麼安裝、現在還做不到什麼', href: '#start' },
@@ -59,7 +59,7 @@ export default {
     bayLive: '本機',
     steps: [
       { name: '錄音', sub: 'app · 16 kHz 單聲道 WAV' },
-      { name: '轉錄', sub: 'daemon · MLX Whisper' },
+      { name: '轉錄', sub: 'daemon · MLX Whisper（準確模式）' },
       { name: '校正', sub: 'daemon · 你的詞庫' },
       { name: '標點', sub: 'daemon · smart_zh' },
       { name: '插入', sub: 'app · 游標位置' },
@@ -86,7 +86,7 @@ export default {
       'Whisper 把 Obsidian 聽成「阿布西店」，詞庫裡沒有這一對，所以照聽到的字打出來，系統不會自己猜。你在選單列教它一次。',
       '同一句話，下一次：你教過的那一組對照生效了。',
     ],
-    legend: '每一列都是真的處理階段，順序也一樣。JSON 的形狀和 socket 上真正的訊息相同，句子是為這段示範寫的。',
+    legend: '每一列都是真的處理階段，順序也一樣。JSON 的形狀和 socket 上真正的訊息相同，句子是為這段示範寫的。這裡示範的是準確模式，快速模式裡模型自己寫標點，標點這一步只負責轉成全形。',
     caption: '這是示範動畫。句子事先寫好，這一頁不會碰你的麥克風。真正在做事的，是你 Mac 上的選單列 app 和 daemon。',
     contractLink: '讀介面契約',
     noscript: '關掉 JavaScript 時，看到的是示範的最後一格。',
@@ -98,7 +98,7 @@ export default {
     lede: '你按住快捷鍵時，Swift 寫的選單列 app 開始錄音，放開後把 WAV 檔交給一直保持載入的 Python daemon。daemon 轉錄、校正、加標點，回傳文字，app 再把字打進游標所在的位置。轉錄之後，能改動你字詞的只有你放進詞庫的那些對照。',
     layers: [
       { name: '錄音', quote: '按住鍵的時候', text: '按住 <kbd>fn</kbd> 或右側 Option，app 錄下 16 kHz 單聲道音訊。不到半秒的按壓直接丟掉，另有一道語音形狀檢查，擋下只錄到環境噪音的誤觸。' },
-      { name: '轉錄', quote: '說了什麼', text: '語音模型在 Apple Silicon 上執行，一直載入在 daemon 裡：預設是 MLX Whisper，自己開啟快速模式時用 Qwen3-ASR。進下一步之前，先濾掉已知的字幕署名幻覺，截斷失控的重複迴圈。' },
+      { name: '轉錄', quote: '說了什麼', text: '語音模型在 Apple Silicon 上執行，一直載入在 daemon 裡：預設的快速模式用 Qwen3-ASR，準確模式用 MLX Whisper。進下一步之前，先濾掉已知的字幕署名幻覺，截斷失控的重複迴圈。' },
       { name: '校正', quote: '你的意思', text: '詞庫是一張<em>誤聽 → 正確</em>的對照表，只有命中的詞會被替換，整句話不會被改寫。寧可漏改，不可錯改。' },
       { name: '標點', quote: '讀起來的樣子', text: '預設的 <code>smart_zh</code> 規則只在中文語境把標點轉成全形，英文、數字、網址都不動。可以另外開本機 LLM 補完整標點，它只要動到標點以外的任何一個字，整段結果就作廢。' },
       { name: '插入', quote: '字落在哪裡', text: '文字透過輔助使用（Accessibility）API 直接插入，不行再改用貼上。app 不會把焦點從你正在打字的輸入框搶走。' },
@@ -110,7 +110,7 @@ export default {
       { name: '審核佇列 Review queue', text: '掃描器把疑似誤聽和數字標成候選。你決定接受、修改或拒絕，只有接受的才進詞庫，每個決定都能復原。' },
       { name: '說話者標籤 Speaker labels', text: '逐字稿使用匿名標籤 <code>SPEAKER_00</code>、<code>SPEAKER_01</code>。辨識是誰在說話，規劃成另一層選用、只在本機的功能。' },
       { name: '選單列 Menu bar', text: '從上一句或選取的文字教詞庫、回報誤聽，也在這裡切換快捷鍵、麥克風和標點模式。' },
-      { name: '辨識模式 Recognition modes', text: '自己開啟之後，可以同時載入一個快的模型（Qwen3-ASR）和一個準的模型（Whisper），在選單列或終端機切換，不用重啟。剛裝好的預設只有一個 Whisper 模型。' },
+      { name: '辨識模式 Recognition modes', text: '安裝程式會同時載入一個快的模型（Qwen3-ASR，起始模式）和一個準的模型（Whisper），你在選單列或終端機切換，不用重啟。<code>./install.sh --recognition off</code> 只留一個 Whisper 模型。' },
     ],
     rulesTitle: '七條規則',
     rules: [
@@ -126,8 +126,8 @@ export default {
     glossary: [
       { term: '按住說話 Push-to-talk', def: '說話時按住一個鍵，放開就結束。Open Dictate 用 <kbd>fn</kbd> 或右側 Option。' },
       { term: '常駐程式 Daemon', def: '<code>dictated.py</code>，在背景一直把模型載入著的程式，短句不用等冷啟動。app 透過 Unix socket 跟它溝通。' },
-      { term: 'MLX Whisper', def: '在 Apple 的 MLX 框架上執行的 Whisper 語音辨識模型。預設是 <code>whisper-large-v3-turbo</code>。' },
-      { term: '快／準模式 Fast / accurate mode', def: '兩種可以來回切換的辨識設定，要自己開啟。快是 Qwen3-ASR 1.7B，模型自己寫標點。準是 Whisper，把你的詞庫當提示詞。設定方式、下載量與授權寫在 <code>docs/RECOGNITION-MODES.md</code>。' },
+      { term: 'MLX Whisper', def: '在 Apple 的 MLX 框架上執行的 Whisper 語音辨識模型。它是準確模式用的模型，預設是 <code>whisper-large-v3-turbo</code>。' },
+      { term: '快／準模式 Fast / accurate mode', def: '兩種可以來回切換的辨識設定，剛裝好從快開始。快是 Qwen3-ASR 1.7B，模型自己寫標點。準是 Whisper，把你的詞庫當提示詞。設定方式、下載量與授權寫在 <code>docs/RECOGNITION-MODES.md</code>。' },
       { term: '詞庫對照 Glossary pair', def: '一筆 <code>誤聽 → 正確</code>，例如 <code>git hub → GitHub</code>。只要誤聽那一邊出現，就照寫好的字替換。' },
       { term: '語境對照 Contextual pair', def: '只在某些句子裡才安全的對照。它不會被盲目套用，要等上下文或你來判斷。' },
       { term: '審核佇列 Review queue', def: '等你接受、修改或拒絕的候選對照。每個決定都留在歷史紀錄裡，可以復原。' },
@@ -146,7 +146,7 @@ export default {
     features: [
       { name: '按住說話輸入', note: '' },
       { name: '本地 MLX Whisper daemon', note: '' },
-      { name: '快與準兩種辨識模式', note: '要自己開啟，Qwen3-ASR 或 Whisper' },
+      { name: '快與準兩種辨識模式', note: '預設開啟，Qwen3-ASR 或 Whisper' },
       { name: '確定性詞庫校正', note: '' },
       { name: '繁中全形標點', note: '' },
       { name: '選單列教詞庫', note: '' },
@@ -163,8 +163,7 @@ export default {
       '<strong>目前從原始碼安裝。</strong>需要 Git、Xcode Command Line Tools 和 Python 3.11 以上，還沒有 DMG。',
       '<strong>裝好的 app 依賴你 clone 下來的資料夾。</strong>搬動資料夾之後，跑一次 doctor，再重新安裝。',
       '<strong>app 目前是 ad-hoc 簽章。</strong>重新建置後，macOS 可能要你把權限關掉再打開。',
-      '<strong>第一次執行會下載模型，</strong>載入可能要兩分鐘左右。',
-      '<strong>快與準模式要自己開啟。</strong>安裝程式只裝一個 Whisper 模型。第二個模型要另外一個 Python 環境和約 4 GB 的下載，步驟在模式說明裡。',
+      '<strong>安裝程式會下載 4.1 GB 的模型，</strong>先告訴你大小、等你說好才開始：快速模式用 Qwen3-ASR，準確模式用 Whisper。需要約 5 GB 可用記憶體。<code>--recognition off</code> 只留一個 Whisper 模型（1.6 GB）。',
     ],
     roadmapTitle: '變成一般 Mac app 的路',
     phaseLabel: '階段',
@@ -195,8 +194,8 @@ export default {
     netTitle: '什麼時候會用到網路',
     net: [
       '<strong>安裝時。</strong>Python 套件從 PyPI 下載。',
-      '<strong>模型。</strong>第一次執行會從 Hugging Face 下載 <code>mlx-community/whisper-large-v3-turbo</code>。daemon 載入模型時，下載用的函式庫可能會檢查有沒有新版。這個請求只帶模型名稱，不含你的音檔或文字。',
-      '<strong>快速模式，如果你打開它。</strong>它用同樣的方式下載 <code>mlx-community/Qwen3-ASR-1.7B-8bit</code>（2.5 GB，Apache-2.0）。Open Dictate 不內附任何模型檔。',
+      '<strong>模型。</strong>安裝程式問過之後，會從 Hugging Face 下載 <code>mlx-community/whisper-large-v3-turbo</code>（1.6 GB，MIT 授權）。daemon 載入模型時，下載用的函式庫可能會檢查有沒有新版。這個請求只帶模型名稱，不含你的音檔或文字。',
+      '<strong>快速模式，預設開啟。</strong>安裝程式也用同樣的方式下載 <code>mlx-community/Qwen3-ASR-1.7B-8bit</code>（2.5 GB，Apache-2.0）。Open Dictate 不內附任何模型檔，<code>--recognition off</code> 不會下載這一個。',
       '<strong>LLM 標點，如果你打開它。</strong>它連到 <code>127.0.0.1</code> 上的 Ollama，也就是你自己 Mac 上的伺服器。如果你把 <code>OPEN_DICTATE_PUNCT_LLM_URL</code> 指到別台機器，文字就會送到那裡。',
       '<strong>遠端辨識，只有你設了網址才會。</strong>預設關閉。設了 <code>OPEN_DICTATE_ASR_REMOTE_URL</code> 之後，每段錄音都會送到那台機器，所以只對你自己擁有、在私人網路裡的電腦使用。',
       '<strong>會議模式加上 <code>--model</code>。</strong>你指定的模型第一次使用時會下載。',
@@ -211,8 +210,8 @@ export default {
     eyebrow: '05 · 安裝',
     title: '裝起來',
     lede: 'Open Dictate 目前用一支腳本從原始碼安裝。需要 macOS 14 以上的 Apple Silicon Mac、Xcode Command Line Tools，以及 Python 3.11 以上。',
-    after: '安裝程式會建立虛擬環境、把 <code>OpenDictate.app</code> 建置到「應用程式」資料夾、依你的 clone 路徑寫好兩個 LaunchAgent，然後載入模型。要等 daemon 真的回應 ping 才算成功，只有 socket 檔案不算。',
-    slow: '第一次會下載模型，可能要兩分鐘左右。網路慢的話：<code>OPEN_DICTATE_WARM_TIMEOUT=300 ./install.sh</code>。',
+    after: '安裝程式會先列出要下載的模型，等你說好。接著建立兩個虛擬環境、下載模型、把 <code>OpenDictate.app</code> 建置到「應用程式」資料夾、依你的 clone 路徑寫好兩個 LaunchAgent，並從快速模式開始。要等 daemon 真的回應 ping、辨識模式也有回應才算成功，只有 socket 檔案不算。',
+    slow: '模型共 4.1 GB：25 Mbps 約 22 分鐘，100 Mbps 約 5 分鐘，500 Mbps 約 1 分鐘。想只用一個 Whisper 模型（1.6 GB）：<code>./install.sh --recognition off</code>。機器慢的話：<code>OPEN_DICTATE_WARM_TIMEOUT=300 ./install.sh</code>。',
     permsTitle: '接著開三個權限，設定一個鍵',
     perms: [
       '系統設定 → 隱私權與安全性：在<strong>麥克風</strong>、<strong>輔助使用</strong>、<strong>輸入監控</strong>裡允許 OpenDictate。',
@@ -222,7 +221,7 @@ export default {
     maintTitle: '出狀況的時候',
     maintNote: 'doctor 會檢查 app、簽章、LaunchAgent、clone 路徑、socket，最後實際 ping 一次，什麼都不改。權限的部分它只能提醒，因為它不讀 macOS 受保護的權限資料庫。',
     cliTitle: '會議、詞庫和辨識模式，從終端機操作',
-    cliNote: '中英混雜的會議用 <code>--language auto</code>。輸出 Markdown、JSONL、SRT、VTT，外加一份 JSON 摘要。<code>mode</code> 指令要先照模式說明把功能開起來。',
+    cliNote: '中英混雜的會議用 <code>--language auto</code>。輸出 Markdown、JSONL、SRT、VTT，外加一份 JSON 摘要。辨識模式開著（預設就是）時才能用 <code>mode</code> 指令。',
     setupLink: '完整安裝說明',
     modesLink: '快與準辨識模式',
     releaseLink: '版本 v{v}：更新說明、原始碼壓縮檔與 app',
@@ -274,7 +273,7 @@ export default {
     installPrompt: [
       'Clone https://github.com/frank890417/open-dictate，先讀 README.md、docs/SETUP.md 和 docs/PRIVACY.md。',
       '確認這台 Mac 是 Apple Silicon、macOS 14 以上（uname -m、sw_vers）。不符合就停下來告訴我。',
-      '執行 ./install.sh。完成後跑 ./scripts/doctor.sh 和 python3 daemon/dictate_cli.py ping，把結果告訴我。',
+      '先跑 ./install.sh --plan，告訴我它要下載什麼（約 4 GB）、要等多久。等我說好再跑 ./install.sh --yes。完成後跑 ./scripts/doctor.sh 和 python3 daemon/dictate_cli.py ping，把結果告訴我。',
       '告訴我要在系統設定開哪三個權限、fn 鍵要怎麼設。這些你沒辦法幫我開。',
       '',
       '不要刪除 ~/.open-dictate 底下任何東西，裡面是我的詞庫和日誌。',
