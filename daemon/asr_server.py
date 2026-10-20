@@ -21,7 +21,7 @@ Endpoints:
 
 Usage:
   python asr_server.py --bind 100.x.y.z --port 8795 --models qwen3-asr-1.7b,whisper-turbo \
-      --token-keychain muse-dictate-asr
+      --token-keychain open-dictate-asr
 """
 
 from __future__ import annotations

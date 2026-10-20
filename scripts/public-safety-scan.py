@@ -12,6 +12,12 @@ BLOCK_PATTERNS = [
     r"sk-[A-Za-z0-9]{20,}", r"xox[baprs]-", r"Bearer [A-Za-z0-9._-]{20,}",
     r"(?i)(api[_-]?key|token|secret|password)\s*[:=]\s*[\"']?[A-Za-z0-9._/-]{12,}",
 ]
+# The generic "token = <12+ chars>" rule above cannot tell a literal secret from a line that
+# only *reads* one: ``token = keychain_secret(SERVICE)`` has no value in it, the secret lives in
+# the macOS keychain. Only that one rule is relaxed, and only for this exact shape; every other
+# rule still applies to the same line (a key pasted next to the call is still caught).
+SECRET_ASSIGNMENT = BLOCK_PATTERNS[-1]
+READS_FROM_KEYCHAIN = re.compile(r"=\s*(?:\w+\.)?keychain_secret\(")
 BLOCK_FILES = [
     r"wispr", r"dictation-log", r"voiceprint", r"voiceprints/", r"speaker-profiles/",
     r"speaker_profiles.*\.json$", r"transcripts/", r"meetings/", r"review-queue/",
@@ -36,6 +42,13 @@ def load_local_patterns() -> list[re.Pattern]:
     return patterns
 
 
+def line_hits(line: str, text_res: list[re.Pattern]) -> list[re.Pattern]:
+    """The text rules that match one line, minus the keychain-read exception (see above)."""
+    reads_keychain = bool(READS_FROM_KEYCHAIN.search(line))
+    return [rx for rx in text_res
+            if rx.search(line) and not (reads_keychain and rx.pattern == SECRET_ASSIGNMENT)]
+
+
 def skipped(path: Path) -> bool:
     return any(part in SKIP_DIRS for part in path.parts)
 
@@ -58,9 +71,8 @@ def main() -> int:
         except UnicodeDecodeError:
             continue
         for i, line in enumerate(text.splitlines(), 1):
-            for rx in text_res:
-                if rx.search(line):
-                    hits.append(f"TEXT {rel}:{i} matches {rx.pattern}: {line[:160]}")
+            for rx in line_hits(line, text_res):
+                hits.append(f"TEXT {rel}:{i} matches {rx.pattern}: {line[:160]}")
     if hits:
         print("PUBLIC SAFETY SCAN FAILED")
         for hit in hits:
