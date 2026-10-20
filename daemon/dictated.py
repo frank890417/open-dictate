@@ -36,7 +36,7 @@ except ImportError:  # direct script execution: python daemon/dictated.py
     from product_config import (DATA_ROOT, LOG_ROOT, LEXICON_ROOT, PRIORITY_TERMS, SOCKET_PATH, env,
                                 PROMPT_CORE_TERMS as PROMPT_CORE_TERMS_RAW)
 
-__version__ = "0.7.1"
+__version__ = "0.7.2"
 
 # ---------------------------------------------------------------------------
 # 常數（路徑皆契約 SSOT，見 IO-CONTRACT.md §路徑約定）
@@ -484,8 +484,27 @@ def _machine_load() -> str:
 #   ③ 看守每 PUNCT_WARM_INTERVAL_S 秒用 /api/ps 查一次（~10ms），被卸載就重新載入
 #   ④ 防抖：載入後很快又被別的模型擠掉 → 退避（10 分、20 分…上限 2 小時）
 # 關掉：<PREFIX>_PUNCT_WARM=0（回到 v0.5.4 行為）。代價：LLM 常駐佔記憶體。
+#
+# v0.7.2：預設不再開機就載入（那顆模型 21GB，快速模式根本不用 LLM 標點，只在準確模式選了
+# llm_zh 才用得到）。三種政策，<PREFIX>_PUNCT_WARM：
+#   未設／auto（預設）＝需要才暖：第一句要走 LLM 標點的句子（準確模式、llm_zh）叫醒看守，
+#       之後照 ③④ 常駐；切到快速模式就鬆手（不再重新載入，也不主動卸載——模型可能別人也在用，
+#       Ollama 的 keep_alive 到了自己會卸）。那第一句走規則層，跟 0.6.0 起「模型不在就先走規則層」一樣。
+#   1／true／yes／on／eager ＝ 開機就載入並常駐（0.6.0 到 0.7.1 的行為）
+#   0／false／no／off ＝ 看守關掉
 # ---------------------------------------------------------------------------
-PUNCT_WARM_ENABLED = env("PUNCT_WARM", "1") != "0"
+def punct_warm_policy(value: str | None) -> str:
+    """"eager"（開機就暖）、"off"（不暖）、"auto"（需要才暖，預設）。"""
+    v = (value or "").strip().lower()
+    if v in ("1", "true", "yes", "on", "eager"):
+        return "eager"
+    if v in ("0", "false", "no", "off"):
+        return "off"
+    return "auto"
+
+
+PUNCT_WARM_POLICY = punct_warm_policy(env("PUNCT_WARM", ""))
+PUNCT_WARM_ENABLED = PUNCT_WARM_POLICY != "off"
 PUNCT_WARM_INTERVAL_S = float(env("PUNCT_WARM_INTERVAL_S", "120"))
 PUNCT_WARM_LOAD_TIMEOUT_S = 240.0
 PUNCT_READY_TTL_S = 15.0          # 確認「在」之後 15 秒內不再查；超過就當場查 /api/ps（~10ms），外部卸載也抓得到
@@ -515,8 +534,12 @@ def punct_model_loaded(timeout: float = PUNCT_PS_TIMEOUT_S) -> bool | None:
 class PunctWarmer:
     """背景看守 LLM 標點模型常駐。daemon 單執行緒處理請求；這條執行緒只打 Ollama HTTP。"""
 
-    def __init__(self) -> None:
+    def __init__(self, policy: str | None = None) -> None:
         import threading
+        self.policy = policy or PUNCT_WARM_POLICY
+        self.wanted = self.policy == "eager"      # auto：要等第一句 LLM 標點來叫醒（want）
+        self._lock = threading.Lock()
+        self._started = False
         self._kick = threading.Event()
         self._thread = threading.Thread(target=self._run, name="punct-warmer", daemon=True)
         self.ready_at = 0.0          # 最近一次確認「在」的 monotonic 時間
@@ -528,8 +551,29 @@ class PunctWarmer:
         self._next_try = 0.0
 
     def start(self) -> None:
-        if PUNCT_WARM_ENABLED:
-            self._thread.start()
+        """開機：eager 現在就起看守；auto 等 want()；off 永遠不起。"""
+        if self.policy == "eager":
+            self._start_thread()
+
+    def _start_thread(self) -> None:
+        with self._lock:
+            if self._started:
+                return
+            self._started = True
+        self._thread.start()
+
+    def want(self) -> None:
+        """有句子要走 LLM 標點了（auto）：武裝看守、第一次才起執行緒，並叫它檢查。"""
+        if self.policy == "off":
+            return
+        self.wanted = True
+        self._start_thread()
+        self.kick()
+
+    def release(self) -> None:
+        """auto：需要這顆模型的模式沒了（切到快速）。看守不再重新載入；不主動卸載（可能別人也在用）。"""
+        if self.policy == "auto":
+            self.wanted = False
 
     def kick(self) -> None:
         self._kick.set()
@@ -539,7 +583,7 @@ class PunctWarmer:
 
     def is_ready(self) -> bool:
         """請求路徑用：最近確認過就信，不然當場查一次（~10ms）。"""
-        if not PUNCT_WARM_ENABLED:
+        if self.policy == "off":
             return True                # 關掉看守 ＝ 舊行為：直接打，讓逾時自己處理
         if self.loading:
             return False
@@ -549,12 +593,12 @@ class PunctWarmer:
         if loaded:
             self.mark_ready()
             return True
-        self.kick()
+        self.kick()                    # 看守在 want() 時已經起來（請求路徑一定先 want）；這裡只叫它現在就查
         return False                   # 不在（或 Ollama 沒開）→ 這句走規則層，看守去載
 
     def status(self) -> dict:
         age = time.monotonic() - self.ready_at if self.ready_at else None
-        return {"enabled": PUNCT_WARM_ENABLED, "loading": self.loading,
+        return {"enabled": self.policy != "off", "policy": self.policy, "wanted": self.wanted, "loading": self.loading,
                 "ready_age_s": round(age, 1) if age is not None else None,
                 "last_load_s": self.last_load_s, "last_error": self.last_error}
 
@@ -570,6 +614,8 @@ class PunctWarmer:
             self._kick.clear()
 
     def _tick(self) -> None:
+        if not self.wanted:
+            return                     # auto 且目前沒有人需要 LLM 標點：連 /api/ps 都不問
         loaded = punct_model_loaded(timeout=5.0)
         now = time.monotonic()
         if loaded is None:
@@ -1116,6 +1162,11 @@ class DictationDaemon:
         main, shadow = self._mode_models(mode)
         self.router.set_models(main, shadow)
         self.mode = mode
+        # LLM 標點模型的常駐跟著模式走（PUNCT_WARM 預設 auto）：快速模式用不到，準確模式 + 之前看過 llm_zh 才暖
+        if mode == "fast":
+            PUNCT_WARMER.release()
+        elif getattr(self, "_llm_punct_seen", False):
+            PUNCT_WARMER.want()
         try:
             MODE_STATE_PATH.parent.mkdir(parents=True, exist_ok=True)
             MODE_STATE_PATH.write_text(json.dumps({"mode": mode, "ts": datetime.now().isoformat(timespec="seconds")}),
@@ -1417,11 +1468,14 @@ class DictationDaemon:
             #    PUNCT_LLM=0 → llm_zh 改走規則層（LLM 移出熱路徑）。
             punct_req = str(req.get("punct") or "smart_zh")
             punct_mode = punct_req
+            if punct_req == "llm_zh":
+                self._llm_punct_seen = True     # 殼設的是 LLM 標點：之後切到準確模式要暖
             t_punct0 = time.perf_counter()
             if punct_mode != "raw" and router is not None and asr_engine.spec(req_model)["native_punct"]:
                 text = smart_punct_zh(text)
                 punct_mode = "asr_zh"
             elif punct_mode == "llm_zh" and PUNCT_LLM_ENABLED:
+                PUNCT_WARMER.want()             # 這句真的要打 LLM：auto 政策在這裡才開始暖（快速模式走不到這行）
                 contextual = list(getattr(self.lex, "contextual", []) or [])
                 text, punct_mode = llm_punct_routed(text, contextual, self._safe_pairs,
                                                     deadline=t_mono0 + shell_deadline_s(dur))
@@ -1679,7 +1733,7 @@ def main() -> int:
     log_line(f"dictated v{__version__} starting (model={MODEL})")
     daemon = DictationDaemon()
     daemon.warmup()  # 先 warm 再開 socket：殼連上即可用，不會撞冷啟動
-    PUNCT_WARMER.start()  # v0.6.0：LLM 標點模型在背景載入＋常駐看守，不擋 socket
+    PUNCT_WARMER.start()  # v0.6.0：LLM 標點模型在背景載入＋常駐看守，不擋 socket（v0.7.2：預設要用到才起，見 PUNCT_WARM）
     serve(daemon, args.socket)
     return 0
 

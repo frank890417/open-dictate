@@ -38,6 +38,8 @@
       "description": "ping only (daemon ≥0.6.0): LLM punctuation warm-keeper status",
       "properties": {
         "enabled": {"type": "boolean"},
+        "policy": {"enum": ["auto", "eager", "off"], "description": "daemon ≥0.7.2: auto = warm only when an LLM-punctuation sentence needs the model"},
+        "wanted": {"type": "boolean", "description": "daemon ≥0.7.2: the keeper is currently asked to keep the model warm"},
         "loading": {"type": "boolean"},
         "ready_age_s": {"type": ["number", "null"]},
         "last_load_s": {"type": ["number", "null"]},

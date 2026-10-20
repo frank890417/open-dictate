@@ -7,6 +7,7 @@ Whisper 在極短與極長音訊兩端都會陷入 token 迴圈，把同一個�
 ⚠️ 全部使用合成語料，不含任何真實聽寫內容。
 """
 import importlib.util
+import os
 import sys
 import unittest
 from pathlib import Path
@@ -17,6 +18,8 @@ _DAEMON_DIR = Path(__file__).resolve().parents[1] / "daemon"
 if str(_DAEMON_DIR) not in sys.path:
     sys.path.insert(0, str(_DAEMON_DIR))
 
+# The suite must never reach a real Ollama (the warm keeper would load a 21 GB model on a developer's Mac): port 9 refuses at once.
+os.environ.setdefault("OPEN_DICTATE_PUNCT_LLM_URL", "http://127.0.0.1:9/api/chat")
 # 只需要純函式，直接載模組即可（不啟動 socket、不載模型）。
 _SPEC = importlib.util.spec_from_file_location("dictated_for_test", _DAEMON_DIR / "dictated.py")
 dictated = importlib.util.module_from_spec(_SPEC)
