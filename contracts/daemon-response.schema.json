@@ -18,7 +18,11 @@
         "maxItems": 2
       }
     },
-    "punct": {"enum": ["raw", "smart_zh", "llm_zh", "llm_zh_partial", "smart_zh_fallback"]},
+    "punct": {"enum": ["raw", "smart_zh", "llm_zh", "llm_zh_partial", "smart_zh_fallback", "asr_zh"]},
+    "asr_where": {"enum": ["studio", "local"], "description": "transcribe (daemon ≥0.7.0, ASR_BACKEND=router): which path recognised this utterance"},
+    "asr": {"type": "object", "description": "ping only (daemon ≥0.7.0, ASR_BACKEND=router): main/shadow model, remote and local worker status"},
+    "mode": {"enum": ["fast", "accurate", null], "description": "ping / set_mode (daemon ≥0.7.0, router): current recognition mode"},
+    "shadow": {"type": ["string", "null"], "description": "set_mode (daemon ≥0.7.0): shadow model after the switch"},
     "asr_ms": {"type": "integer", "minimum": 0},
     "total_ms": {"type": "integer", "minimum": 0},
     "pre_asr_ms": {"type": "integer", "minimum": 0},

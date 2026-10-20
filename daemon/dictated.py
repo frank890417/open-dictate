@@ -22,6 +22,7 @@ import socket
 import sys
 import time
 import unicodedata
+import uuid
 import urllib.error
 import urllib.request
 import wave
@@ -29,13 +30,13 @@ from datetime import datetime
 from pathlib import Path
 
 try:
-    from .product_config import (LOG_ROOT, LEXICON_ROOT, PRIORITY_TERMS, SOCKET_PATH, env,
+    from .product_config import (DATA_ROOT, LOG_ROOT, LEXICON_ROOT, PRIORITY_TERMS, SOCKET_PATH, env,
                                  PROMPT_CORE_TERMS as PROMPT_CORE_TERMS_RAW)
 except ImportError:  # direct script execution: python daemon/dictated.py
-    from product_config import (LOG_ROOT, LEXICON_ROOT, PRIORITY_TERMS, SOCKET_PATH, env,
+    from product_config import (DATA_ROOT, LOG_ROOT, LEXICON_ROOT, PRIORITY_TERMS, SOCKET_PATH, env,
                                 PROMPT_CORE_TERMS as PROMPT_CORE_TERMS_RAW)
 
-__version__ = "0.6.1"
+__version__ = "0.7.0"
 
 # ---------------------------------------------------------------------------
 # 常數（路徑皆契約 SSOT，見 IO-CONTRACT.md §路徑約定）
@@ -60,30 +61,59 @@ SOCKET_TIMEOUT_S = 15        # 單連線 recv/send timeout，防 client 掛住 d
 # 失敗形狀（重放實測）：誤觸的 0.8–1.6 秒錄音在底噪上掉進 token 迴圈，
 # mlx_whisper 預設的溫度 fallback 一個窗口「重複度過高」就換溫度整窗重解，
 # 最多 6 輪、每輪最多 224 token ⇒ 單筆 15–41 秒，超過殼的逾時、字沒進游標。
-# 兩道護欄：
-#   ① sample_len 隨音長給上限：真實口述 p99 約 7 text token/秒，
-#      給 12/秒 + 32 的空間，1.5 秒最多 50 token。≥16 秒就等於原本的 224，長口述不受影響。
-#   ② 溫度階梯截在 0.4：重放語料裡用到 1.0 的解碼 15 次有 12 次是垃圾
-#      （「44444」「4.4 on on…」），剩下 3 次也只是垃圾被好段落稀釋。
-#      救不回來的交給下面的「換 prompt 重試」。短錄音（<4 秒）只留兩個溫度。
+# 兩道護欄（sample_len 隨音長、溫度階梯截在 0.4）與 30–33 秒切窗，v0.7.0 起住在
+# asr_engine.py：本機辨識子行程與遠端辨識服務共用同一份，「退回本機」才真的是同一組參數。
+# 這裡 re-export，舊的測試與腳本照用 dictated.asr_decode_options。
 # ---------------------------------------------------------------------------
-ASR_TOKENS_PER_S = 12.0
-ASR_TOKENS_BASE = 32
-ASR_SAMPLE_LEN_MAX = 224     # whisper n_text_ctx // 2（原本的預設值）
-ASR_SHORT_CLIP_S = 4.0
-ASR_TEMPS = (0.0, 0.2, 0.4)
-ASR_SHORT_TEMPS = (0.0, 0.4)
+try:
+    from . import asr_engine, asr_router
+except ImportError:  # direct script execution: python daemon/dictated.py
+    import asr_engine  # type: ignore[no-redef]
+    import asr_router  # type: ignore[no-redef]
+ASR_TOKENS_PER_S = asr_engine.ASR_TOKENS_PER_S
+ASR_TOKENS_BASE = asr_engine.ASR_TOKENS_BASE
+ASR_SAMPLE_LEN_MAX = asr_engine.ASR_SAMPLE_LEN_MAX
+ASR_SHORT_CLIP_S = asr_engine.ASR_SHORT_CLIP_S
+ASR_TEMPS = asr_engine.ASR_TEMPS
+ASR_SHORT_TEMPS = asr_engine.ASR_SHORT_TEMPS
+asr_decode_options = asr_engine.asr_decode_options
+asr_clip_timestamps = asr_engine.asr_clip_timestamps
 
-
-def asr_decode_options(dur: float | None) -> dict:
-    """依音長給 mlx_whisper.transcribe 的額外參數（sample_len／temperature）。"""
-    if not dur or dur <= 0:
-        return {}
-    import math
-    opts: dict = {"sample_len": min(ASR_SAMPLE_LEN_MAX,
-                                    int(math.ceil(dur * ASR_TOKENS_PER_S)) + ASR_TOKENS_BASE)}
-    opts["temperature"] = ASR_SHORT_TEMPS if dur < ASR_SHORT_CLIP_S else ASR_TEMPS
-    return opts
+# ---------------------------------------------------------------------------
+# ASR 路由（v0.7.0，ASR_BACKEND=router）
+#
+# inproc（預設，舊行為）：mlx_whisper 跑在 daemon 行程裡。
+# router：辨識跑在子行程（asr_worker.py），可選先送遠端辨識服務（asr_server.py，
+#   例如同一個私人網路上的桌機），逾時（音長×RTF＋BASE）或連不到就退回本機同一個模型；
+#   子行程當掉（MLX 段錯誤）自動重啟、這一句改走另一條路。
+#   ASR_SHADOW_MODEL：同一段另送遠端的第二個模型，只寫並排紀錄、不出字（兩個模型實測對照）。
+# ASR_PROMPT：full＝照舊組 whisper 提示詞；none＝不給（2026-10-16 實測 turbo 不帶提示詞
+#   錯字率 6.7%、帶 8.4% 且出現迴圈）。PUNCT_LLM=0：llm_zh 不再打 LLM、改走規則層；
+#   模型自帶標點（Qwen3-ASR）時一律用它的標點（punct＝asr_zh）。
+# ---------------------------------------------------------------------------
+ASR_BACKEND = env("ASR_BACKEND", "inproc")
+ASR_SHADOW_MODEL = env("ASR_SHADOW_MODEL", "")
+ASR_REMOTE_URL = env("ASR_REMOTE_URL", "")
+ASR_REMOTE_KEYCHAIN = env("ASR_REMOTE_KEYCHAIN", "")     # macOS 鑰匙圈 service 名稱（account＝token）
+ASR_WORKER_PYTHON = env("ASR_WORKER_PYTHON", "") or sys.executable
+ASR_PROMPT = env("ASR_PROMPT", "full")
+# 遠端逾時：不設＝依模型（asr_router.REMOTE_BUDGET，v3 ×0.25＋1.5、Qwen／turbo ×0.15＋1.2）；設了就全部套用
+ASR_REMOTE_RTF = float(env("ASR_REMOTE_RTF", "0") or 0) or None
+ASR_REMOTE_BASE_S = float(env("ASR_REMOTE_BASE_S", "0") or 0) or None
+# 兩檔模式（router 模式才有）：快＝ASR_FAST_MODEL（預設 Qwen3-ASR 1.7B，自帶標點）；準＝ASR_ACCURATE_MODEL（預設 MODEL）。
+# 切換：socket {"cmd":"set_mode","mode":"fast|accurate|快|準"}（dictate_cli.py mode 快、殼選單），不用重啟；
+# 最後一次的選擇存在 DATA_ROOT/dictation-mode.json，重啟後照舊。ASR_SHADOW_MODEL=other ＝ 並排跑另一檔的模型。
+ASR_MODE_DEFAULT = env("ASR_MODE", "accurate")
+ASR_FAST_MODEL = env("ASR_FAST_MODEL", "qwen3-asr-1.7b")
+ASR_ACCURATE_MODEL = env("ASR_ACCURATE_MODEL", "")          # 空＝MODEL
+MODE_STATE_PATH = Path(env("ASR_MODE_STATE", str(DATA_ROOT / "dictation-mode.json"))).expanduser()
+MODE_ALIASES = {"fast": "fast", "快": "fast", "accurate": "accurate", "準": "accurate", "准": "accurate"}
+PUNCT_LLM_ENABLED = env("PUNCT_LLM", "1") != "0"
+# ASR 截止時間＝殼逾時減掉這段（留給詞庫校正、標點、socket 回傳）
+ASR_POST_RESERVE_S = 0.5
+# 路由資訊寫進每句 log 的欄位（None 不寫）
+ROUTE_LOG_FIELDS = ("asr_where", "asr_model", "asr_engine_ms", "net_ms", "ipc_ms", "asr_queue_ms", "asr_fallback")
+SHADOW_LOG_DIR = Path(env("ASR_SHADOW_LOG_ROOT", str(LOG_ROOT.parent / "dictation-shadow"))).expanduser()
 
 
 # ---------------------------------------------------------------------------
@@ -259,24 +289,7 @@ def trim_silence(audio) -> tuple[object, float, float]:
 # ⚠️ 試過全面均分（>30 秒一律切成 ≤24 秒的段）：長句錯字率下降，但有一段 90 秒錄音的
 # 第一段被 Whisper 整個跳過 10 秒內容——自己切窗會引入新的失敗型態，所以只留在窄區間。
 # ---------------------------------------------------------------------------
-CLIP_SLIVER_MIN_S = 30.0
-CLIP_SLIVER_MAX_S = 33.0
-CLIP_SEARCH_S = 3.0
-
-
-def asr_clip_timestamps(audio) -> list[float] | None:
-    dur = len(audio) / SAMPLE_RATE
-    if not (CLIP_SLIVER_MIN_S < dur < CLIP_SLIVER_MAX_S):
-        return None
-    n = len(audio) // _GATE_FRAME
-    r = np.sqrt(np.square(audio[: n * _GATE_FRAME].reshape(n, _GATE_FRAME)).mean(axis=1))
-    fs = _GATE_FRAME / SAMPLE_RATE
-    lo = int((dur / 2 - CLIP_SEARCH_S) / fs)
-    hi = int((dur / 2 + CLIP_SEARCH_S) / fs)
-    win = max(1, int(0.3 / fs))      # 最安靜的「0.3 秒區間」，比單幀更不會切在字中間
-    seg = np.convolve(r[lo:hi], np.ones(win) / win, mode="same")
-    cut = round((lo + int(np.argmin(seg))) * fs, 2)
-    return [0.0, cut, cut, round(dur, 2)]
+# 實作在 asr_engine.asr_clip_timestamps（v0.7.0 搬過去，上面 re-export）。
 
 
 # 殼的逾時公式（AppDelegate.transcribeTimeout，IO-CONTRACT §停損）——daemon 端照抄一份，
@@ -1055,14 +1068,79 @@ class DictationDaemon:
         self._rebuild_prompts()
         self.warm = False
         self.model_load_s: float | None = None
+        self.router = None
+        self.mode = None
+        if ASR_BACKEND == "router":
+            token = asr_router.keychain_secret(ASR_REMOTE_KEYCHAIN) if ASR_REMOTE_KEYCHAIN else None
+            self.modes = {"fast": asr_engine.resolve(ASR_FAST_MODEL),
+                          "accurate": asr_engine.resolve(ASR_ACCURATE_MODEL or MODEL)}
+            self.mode = self._load_mode()
+            main, shadow = self._mode_models(self.mode)
+            self.router = asr_router.AsrRouter(
+                main, shadow_model=shadow, remote_url=ASR_REMOTE_URL, token=token,
+                worker_python=ASR_WORKER_PYTHON, log=log_line,
+                remote_rtf=ASR_REMOTE_RTF, remote_base_s=ASR_REMOTE_BASE_S,
+                local_models=list(self.modes.values()))
         log_line(
             f"lexicon loaded: {len(self.lex.replacements)} replacements, "
             f"prompt {len(self.initial_prompt)} chars"
         )
 
+    # ------------------------------------------------------------ modes (router)
+    def _mode_models(self, mode: str) -> tuple[str, str]:
+        main = self.modes[mode]
+        if ASR_SHADOW_MODEL == "other":
+            other = self.modes["accurate" if mode == "fast" else "fast"]
+            shadow = other if other != main else ""
+        else:
+            shadow = asr_engine.resolve(ASR_SHADOW_MODEL) if ASR_SHADOW_MODEL else ""
+        return main, shadow
+
+    @staticmethod
+    def _load_mode() -> str:
+        try:
+            m = json.loads(MODE_STATE_PATH.read_text(encoding="utf-8")).get("mode")
+            if m in ("fast", "accurate"):
+                return m
+        except (OSError, ValueError, AttributeError):
+            pass
+        return MODE_ALIASES.get(ASR_MODE_DEFAULT, "accurate")
+
+    def handle_set_mode(self, req: dict) -> dict:
+        if getattr(self, "router", None) is None:
+            return {"ok": False, "error": "bad_request"}
+        mode = MODE_ALIASES.get(str(req.get("mode") or "").strip().lower(),
+                                MODE_ALIASES.get(str(req.get("mode") or "").strip()))
+        if not mode:
+            return {"ok": False, "error": "bad_request"}
+        main, shadow = self._mode_models(mode)
+        self.router.set_models(main, shadow)
+        self.mode = mode
+        try:
+            MODE_STATE_PATH.parent.mkdir(parents=True, exist_ok=True)
+            MODE_STATE_PATH.write_text(json.dumps({"mode": mode, "ts": datetime.now().isoformat(timespec="seconds")}),
+                                       encoding="utf-8")
+        except OSError as e:
+            log_line(f"⚠️ mode state write failed: {e}")
+        log_line(f"mode → {mode}（main={main}, shadow={shadow or '-'}）")
+        return {"ok": True, "mode": mode, "model": main, "shadow": shadow or None}
+
     # ------------------------------------------------------------ model
     def warmup(self) -> None:
-        """啟動即載模型：對 1s 靜音跑一次 transcribe，權重進 ModelHolder 常駐。"""
+        """啟動即載模型：對 1s 靜音跑一次 transcribe，權重進 ModelHolder 常駐。
+
+        router 模式：起本機辨識子行程、探遠端；本機暖好或遠端有回應就開 socket。
+        """
+        if self.router is not None:
+            t0 = time.perf_counter()
+            self.router.start()
+            ok = self.router.wait_ready(timeout=120.0)
+            self.model_load_s = time.perf_counter() - t0
+            self.warm = ok
+            log_line(f"asr router {'ready' if ok else 'NOT ready'} in {self.model_load_s:.2f}s "
+                     f"(main={self.router.main}, shadow={self.router.shadow_model or '-'}, "
+                     f"remote={'on' if self.router.remote else 'off'}, prompt={ASR_PROMPT})")
+            return
         import mlx_whisper  # 延到這裡 import：載入本身也算 warmup 時間的一部分
 
         t0 = time.perf_counter()
@@ -1082,8 +1160,13 @@ class DictationDaemon:
         if cmd == "transcribe":
             return self.handle_transcribe(req)
         if cmd == "ping":
-            return {"ok": True, "pong": True, "model": MODEL, "warm": self.warm,
+            resp = {"ok": True, "pong": True, "model": MODEL, "warm": self.warm,
                     "version": __version__, "punct_llm": PUNCT_WARMER.status()}
+            if getattr(self, "router", None) is not None:
+                resp["warm"] = self.router.warm
+                resp["asr"] = self.router.status()
+                resp["mode"] = self.mode
+            return resp
         if cmd == "reload_lexicon":
             self.lex.reload()
             self._rebuild_prompts()
@@ -1096,6 +1179,8 @@ class DictationDaemon:
                     "prompt_chars": len(self.initial_prompt)}
         if cmd == "add_pair":
             return self.handle_add_pair(req)
+        if cmd == "set_mode":
+            return self.handle_set_mode(req)
         if cmd == "stats":
             return self.handle_stats()
         return {"ok": False, "error": "unknown_cmd"}
@@ -1169,8 +1254,6 @@ class DictationDaemon:
         }
 
     def handle_transcribe(self, req: dict) -> dict:
-        import mlx_whisper
-
         t_total0 = time.perf_counter()
         t_mono0 = time.monotonic()
         wav_path = str(req.get("wav") or "")
@@ -1226,6 +1309,7 @@ class DictationDaemon:
             # -- ASR（keep-warm：ModelHolder 已快取權重；v0.6.0 解碼護欄見 asr_decode_options）
             #    短錄音用「只有詞表」的 prompt：風格句會被當成上文續寫進短句
             #    （重放實測：「你可以購買」→「你可以購買Claude的影片」）。
+            #    v0.7.0：router 模式辨識在子行程／遠端跑（見 ASR_BACKEND 註解）；ASR_PROMPT=none 不給 prompt。
             src = audio if audio is not None else wav_path
             trim_h = trim_t = 0.0
             adur = dur                          # 實際送進 ASR 的長度（裁過頭尾靜音）
@@ -1233,23 +1317,53 @@ class DictationDaemon:
                 src, trim_h, trim_t = trim_silence(audio)
                 adur = len(src) / SAMPLE_RATE
             short = adur is not None and adur < ASR_SHORT_CLIP_S
-            prompt0 = getattr(self, "initial_prompt_short", self.initial_prompt) if short else self.initial_prompt
+            router = getattr(self, "router", None)
+            req_model = router.main if router is not None else None      # 這一句開始時的模型（中途切換不影響這句）
+            main_kind = asr_engine.spec(req_model)["kind"] if router is not None else "whisper"
+            # 提示詞＝whisper 的 initial_prompt；熱詞＝Qwen3-ASR 的詞表（同一批專名）。ASR_PROMPT=none 兩者都不給。
+            hotwords = None
+            if ASR_PROMPT == "none":
+                prompt0 = None
+            elif main_kind == "whisper":
+                prompt0 = getattr(self, "initial_prompt_short", self.initial_prompt) if short else self.initial_prompt
+            else:
+                prompt0 = None
+                hotwords = getattr(self, "hotwords", None)
+            uid = uuid.uuid4().hex[:12]
+            route: dict = {}
+            if router is None:
+                import mlx_whisper
+            asr_deadline = t_mono0 + shell_deadline_s(dur) - ASR_POST_RESERVE_S
+
+            def run_asr(prompt):
+                if router is None:
+                    return self._asr(mlx_whisper, src, adur, prompt)
+                audio_in = None if isinstance(src, str) else src
+                r, info = router.transcribe(audio_in, adur or 0.0, prompt, asr_deadline,
+                                            wav_path=wav_path if audio_in is None else None,
+                                            body=route.get("body"), hotwords=hotwords, model=req_model)
+                route.update(info)
+                return r
+
             t_asr0 = time.perf_counter()
             try:
-                result = self._asr(mlx_whisper, src, adur, prompt0)
+                result = run_asr(prompt0)
             except Exception as e:
                 log_line(f"⚠️ asr_failed for {wav_path}: {e!r}")
                 self._log_utterance(dur, raw="", text="", changes=[], asr_ms=self._ms(t_asr0),
                                     total_ms=self._ms(t_total0), pre_asr_ms=pre_asr_ms,
                                     load_ms=load_ms, lex_ms=0, punct_ms=0,
-                                    error="asr_failed")
+                                    error="asr_failed",
+                                    diag={"uid": uid, "asr_fallback": str(e)[:200],
+                                          "tag": str(req["tag"])[:40] if req.get("tag") else None}
+                                    if router is not None else None)
                 return {"ok": False, "error": "asr_failed"}
             raw = (result.get("text") or "").strip()
             deloop, deloop_why = self._clean_asr(result)
 
-            # -- 換 prompt 重試（v0.6.0，見 asr_output_anomalous 註解）
+            # -- 換 prompt 重試（v0.6.0，見 asr_output_anomalous 註解）；沒給 prompt 就沒得換
             retry_tag = raw_first = None
-            if not short and asr_output_anomalous(deloop, adur, gate_voiced):
+            if prompt0 is not None and not short and asr_output_anomalous(deloop, adur, gate_voiced):
                 deadline = t_mono0 + shell_deadline_s(dur)
                 for tag, alt in (("short_prompt", getattr(self, "initial_prompt_short", None)),
                                  ("no_prompt", None)):
@@ -1257,7 +1371,7 @@ class DictationDaemon:
                         log_line(f"🔁 ASR 異常但距殼逾時不足，不重試（{dur}s）")
                         break
                     try:
-                        r2 = self._asr(mlx_whisper, src, adur, alt)
+                        r2 = run_asr(alt)
                     except Exception as e:  # noqa: BLE001 — 重試失敗就用第一次的結果
                         log_line(f"⚠️ asr retry failed: {e!r}")
                         break
@@ -1277,6 +1391,11 @@ class DictationDaemon:
                                          for sg in result.get("segments") or []), default=0.0),
                     "asr_retry": retry_tag, "raw_first": raw_first,
                     "trim_head_s": round(trim_h, 2) or None, "trim_tail_s": round(trim_t, 2) or None}
+            if router is not None:
+                diag.update({"uid": uid, "asr_mode": getattr(self, "mode", None),
+                             **{k: route.get(k) for k in ROUTE_LOG_FIELDS}})
+            if req.get("tag"):            # 測試／重放送進來的句子自己標記，log 讀者分得出來（殼不送）
+                diag["tag"] = str(req["tag"])[:40]
             if not deloop:
                 if deloop_why:
                     log_line(f"🧹 幻覺 → no_speech（{deloop_why}，{dur}s）")
@@ -1284,6 +1403,7 @@ class DictationDaemon:
                                     total_ms=self._ms(t_total0), pre_asr_ms=pre_asr_ms,
                                     load_ms=load_ms, lex_ms=0, punct_ms=0,
                                     error="no_speech", dehall=deloop_why, diag=diag)
+                self._queue_shadow(router, uid, src, adur, dur, short, route.get("body"), raw, "")
                 return {"ok": False, "error": "no_speech"}
 
             # -- 確定性校正（詞庫命中才改，絕無 LLM，見契約§校正哲學）
@@ -1293,17 +1413,26 @@ class DictationDaemon:
 
             # -- 標點層（v0.4 三模式；raw 欄位永遠是原始輸出）
             #    smart_zh＝規則層；llm_zh＝LLM 標點+受控語境錯字（閘門 v2 不過自動退回）；raw＝原樣
-            punct_mode = str(req.get("punct") or "smart_zh")
+            #    v0.7.0：模型自帶標點（Qwen3-ASR）→ 用它的標點、只做全形正規化（asr_zh）；
+            #    PUNCT_LLM=0 → llm_zh 改走規則層（LLM 移出熱路徑）。
+            punct_req = str(req.get("punct") or "smart_zh")
+            punct_mode = punct_req
             t_punct0 = time.perf_counter()
-            if punct_mode == "llm_zh":
+            if punct_mode != "raw" and router is not None and asr_engine.spec(req_model)["native_punct"]:
+                text = smart_punct_zh(text)
+                punct_mode = "asr_zh"
+            elif punct_mode == "llm_zh" and PUNCT_LLM_ENABLED:
                 contextual = list(getattr(self.lex, "contextual", []) or [])
                 text, punct_mode = llm_punct_routed(text, contextual, self._safe_pairs,
                                                     deadline=t_mono0 + shell_deadline_s(dur))
-            elif punct_mode == "smart_zh":
+            elif punct_mode in ("llm_zh", "smart_zh"):
                 text = smart_punct_zh(text)
-            if punct_mode.startswith(("llm_zh", "smart_zh")):
+                punct_mode = "smart_zh"
+            if punct_mode.startswith(("llm_zh", "smart_zh", "asr_zh")):
                 text = postprocess_punct(text)
             punct_ms = self._ms(t_punct0)
+            if punct_mode != punct_req:
+                diag["punct_req"] = punct_req
 
             total_ms = self._ms(t_total0)
             self._log_utterance(dur, raw=raw, text=text, changes=changes,
@@ -1311,12 +1440,60 @@ class DictationDaemon:
                                 load_ms=load_ms, lex_ms=lex_ms, punct_ms=punct_ms,
                                 punct=punct_mode,
                                 dehall=deloop_why, diag=diag)
-            return {"ok": True, "text": text, "raw": raw, "changes": changes,
+            self._queue_shadow(router, uid, src, adur, dur, short, route.get("body"), raw, text)
+            resp = {"ok": True, "text": text, "raw": raw, "changes": changes,
                     "punct": punct_mode, "asr_ms": asr_ms, "total_ms": total_ms,
                     "pre_asr_ms": pre_asr_ms, "load_ms": load_ms,
                     "lex_ms": lex_ms, "punct_ms": punct_ms}
+            if route.get("asr_where"):
+                resp["asr_where"] = route["asr_where"]
+            return resp
         finally:
             cleanup_wav(wav_path)  # 成功/no_speech/失敗都清（殼不重送）
+
+    def _queue_shadow(self, router, uid, audio, adur, dur, short, body, main_raw, main_text) -> None:
+        """並排模式（v0.7.0）：同一段送遠端的第二個模型，結果只寫並排紀錄，不出字。
+
+        紀錄 → SHADOW_LOG_DIR/YYYY-MM-DD.jsonl（本機私有），用 uid 對回主紀錄；
+        兩邊走同一套清理＋詞庫校正，比較的是模型本身。
+        """
+        if router is None or not router.shadow_model or isinstance(audio, str) or audio is None:
+            return
+        shadow_spec = asr_engine.spec(router.shadow_model)
+        sprompt = shot = None
+        if ASR_PROMPT != "none":       # 並排模型吃同一套提示詞政策：whisper 給 prompt、Qwen 給熱詞
+            if shadow_spec["kind"] == "whisper":
+                sprompt = getattr(self, "initial_prompt_short", self.initial_prompt) if short else self.initial_prompt
+            else:
+                shot = getattr(self, "hotwords", None)
+        main_model = router.main
+
+        def done(result, info) -> None:
+            row = {"ts": datetime.now().isoformat(timespec="seconds"), "uid": uid,
+                   "main_model": main_model, "model": info.get("model"), "where": info.get("where"),
+                   "wav_dur_s": round(dur, 2) if dur is not None else None,
+                   "main_raw": main_raw, "main_text": main_text}
+            if result is None:
+                row["error"] = info.get("error")
+            else:
+                raw = (result.get("text") or "").strip()
+                clean, why = self._clean_asr(result)
+                text = ""
+                if clean:
+                    text, _changes = self.lex.correct(clean)
+                    text = postprocess_punct(smart_punct_zh(text))
+                row.update({"raw": raw, "text": text, "dehall": why,
+                            "engine_ms": info.get("engine_ms"), "net_ms": info.get("net_ms"),
+                            "queue_ms": info.get("queue_ms"), "error": info.get("error")})
+            row = {k: v for k, v in row.items() if v is not None}
+            try:
+                SHADOW_LOG_DIR.mkdir(parents=True, exist_ok=True)
+                with open(SHADOW_LOG_DIR / f"{datetime.now():%Y-%m-%d}.jsonl", "a", encoding="utf-8") as f:
+                    f.write(json.dumps(row, ensure_ascii=False) + "\n")
+            except OSError as e:
+                log_line(f"⚠️ shadow log write failed: {e}")
+
+        router.shadow(audio, body, adur or 0.0, sprompt, done, hotwords=shot)
 
     @staticmethod
     def _asr(mlx_whisper, src, dur, prompt) -> dict:
@@ -1361,6 +1538,8 @@ class DictationDaemon:
     def _rebuild_prompts(self) -> None:
         self.initial_prompt = build_whisper_prompt(self.lex)
         self.initial_prompt_short = build_whisper_prompt(self.lex, with_seed=False)
+        # Qwen3-ASR 熱詞＝whisper 提示詞裡同一批專名（短版就是「詞、詞、…。」）
+        self.hotwords = [t for t in self.initial_prompt_short.rstrip("。").split("、") if t.strip()]
 
     @staticmethod
     def _ms(t0: float) -> int:

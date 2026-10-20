@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Open Dictate · local-first Traditional Chinese dictation for macOS</title>
-<meta name="description" content="Hold a key, speak, release. Open Dictate transcribes Traditional Chinese on your Apple Silicon Mac with MLX Whisper, fixes the words you taught it with a deterministic glossary, and types the sentence at your cursor. Audio stays on your Mac. Open source, MIT.">
+<meta name="description" content="Hold a key, speak, release. Open Dictate transcribes Traditional Chinese on your Apple Silicon Mac with MLX Whisper or, in the opt-in fast mode, Qwen3-ASR, fixes the words you taught it with a deterministic glossary, and types the sentence at your cursor. Audio stays on your Mac. Open source, MIT.">
 <link rel="canonical" href="https://frank890417.github.io/open-dictate/">
 <link rel="alternate" hreflang="en" href="https://frank890417.github.io/open-dictate/">
 <link rel="alternate" hreflang="zh-Hant" href="https://frank890417.github.io/open-dictate/zh/">
@@ -34,22 +34,24 @@
   "@type": "SoftwareApplication",
   "name": "Open Dictate",
   "alternateName": "open-dictate",
-  "description": "Local-first push-to-talk dictation and meeting transcription for Traditional Chinese on Apple Silicon Macs: a Swift menu-bar app records while a hotkey is held, a local Python daemon transcribes with MLX Whisper, applies the user's deterministic glossary pairs and full-width punctuation, and the text is inserted at the cursor. Audio, transcripts and glossaries stay on the Mac.",
+  "description": "Local-first push-to-talk dictation and meeting transcription for Traditional Chinese on Apple Silicon Macs: a Swift menu-bar app records while a hotkey is held, a local Python daemon transcribes with MLX Whisper (or Qwen3-ASR in the opt-in fast mode), applies the user's deterministic glossary pairs and full-width punctuation, and the text is inserted at the cursor. Audio, transcripts and glossaries stay on the Mac.",
   "url": "https://frank890417.github.io/open-dictate/",
   "inLanguage": "en",
   "applicationCategory": "UtilitiesApplication",
   "operatingSystem": "macOS 14 or later, Apple Silicon",
-  "softwareVersion": "0.6.1",
+  "softwareVersion": "0.7.0",
   "softwareRequirements": "Apple Silicon Mac; macOS 14+; Xcode Command Line Tools; Python 3.11+",
   "featureList": [
     "Push-to-talk dictation with fn or right Option",
     "Local transcription with MLX Whisper on Apple Silicon",
+    "Fast and accurate recognition modes (Qwen3-ASR or Whisper), switchable without a restart",
     "Deterministic, user-owned glossary correction",
     "Traditional Chinese full-width punctuation",
     "Meeting transcripts as Markdown, JSONL, SRT and VTT",
     "Review-first glossary growth from flagged mishearings"
   ],
-  "downloadUrl": "https://github.com/frank890417/open-dictate",
+  "downloadUrl": "https://github.com/frank890417/open-dictate/releases/tag/v0.7.0-recognition-modes",
+  "releaseNotes": "https://github.com/frank890417/open-dictate/releases/tag/v0.7.0-recognition-modes",
   "installUrl": "https://frank890417.github.io/open-dictate/#start",
   "license": "https://opensource.org/licenses/MIT",
   "isAccessibleForFree": true,
@@ -99,7 +101,7 @@
     <div class="hero-grid">
       <div class="hero-text">
         <p class="lede">Local-first dictation for Traditional Chinese on Apple Silicon Macs. <em>MLX Whisper</em> turns your voice into text on your own machine, <em>a glossary you own</em> corrects the words it knows, and the sentence is <em>typed where your cursor is</em>. The system may flag and suggest. It may not silently rewrite what you meant.</p>
-        <p class="eyebrow facts">Early public seed · daemon 0.6.1 · MIT · macOS 14+ · Apple Silicon</p>
+        <p class="eyebrow facts">Early public seed · daemon 0.7.0 · MIT · macOS 14+ · Apple Silicon</p>
       </div>
       <nav class="doors" aria-label="Where to start">
         <a class="door door-1" href="#start"><span class="door-who">I want to use it</span><span class="door-what">What it needs, how to install, what it can’t do yet</span><span class="door-arrow" aria-hidden="true">→</span></a>
@@ -168,7 +170,7 @@
       <li class="layer layer-2">
         <p class="layer-tag"><span>02</span> Transcribe</p>
         <p class="layer-quote">what was said</p>
-        <p class="layer-text">MLX Whisper runs on Apple Silicon inside a daemon that stays loaded. Guards drop known subtitle-credit hallucinations and cut runaway repetition before anything goes further.</p>
+        <p class="layer-text">A speech model runs on Apple Silicon inside a daemon that stays loaded: MLX Whisper by default, Qwen3-ASR in the opt-in fast mode. Guards drop known subtitle-credit hallucinations and cut runaway repetition before anything goes further.</p>
         <p class="layer-spec"><code><span class="k">model</span> = <b>large-v3-turbo</b></code><small>values from the demo above</small></p>
       </li>
       <li class="layer layer-3">
@@ -199,6 +201,7 @@
           <div><dt>Review queue</dt><dd>A scanner flags likely mishearings and numbers as candidates. You accept, edit or reject; only accepted pairs reach the glossary, and every decision can be undone.</dd></div>
           <div><dt>Speaker labels</dt><dd>Transcripts use anonymous labels, <code>SPEAKER_00</code>, <code>SPEAKER_01</code>. Knowing who is speaking is planned as an optional, local-only layer.</dd></div>
           <div><dt>Menu bar</dt><dd>Teach a pair from the last sentence or from selected text, report a mishearing, and choose the hotkey, the microphone and the punctuation mode.</dd></div>
+          <div><dt>Recognition modes</dt><dd>Opt in to keep a fast model (Qwen3-ASR) and an accurate one (Whisper) loaded, and switch between them from the menu bar or the terminal without a restart. A fresh install keeps one Whisper model.</dd></div>
         </dl>
       </div>
       <div>
@@ -220,6 +223,7 @@
       <div><dt><dfn>Push-to-talk</dfn></dt><dd>Hold a key while you speak, release to finish. Open Dictate uses <kbd>fn</kbd> or right Option.</dd></div>
       <div><dt><dfn>Daemon</dfn></dt><dd><code>dictated.py</code>, the background process that keeps the model loaded so a short sentence needs no cold start. The app talks to it over a Unix socket.</dd></div>
       <div><dt><dfn>MLX Whisper</dfn></dt><dd>The Whisper speech model running on Apple’s MLX framework. Default: <code>whisper-large-v3-turbo</code>.</dd></div>
+      <div><dt><dfn>Fast / accurate mode</dfn></dt><dd>Two recognition setups you can switch between, opt-in. Fast is Qwen3-ASR 1.7B, which writes its own punctuation. Accurate is Whisper, with your glossary as its prompt. Setup, downloads and licences are in <code>docs/RECOGNITION-MODES.md</code>.</dd></div>
       <div><dt><dfn>Glossary pair</dfn></dt><dd>One <code>wrong → right</code> entry, such as <code>git hub → GitHub</code>. Applied exactly as written wherever the wrong side appears.</dd></div>
       <div><dt><dfn>Contextual pair</dfn></dt><dd>A pair that is only safe in some sentences. It is never applied blindly; it waits for context or for you.</dd></div>
       <div><dt><dfn>Review queue</dfn></dt><dd>Candidate pairs waiting for accept, edit or reject. Decisions are kept in a history and can be undone.</dd></div>
@@ -243,6 +247,7 @@
         <ul class="feats">
           <li><span class="feat-name">Push-to-talk dictation</span><span class="chip chip-seed">Public seed</span></li>
           <li><span class="feat-name">Local MLX Whisper daemon</span><span class="chip chip-seed">Public seed</span></li>
+          <li><span class="feat-name">Fast and accurate recognition modes</span><span class="chip chip-mvp">MVP</span><span class="feat-note">opt-in; Qwen3-ASR or Whisper</span></li>
           <li><span class="feat-name">Deterministic glossary correction</span><span class="chip chip-seed">Public seed</span></li>
           <li><span class="feat-name">Traditional Chinese full-width punctuation</span><span class="chip chip-seed">Public seed</span></li>
           <li><span class="feat-name">Menu-bar teaching flow</span><span class="chip chip-seed">Public seed</span></li>
@@ -262,6 +267,7 @@
           <li><strong>The installed app depends on your clone.</strong> If you move the folder, run the doctor and install again.</li>
           <li><strong>The app is ad-hoc signed.</strong> After a rebuild, macOS may ask you to switch its permissions off and on again.</li>
           <li><strong>The first run downloads the model</strong> and warming it up can take about two minutes.</li>
+          <li><strong>Fast and accurate modes are opt-in.</strong> The installer sets up one Whisper model. A second model needs a second Python environment and about 4 GB of downloads; the modes guide has the steps.</li>
         </ul>
       </div>
     </div>
@@ -304,7 +310,9 @@
         <ol class="net">
           <li><strong>Installing.</strong> Python packages come from PyPI.</li>
           <li><strong>The model.</strong> The first run downloads <code>mlx-community/whisper-large-v3-turbo</code> from Hugging Face. When the daemon loads it, the download library may check for a newer copy; that request names the model and carries none of your audio or text.</li>
+          <li><strong>The fast mode, if you turn it on.</strong> It downloads <code>mlx-community/Qwen3-ASR-1.7B-8bit</code> (2.5 GB, Apache-2.0) the same way. Open Dictate ships no model file.</li>
           <li><strong>LLM punctuation, if you turn it on.</strong> It talks to Ollama at <code>127.0.0.1</code>, a server on your own Mac. If you point <code>OPEN_DICTATE_PUNCT_LLM_URL</code> at another machine, your text goes there.</li>
+          <li><strong>Remote recognition, only if you set a URL.</strong> Off by default. If you set <code>OPEN_DICTATE_ASR_REMOTE_URL</code>, each recording is sent to that machine, so use a computer you own on a private network.</li>
           <li><strong>Meeting Mode with <code>--model</code>.</strong> A model you name is downloaded the first time.</li>
         </ol>
         <p class="net-end">That is the whole list. Once the model is on disk, dictation keeps working without a connection.</p>
@@ -336,6 +344,7 @@ cd open-dictate
       </div>
         <p>The installer creates a virtual environment, builds <code>OpenDictate.app</code> into Applications, writes two LaunchAgents for your clone and warms the model. It reports success only after a real ping to the daemon; a socket file alone does not count.</p>
         <p class="note">The first run downloads the model, which can take about two minutes. On a slow connection: <code>OPEN_DICTATE_WARM_TIMEOUT=300 ./install.sh</code>.</p>
+        <p class="note"><a href="https://github.com/frank890417/open-dictate/releases/tag/v0.7.0-recognition-modes">Release v0.7.0: notes, source archive and app</a></p>
       </div>
       <div>
         <h3>Then three permissions and one key</h3>
@@ -359,7 +368,7 @@ cd open-dictate
         <p class="note">The doctor checks the app, its signature, the LaunchAgents, the clone paths, the socket and a real ping. It changes nothing. It can only remind you about permissions, because it does not read the protected macOS permission database.</p>
       </div>
       <div>
-        <h3>Meetings and the glossary, from the terminal</h3>
+        <h3>Meetings, the glossary and recognition modes, from the terminal</h3>
         
       <div class="term term-quiet">
         <div class="term-bar"><span>terminal</span><button type="button" class="copy" data-copy="cmd-cli">Copy</button></div>
@@ -368,12 +377,16 @@ python3 daemon/meeting_cli.py transcribe ~/Desktop/meeting.m4a --out /tmp/od-mee
 
 <span class="tc"># the review queue: look, then decide</span>
 python3 daemon/glossary/cli.py candidates
-python3 daemon/glossary/cli.py accept cand_xxxxx</code></pre>
+python3 daemon/glossary/cli.py accept cand_xxxxx
+
+<span class="tc"># recognition mode (opt-in: docs/RECOGNITION-MODES.md)</span>
+python3 daemon/dictate_cli.py mode          <span class="tc"># show it</span>
+python3 daemon/dictate_cli.py mode fast     <span class="tc"># or accurate</span></code></pre>
       </div>
-        <p class="note">Mixed English and Chinese? Use <code>--language auto</code>. Output: Markdown, JSONL, SRT, VTT and a JSON summary.</p>
+        <p class="note">Mixed English and Chinese? Use <code>--language auto</code>. Output: Markdown, JSONL, SRT, VTT and a JSON summary. The <code>mode</code> command needs the opt-in setup from the modes guide first.</p>
       </div>
     </div>
-    <p><a class="more" href="https://github.com/frank890417/open-dictate/blob/main/docs/SETUP.md">Full setup guide →</a></p>
+    <p><a class="more" href="https://github.com/frank890417/open-dictate/blob/main/docs/SETUP.md">Full setup guide →</a> <a class="more" href="https://github.com/frank890417/open-dictate/blob/main/docs/RECOGNITION-MODES.md">Fast and accurate modes →</a></p>
   </section>
 
   <!-- ═════ 06 · develop ═════ -->
@@ -398,10 +411,10 @@ OpenDictate.app (Swift)       records 16 kHz mono PCM16 WAV
 /tmp/open-dictate.sock        newline-delimited JSON
   |
 dictated.py (Python, warm)
-  |-- MLX Whisper             audio -&gt; raw text
-  |-- glossary pairs          raw -&gt; corrected   (muse_lexicon)
-  |-- punctuation             smart_zh | llm_zh (gated) | raw
-  |-- log                     ~/.open-dictate/dictation-log/
+  |-- MLX Whisper | Qwen3-ASR   audio -&gt; raw text   (fast mode: opt-in)
+  |-- glossary pairs            raw -&gt; corrected    (muse_lexicon)
+  |-- punctuation               smart_zh | llm_zh (gated) | raw
+  |-- log                       ~/.open-dictate/dictation-log/
   v
 {"ok": true, "text": "...", "raw": "...", "changes": [...]}
   |
@@ -423,7 +436,7 @@ transcript.md  .jsonl  .srt  .vtt  meeting-result.json</code></pre>
       </div>
       <div>
         <h3>The socket</h3>
-        <p>Five commands. Readers ignore fields they do not know, so the daemon can add diagnostics without breaking the app. <code>no_speech</code> is a normal outcome, not an error.</p>
+        <p>Six commands. Readers ignore fields they do not know, so the daemon can add diagnostics without breaking the app. <code>no_speech</code> is a normal outcome, not an error.</p>
         
       <div class="term term-quiet">
         <div class="term-bar"><span>IO-CONTRACT.md</span></div>
@@ -433,6 +446,7 @@ transcript.md  .jsonl  .srt  .vtt  meeting-result.json</code></pre>
 {<span class="ts">"cmd"</span>: <span class="ts">"reload_lexicon"</span>}
 {<span class="ts">"cmd"</span>: <span class="ts">"add_pair"</span>, <span class="ts">"wrong"</span>: <span class="ts">"誤聽"</span>, <span class="ts">"right"</span>: <span class="ts">"正確"</span>, <span class="ts">"source"</span>: <span class="ts">"dictate-ui"</span>}
 {<span class="ts">"cmd"</span>: <span class="ts">"stats"</span>}
+{<span class="ts">"cmd"</span>: <span class="ts">"set_mode"</span>, <span class="ts">"mode"</span>: <span class="ts">"fast"</span>}      <span class="tc"># opt-in recognition modes: fast | accurate | 快 | 準</span>
 
 <span class="tc"># responses</span>
 {<span class="ts">"ok"</span>: true, <span class="ts">"text"</span>: <span class="ts">"校正後文字"</span>, <span class="ts">"raw"</span>: <span class="ts">"whisper 原始輸出"</span>, <span class="ts">"changes"</span>: [[<span class="ts">"誤聽"</span>, <span class="ts">"正確"</span>]], <span class="ts">"punct"</span>: <span class="ts">"smart_zh"</span>}
@@ -449,6 +463,7 @@ transcript.md  .jsonl  .srt  .vtt  meeting-result.json</code></pre>
           <tbody>
             <tr><th scope="row">Swift menu-bar app</th><td><a href="https://github.com/frank890417/open-dictate/tree/main/OpenDictate/"><code>OpenDictate/</code></a></td></tr>
             <tr><th scope="row">Dictation daemon</th><td><a href="https://github.com/frank890417/open-dictate/blob/main/daemon/dictated.py"><code>daemon/dictated.py</code></a></td></tr>
+            <tr><th scope="row">Recognition router and worker</th><td><a href="https://github.com/frank890417/open-dictate/blob/main/daemon/asr_router.py"><code>daemon/asr_router.py</code></a></td></tr>
             <tr><th scope="row">Meeting CLI</th><td><a href="https://github.com/frank890417/open-dictate/blob/main/daemon/meeting_cli.py"><code>daemon/meeting_cli.py</code></a></td></tr>
             <tr><th scope="row">Mishearing scanner</th><td><a href="https://github.com/frank890417/open-dictate/blob/main/daemon/qa/mishear_detector.py"><code>daemon/qa/mishear_detector.py</code></a></td></tr>
             <tr><th scope="row">Review queue</th><td><a href="https://github.com/frank890417/open-dictate/tree/main/daemon/glossary/"><code>daemon/glossary/</code></a></td></tr>
@@ -484,6 +499,7 @@ python3 scripts/public-safety-scan.py
     <ul class="docs">
       <li><a href="https://github.com/frank890417/open-dictate/blob/main/IO-CONTRACT.md">IO-CONTRACT.md</a><span>Paths, the socket protocol, glossary schema, correction rules, quality gates</span></li>
       <li><a href="https://github.com/frank890417/open-dictate/blob/main/docs/SETUP.md">Setup</a><span>Requirements, permissions, hotkey conflicts, doctor, uninstall</span></li>
+      <li><a href="https://github.com/frank890417/open-dictate/blob/main/docs/RECOGNITION-MODES.md">Recognition modes</a><span>Fast and accurate: how to turn them on, models and licences, measured speed</span></li>
       <li><a href="https://github.com/frank890417/open-dictate/blob/main/docs/PRIVACY.md">Privacy model</a><span>Data classes, where they live, what may never be committed</span></li>
       <li><a href="https://github.com/frank890417/open-dictate/blob/main/docs/MEETING.md">Meeting Mode</a><span>Inputs, the pipeline, the segment schema, the safety rule</span></li>
       <li><a href="https://github.com/frank890417/open-dictate/blob/main/docs/SELF-EVOLVING-GLOSSARY.md">Self-evolving glossary</a><span>The review loop, its commands and its four buckets</span></li>
@@ -588,6 +604,7 @@ Done when: python3 -m unittest discover tests, python3 scripts/golden-bench.py -
     </div>
     <nav aria-label="Machine-readable">
       <a href="https://github.com/frank890417/open-dictate">GitHub</a>
+      <a href="https://github.com/frank890417/open-dictate/releases/tag/v0.7.0-recognition-modes">Release v0.7.0</a>
       <a href="./llms.txt">llms.txt</a>
       <a href="./llms-full.txt">llms-full.txt</a>
       <a href="https://github.com/frank890417/open-dictate/blob/main/IO-CONTRACT.md">IO-CONTRACT.md</a>

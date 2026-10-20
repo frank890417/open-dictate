@@ -35,3 +35,4 @@ speaker_profiles*.json
 .public-safety-denylist.local
 backups/*
 !backups/.gitkeep
+dist-product/

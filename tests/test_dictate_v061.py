@@ -121,8 +121,8 @@ class TranscribePath(unittest.TestCase):
         self.assertEqual(raw["text"], "幫我整理一下，然後把連結、跟相關資訊放到清單，我明天來弄。",
                          "raw 模式只做小寫形正規化，不套連接詞收尾")
 
-    def test_version_is_0_6_1(self) -> None:
-        self.assertEqual(dictated.__version__, "0.6.1")
+    def test_version_is_at_least_0_6_1(self) -> None:
+        self.assertGreaterEqual(tuple(int(x) for x in dictated.__version__.split(".")), (0, 6, 1))
 
 
 if __name__ == "__main__":

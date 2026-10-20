@@ -3,7 +3,7 @@
 > **本地優先的 macOS 繁體中文語音輸入與會議轉錄工具。**
 > **Local-first Traditional Chinese dictation and meeting transcription for macOS.**
 
-**[Website](https://frank890417.github.io/open-dictate/)** · [Setup](docs/SETUP.md) · [Privacy](docs/PRIVACY.md)
+**[Website](https://frank890417.github.io/open-dictate/)** · [Setup](docs/SETUP.md) · [Recognition modes](docs/RECOGNITION-MODES.md) · [Privacy](docs/PRIVACY.md)
 
 Hold a hotkey, speak, release, and Open Dictate inserts the transcribed sentence at your cursor. The core path runs locally with MLX Whisper on Apple Silicon, then applies deterministic glossary correction owned by the user.
 
@@ -38,6 +38,7 @@ Design rule: **the system may flag and suggest, but it must not silently rewrite
 |---|---|
 | Push-to-talk dictation / 按住說話輸入 | Public seed |
 | Local MLX Whisper daemon / 本地 Whisper 常駐 daemon | Public seed |
+| Fast and accurate recognition modes / 快與準兩種辨識模式 | MVP: opt-in, see [docs/RECOGNITION-MODES.md](docs/RECOGNITION-MODES.md) |
 | Deterministic glossary correction / 確定性詞庫校正 | Public seed |
 | Traditional Chinese punctuation / 繁中全形標點 | Public seed |
 | Menubar teaching flow / 選單列教詞庫 | Public seed |
@@ -119,6 +120,15 @@ Full setup: [`docs/SETUP.md`](docs/SETUP.md)
   the clause has a question word), and an enumeration comma right before a coordinating
   conjunction is removed or turned into a comma after the punctuation layer.
   Daemon-internal; wire protocol stays 1.0.
+- **Fast and accurate recognition modes (v0.7.0, opt-in)**: the daemon can keep two models
+  loaded in a separate worker process and switch between them from the menu bar, the CLI or
+  the socket, without a restart. Fast is Qwen3-ASR 1.7B with its own punctuation; accurate is
+  Whisper (large-v3-turbo by default, large-v3 optional) with your glossary as the prompt. A
+  crash in the recognition worker (an MLX segfault) kills only the worker: it restarts by
+  itself and the daemon stays up. The
+  default install is unchanged (one Whisper model); how to turn the modes on, what they
+  download, their licences and measured speed: [`docs/RECOGNITION-MODES.md`](docs/RECOGNITION-MODES.md).
+  快與準兩種辨識模式（v0.7.0，需自己開啟）：預設安裝不變。開啟方式、下載內容、授權與實測速度見上述文件。
 - Text insertion uses Accessibility direct insertion when possible, then paste fallback.
 - Optional microphone selection.
 
@@ -196,6 +206,8 @@ Read: [`docs/SPEAKER-ID.md`](docs/SPEAKER-ID.md)
 |---|---|
 | Swift shell | `OpenDictate/` |
 | Dictation daemon | `daemon/dictated.py` |
+| Recognition router, worker, remote server | `daemon/asr_router.py`, `daemon/asr_worker.py`, `daemon/asr_server.py` |
+| Recognition benchmark | `scripts/modes-bench.py` |
 | Meeting CLI | `daemon/meeting_cli.py` |
 | QA scanner | `daemon/qa/mishear_detector.py` |
 | Review queue | `daemon/glossary/` |
@@ -237,6 +249,7 @@ The smoke test builds the app, runs deterministic tests, exports a meeting demo,
 - [x] Review-first glossary queue CLI.
 - [x] Anonymous speaker label layer.
 - [x] Local audio ASR backend for Meeting Mode.
+- [x] Fast and accurate recognition modes, switchable without a restart (opt-in router backend).
 - [ ] Optional local speaker profile enrollment.
 - [ ] Menubar UI for reviewing glossary candidates.
 - [ ] Import/export for user-owned glossary packages.

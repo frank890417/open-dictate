@@ -8,6 +8,7 @@
     python3 dictate_cli.py reload            # reload_lexicon（三庫重載）
     python3 dictate_cli.py stats             # 今日聽寫摘要（daemon ≥0.5）
     python3 dictate_cli.py add <wrong> <right>  # 教詞庫（daemon ≥0.5）
+    python3 dictate_cli.py mode [快|準]       # 看／切辨識模式（daemon ≥0.7，router 模式；不用重啟）
 
 協議見 ~/Projects/open-dictate/IO-CONTRACT.md。
 """
@@ -56,6 +57,17 @@ def cmd_ping(args) -> int:
     wall_ms = (time.perf_counter() - t0) * 1000
     print(pretty(resp))
     print(f"(round-trip {wall_ms:.1f}ms)", file=sys.stderr)
+    return 0 if resp.get("ok") else 1
+
+
+def cmd_mode(args) -> int:
+    if not args.mode:
+        resp = send({"cmd": "ping"}, args.socket, timeout=10)
+        asr = resp.get("asr") or {}
+        print(f"mode={resp.get('mode')} main={asr.get('main')} shadow={asr.get('shadow')}")
+        return 0 if resp.get("ok") else 1
+    resp = send({"cmd": "set_mode", "mode": args.mode}, args.socket, timeout=10)
+    print(pretty(resp))
     return 0 if resp.get("ok") else 1
 
 
@@ -164,6 +176,9 @@ def main() -> int:
     p_add.add_argument("right")
     p_add.add_argument("--source", default="dictate-cli")
 
+    p_mode = sub.add_parser("mode", help="看／切辨識模式：快（Qwen3-ASR）｜準（whisper）（daemon ≥0.7）")
+    p_mode.add_argument("mode", nargs="?", help="快｜準｜fast｜accurate；不給＝看現在")
+
     args = parser.parse_args()
     try:
         return {
@@ -173,6 +188,7 @@ def main() -> int:
             "reload": cmd_reload,
             "stats": cmd_stats,
             "add": cmd_add,
+            "mode": cmd_mode,
         }[args.command](args)
     except (ConnectionRefusedError, FileNotFoundError):
         print(f"❌ daemon 沒起來（{args.socket} 連不上）", file=sys.stderr)

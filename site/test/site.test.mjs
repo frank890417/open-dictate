@@ -9,8 +9,8 @@ import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { buildAll, shapeDiff } from '../build.mjs';
-import { SITE, REPO, SECTIONS, FEATURES, UTTERANCES, segments } from '../src/page.mjs';
+import { buildAll, shapeDiff, daemonVersion } from '../build.mjs';
+import { SITE, REPO, RELEASE_TAG, RELEASE_URL, SECTIONS, FEATURES, UTTERANCES, segments } from '../src/page.mjs';
 import en from '../src/en.mjs';
 import zh from '../src/zh.mjs';
 
@@ -75,7 +75,8 @@ test('language metadata: lang, canonical, hreflang, JSON-LD SoftwareApplication'
     assert.equal(ld['@type'], 'SoftwareApplication');
     assert.equal(ld.inLanguage, want[lang]);
     assert.equal(ld.url, p.url);
-    assert.equal(ld.downloadUrl, REPO);
+    assert.equal(ld.downloadUrl, RELEASE_URL);
+    assert.equal(ld.softwareVersion, daemonVersion());
     assert.equal(ld.offers.price, '0');
   }
 });
@@ -123,4 +124,17 @@ test('llms.txt points at both languages and the contract', () => {
   assert.ok(s.includes(SITE) && s.includes(SITE + 'zh/'));
   assert.ok(s.includes('IO-CONTRACT.md'));
   assert.ok(read('robots.txt').includes(SITE + 'sitemap.xml'));
+});
+
+test('the page advertises the release of the daemon it reports, and links to it', () => {
+  const v = daemonVersion();
+  // the tag is edited by hand when a release is cut; this keeps it from being forgotten
+  assert.ok(RELEASE_TAG.startsWith('v' + v + '-') || RELEASE_TAG === 'v' + v, `${RELEASE_TAG} is not a release of daemon ${v}`);
+  assert.equal(RELEASE_URL, `${REPO}/releases/tag/${RELEASE_TAG}`);
+  for (const [lang, s] of Object.entries(html)) {
+    assert.ok(s.includes(`daemon ${v}`), `${lang}: version ${v} is not shown`);
+    assert.ok(body(s).includes(`href="${RELEASE_URL}"`), `${lang}: no link to ${RELEASE_URL}`);
+    assert.ok(s.includes('Qwen3-ASR'), `${lang}: the recognition modes are not mentioned`);
+  }
+  for (const f of ['llms.txt', 'llms-full.txt']) assert.ok(read(f).includes('RECOGNITION-MODES.md'), f);
 });

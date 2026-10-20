@@ -11,7 +11,7 @@ final class RecordingHUD {
         case recording
         case transcribing
         case success(text: String, raw: String?, latencyMs: Int?, changes: [[String]]?)
-        case error(message: String)
+        case error(message: String, detail: String? = nil)
     }
 
     private let panel: NSPanel
@@ -177,7 +177,7 @@ final class RecordingHUD {
             stopTimer()
             scheduleHide(after: UITheme.successHold)
 
-        case .error(let message):
+        case .error(let message, let detail):
             recordingActive = false
             resize(to: Self.expandedSize, layout: .expanded(hasDiff: false))
             setIcon(UITheme.Symbol.error, tint: UITheme.error)
@@ -186,7 +186,9 @@ final class RecordingHUD {
             phaseLabel.stringValue = message
             phaseLabel.textColor = UITheme.error
             phaseLabel.isHidden = false
-            previewLabel.isHidden = true
+            previewLabel.stringValue = detail ?? ""
+            previewLabel.textColor = UITheme.muted
+            previewLabel.isHidden = (detail == nil)
             diffLabel.isHidden = true
             setBorder(UITheme.error.withAlphaComponent(0.4))
             stopTimer()

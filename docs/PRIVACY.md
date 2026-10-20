@@ -15,6 +15,17 @@ Open Dictate 是本地優先工具。音檔、逐字稿、日誌、審核佇列�
 | Speaker profiles / 說話者資料 | `~/.open-dictate/speakers/` | Never |
 | Public fixtures / 公開測試資料 | `fixtures/` or `examples/` | Yes, fictional or public-domain only |
 
+## Network Use / 網路使用
+
+Dictation needs no server and no account. The network is used for:
+
+- **Installing:** Python packages from PyPI.
+- **Models:** the first run downloads the recognition model from Hugging Face (`mlx-community/whisper-large-v3-turbo` by default). If you turn on the fast recognition mode, `mlx-community/Qwen3-ASR-1.7B-8bit` is downloaded too ([RECOGNITION-MODES.md](RECOGNITION-MODES.md)). The download library may check for a newer copy when a model loads; that request names the model and carries no audio or text.
+- **LLM punctuation, if you turn it on:** Ollama at `127.0.0.1`. If you point `OPEN_DICTATE_PUNCT_LLM_URL` at another machine, your text goes there.
+- **Remote recognition, if you set `OPEN_DICTATE_ASR_REMOTE_URL`:** each recording is sent to the machine you named. Off by default; use it only with a computer you own on a private network.
+
+Once the models are on disk, dictation keeps working offline. 模型下載完成後，不連網也能聽寫。遠端辨識預設關閉，設了才會把錄音送到你指定的那台機器。
+
 ## Speaker Profiles Are Sensitive
 
 Speaker embeddings and voiceprints are biometric data. Treat them like secrets:

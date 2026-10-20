@@ -33,13 +33,16 @@ Requests:
 {"cmd": "reload_lexicon"}
 {"cmd": "add_pair", "wrong": "誤聽", "right": "正確", "source": "dictate-ui"}
 {"cmd": "stats"}
+{"cmd": "set_mode", "mode": "fast"}
 ```
+
+`set_mode` (daemon ≥0.7.0, router backend only) takes `fast`, `accurate`, `快` or `準`; see §Daemon 0.7.0.
 
 Responses:
 
 ```json
 {"ok": true, "text": "校正後文字", "raw": "whisper 原始輸出", "changes": [["誤聽", "正確"]], "punct": "smart_zh", "asr_ms": 210, "total_ms": 260}
-{"ok": true, "pong": true, "model": "mlx-community/whisper-large-v3-turbo", "warm": true, "version": "0.6.1", "punct_llm": {"enabled": true, "loading": false, "ready_age_s": 12.3, "last_load_s": 8.9, "last_error": null}}
+{"ok": true, "pong": true, "model": "mlx-community/whisper-large-v3-turbo", "warm": true, "version": "0.7.0", "punct_llm": {"enabled": true, "loading": false, "ready_age_s": 12.3, "last_load_s": 8.9, "last_error": null}}
 {"ok": false, "error": "no_speech"}
 ```
 
@@ -134,3 +137,64 @@ All changes are daemon-internal; the wire protocol stays 1.0.
   `asr_temp_max`, `asr_retry`, `raw_first`, `trim_head_s`, `trim_tail_s`; `dehall`
   may be `speech_gate` or `known_hallucination …`. `no_speech` is a normal outcome,
   not an error.
+
+## Daemon 0.7.0: ASR router (remote first, local fallback, shadow)
+
+Opt-in with `<PREFIX>_ASR_BACKEND=router` (default `inproc` keeps the 0.6.x behaviour:
+mlx_whisper inside the daemon process). The socket protocol is unchanged; readers
+ignore the new fields.
+
+- **Paths.** Recognition runs in a child process (`daemon/asr_worker.py`, own Python via
+  `ASR_WORKER_PYTHON`, so MLX/mlx-audio versions do not have to match the daemon's).
+  With `ASR_REMOTE_URL` + `ASR_REMOTE_KEYCHAIN` (macOS keychain service, account `token`)
+  each clip is first sent as FLAC to `daemon/asr_server.py` on another machine on a
+  private network. Both sides import `daemon/asr_engine.py`, so the fallback is the
+  same model with the same decoding parameters; `/health` reports the engine version.
+- **Timeouts.** Remote budget = clip seconds × `ASR_REMOTE_RTF` + `ASR_REMOTE_BASE_S`
+  (defaults 0.1 / 0.5, sized for small models; whisper-large-v3 needs about 0.25 / 1.5).
+  Connect failures cool the remote down for 30 s (three timeouts in a row too). A worker
+  that crashes (e.g. an MLX segfault) or hangs past the deadline is killed and respawned,
+  and the utterance goes back to the remote with the time left. A worker that is still
+  loading is skipped when a remote is configured.
+- **Prompt policy.** `ASR_PROMPT=full` (default) builds the Whisper initial prompt as
+  before and gives Qwen3-ASR the same terms as hotwords; `none` sends neither.
+- **Punctuation.** A model with native punctuation (Qwen3-ASR) returns `punct: "asr_zh"`
+  (full-width normalisation + the 0.6.1 conjunction fix, no LLM). `PUNCT_LLM=0` turns
+  `llm_zh` requests into the rule layer (`smart_zh`); the log row keeps `punct_req`.
+- **Shadow.** `ASR_SHADOW_MODEL` sends the same clip to a second model on the remote after
+  the main result is back (lower priority on the server queue). Its output is never
+  returned; it is written to `ASR_SHADOW_LOG_ROOT` (default `<data>/dictation-shadow/`)
+  with the same cleaning + glossary correction, joined to the main row by `uid`.
+- **Log row fields (router mode):** `uid`, `asr_where` (`studio`|`local`), `asr_model`,
+  `asr_engine_ms` (model time), `net_ms` (remote round trip minus server time; 0 local),
+  `ipc_ms` (local), `asr_queue_ms` (waited behind another job on the server),
+  `asr_fallback` (what failed before the path that answered), `punct_req`, `tag`
+  (copied from the request; test/replay traffic marks itself). `asr_ms` keeps its old
+  meaning: wall time of the whole ASR stage including retries.
+- **Wire additions:** transcribe response may carry `asr_where`; ping may carry `asr`
+  (main/shadow/remote/local status); request may carry `tag`.
+- **Server.** Binds one address (refuses 0.0.0.0), token compared in constant time, one
+  inference thread owns MLX, jobs past their client deadline are dropped unrun, only
+  timings are logged (no audio, no text).
+
+### Recognition modes (daemon 0.7.0, router backend)
+
+Two recognition models stay loaded in the worker; the daemon picks one per utterance.
+
+- **Modes.** `fast` = `<PREFIX>_ASR_FAST_MODEL` (default `qwen3-asr-1.7b`, native punctuation);
+  `accurate` = `<PREFIX>_ASR_ACCURATE_MODEL`, empty meaning `<PREFIX>_MODEL` (default
+  `mlx-community/whisper-large-v3-turbo`). `<PREFIX>_ASR_MODE` (default `accurate`) is the mode
+  of the first start; afterwards the last `set_mode` wins and is kept in
+  `<data root>/dictation-mode.json`. The model is captured when an utterance starts, so a switch
+  never changes a sentence already being recognised.
+- **`set_mode`.** Request `{"cmd": "set_mode", "mode": "fast"}`; response
+  `{"ok": true, "mode": "fast", "model": "qwen3-asr-1.7b", "shadow": null}`. An unknown mode, or a
+  daemon without the router backend, answers `{"ok": false, "error": "bad_request"}`.
+- **`ping`** carries `mode` (`fast`|`accurate`) and `asr` (main/shadow/remote/local status) in router
+  mode; a daemon without modes omits `mode`, which is how the menu-bar app knows to hide its
+  “辨識模式” menu.
+- **Punctuation.** In `fast`, `punct` is answered as `asr_zh` (the model's punctuation, made
+  full-width) unless the request asked for `raw`; the LLM pass is not used.
+- **Log rows** gain `asr_mode`. `asr_where` is `local` or `studio`; `studio` is this field's name
+  for the optional remote recognition service (`asr_server.py`), whatever machine it runs on.
+- The wire protocol stays 1.0: every field above is an addition readers may ignore.

@@ -10,7 +10,8 @@
       "properties": {
         "cmd": {"const": "transcribe"},
         "wav": {"type": "string", "minLength": 1},
-        "punct": {"enum": ["raw", "smart_zh", "llm_zh"], "default": "smart_zh"}
+        "punct": {"enum": ["raw", "smart_zh", "llm_zh"], "default": "smart_zh"},
+        "tag": {"type": "string", "maxLength": 40, "description": "daemon ≥0.7.0: copied into the local log row (marks test/replay utterances)"}
       }
     },
     {
@@ -28,6 +29,16 @@
         "wrong": {"type": "string", "minLength": 1},
         "right": {"type": "string", "minLength": 1},
         "source": {"type": "string", "minLength": 1, "default": "dictate-ui"}
+      }
+    },
+    {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["cmd", "mode"],
+      "description": "daemon ≥0.7.0, ASR_BACKEND=router: switch recognition mode without restarting",
+      "properties": {
+        "cmd": {"const": "set_mode"},
+        "mode": {"enum": ["fast", "accurate", "快", "準"]}
       }
     }
   ]

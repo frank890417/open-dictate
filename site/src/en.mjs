@@ -12,12 +12,13 @@ export default {
 
   meta: {
     title: 'Open Dictate · local-first Traditional Chinese dictation for macOS',
-    description: 'Hold a key, speak, release. Open Dictate transcribes Traditional Chinese on your Apple Silicon Mac with MLX Whisper, fixes the words you taught it with a deterministic glossary, and types the sentence at your cursor. Audio stays on your Mac. Open source, MIT.',
+    description: 'Hold a key, speak, release. Open Dictate transcribes Traditional Chinese on your Apple Silicon Mac with MLX Whisper or, in the opt-in fast mode, Qwen3-ASR, fixes the words you taught it with a deterministic glossary, and types the sentence at your cursor. Audio stays on your Mac. Open source, MIT.',
     ogDescription: 'Hold a key, speak, let go. The words land at your cursor, and your voice never leaves your Mac.',
-    ld: 'Local-first push-to-talk dictation and meeting transcription for Traditional Chinese on Apple Silicon Macs: a Swift menu-bar app records while a hotkey is held, a local Python daemon transcribes with MLX Whisper, applies the user\'s deterministic glossary pairs and full-width punctuation, and the text is inserted at the cursor. Audio, transcripts and glossaries stay on the Mac.',
+    ld: 'Local-first push-to-talk dictation and meeting transcription for Traditional Chinese on Apple Silicon Macs: a Swift menu-bar app records while a hotkey is held, a local Python daemon transcribes with MLX Whisper (or Qwen3-ASR in the opt-in fast mode), applies the user\'s deterministic glossary pairs and full-width punctuation, and the text is inserted at the cursor. Audio, transcripts and glossaries stay on the Mac.',
     features: [
       'Push-to-talk dictation with fn or right Option',
       'Local transcription with MLX Whisper on Apple Silicon',
+      'Fast and accurate recognition modes (Qwen3-ASR or Whisper), switchable without a restart',
       'Deterministic, user-owned glossary correction',
       'Traditional Chinese full-width punctuation',
       'Meeting transcripts as Markdown, JSONL, SRT and VTT',
@@ -97,7 +98,7 @@ export default {
     lede: 'A Swift menu-bar app records while you hold the key and hands a WAV file to a Python daemon that keeps the model warm. The daemon transcribes, corrects and punctuates, then answers with text, and the app types it where your cursor is. After transcription, nothing changes your words except pairs you put in the glossary.',
     layers: [
       { name: 'Record', quote: 'while you hold the key', text: 'Hold <kbd>fn</kbd> or right Option. The app records 16 kHz mono audio. Presses under half a second are dropped, and a speech-shape gate catches accidental recordings of room noise.' },
-      { name: 'Transcribe', quote: 'what was said', text: 'MLX Whisper runs on Apple Silicon inside a daemon that stays loaded. Guards drop known subtitle-credit hallucinations and cut runaway repetition before anything goes further.' },
+      { name: 'Transcribe', quote: 'what was said', text: 'A speech model runs on Apple Silicon inside a daemon that stays loaded: MLX Whisper by default, Qwen3-ASR in the opt-in fast mode. Guards drop known subtitle-credit hallucinations and cut runaway repetition before anything goes further.' },
       { name: 'Correct', quote: 'what you meant', text: 'Your glossary is a table of <em>wrong → right</em> pairs. Only pairs that match are applied; the sentence is never rewritten. A missed correction is better than a wrong one.' },
       { name: 'Punctuate', quote: 'how it reads', text: 'The default <code>smart_zh</code> rules make marks full-width in Chinese context and leave English, numbers and URLs alone. An optional local LLM pass adds fuller punctuation and is thrown away if it changes anything else.' },
       { name: 'Insert', quote: 'where it lands', text: 'The text goes in through the Accessibility API, with paste as the fallback. The app never takes focus from the field you were typing in.' },
@@ -109,6 +110,7 @@ export default {
       { name: 'Review queue', text: 'A scanner flags likely mishearings and numbers as candidates. You accept, edit or reject; only accepted pairs reach the glossary, and every decision can be undone.' },
       { name: 'Speaker labels', text: 'Transcripts use anonymous labels, <code>SPEAKER_00</code>, <code>SPEAKER_01</code>. Knowing who is speaking is planned as an optional, local-only layer.' },
       { name: 'Menu bar', text: 'Teach a pair from the last sentence or from selected text, report a mishearing, and choose the hotkey, the microphone and the punctuation mode.' },
+      { name: 'Recognition modes', text: 'Opt in to keep a fast model (Qwen3-ASR) and an accurate one (Whisper) loaded, and switch between them from the menu bar or the terminal without a restart. A fresh install keeps one Whisper model.' },
     ],
     rulesTitle: 'Seven rules',
     rules: [
@@ -125,6 +127,7 @@ export default {
       { term: 'Push-to-talk', def: 'Hold a key while you speak, release to finish. Open Dictate uses <kbd>fn</kbd> or right Option.' },
       { term: 'Daemon', def: '<code>dictated.py</code>, the background process that keeps the model loaded so a short sentence needs no cold start. The app talks to it over a Unix socket.' },
       { term: 'MLX Whisper', def: 'The Whisper speech model running on Apple’s MLX framework. Default: <code>whisper-large-v3-turbo</code>.' },
+      { term: 'Fast / accurate mode', def: 'Two recognition setups you can switch between, opt-in. Fast is Qwen3-ASR 1.7B, which writes its own punctuation. Accurate is Whisper, with your glossary as its prompt. Setup, downloads and licences are in <code>docs/RECOGNITION-MODES.md</code>.' },
       { term: 'Glossary pair', def: 'One <code>wrong → right</code> entry, such as <code>git hub → GitHub</code>. Applied exactly as written wherever the wrong side appears.' },
       { term: 'Contextual pair', def: 'A pair that is only safe in some sentences. It is never applied blindly; it waits for context or for you.' },
       { term: 'Review queue', def: 'Candidate pairs waiting for accept, edit or reject. Decisions are kept in a history and can be undone.' },
@@ -143,6 +146,7 @@ export default {
     features: [
       { name: 'Push-to-talk dictation', note: '' },
       { name: 'Local MLX Whisper daemon', note: '' },
+      { name: 'Fast and accurate recognition modes', note: 'opt-in; Qwen3-ASR or Whisper' },
       { name: 'Deterministic glossary correction', note: '' },
       { name: 'Traditional Chinese full-width punctuation', note: '' },
       { name: 'Menu-bar teaching flow', note: '' },
@@ -160,6 +164,7 @@ export default {
       '<strong>The installed app depends on your clone.</strong> If you move the folder, run the doctor and install again.',
       '<strong>The app is ad-hoc signed.</strong> After a rebuild, macOS may ask you to switch its permissions off and on again.',
       '<strong>The first run downloads the model</strong> and warming it up can take about two minutes.',
+      '<strong>Fast and accurate modes are opt-in.</strong> The installer sets up one Whisper model. A second model needs a second Python environment and about 4 GB of downloads; the modes guide has the steps.',
     ],
     roadmapTitle: 'On the way to an ordinary Mac app',
     phaseLabel: 'Phase',
@@ -191,7 +196,9 @@ export default {
     net: [
       '<strong>Installing.</strong> Python packages come from PyPI.',
       '<strong>The model.</strong> The first run downloads <code>mlx-community/whisper-large-v3-turbo</code> from Hugging Face. When the daemon loads it, the download library may check for a newer copy; that request names the model and carries none of your audio or text.',
+      '<strong>The fast mode, if you turn it on.</strong> It downloads <code>mlx-community/Qwen3-ASR-1.7B-8bit</code> (2.5 GB, Apache-2.0) the same way. Open Dictate ships no model file.',
       '<strong>LLM punctuation, if you turn it on.</strong> It talks to Ollama at <code>127.0.0.1</code>, a server on your own Mac. If you point <code>OPEN_DICTATE_PUNCT_LLM_URL</code> at another machine, your text goes there.',
+      '<strong>Remote recognition, only if you set a URL.</strong> Off by default. If you set <code>OPEN_DICTATE_ASR_REMOTE_URL</code>, each recording is sent to that machine, so use a computer you own on a private network.',
       '<strong>Meeting Mode with <code>--model</code>.</strong> A model you name is downloaded the first time.',
     ],
     netEnd: 'That is the whole list. Once the model is on disk, dictation keeps working without a connection.',
@@ -214,9 +221,11 @@ export default {
     ],
     maintTitle: 'When something is off',
     maintNote: 'The doctor checks the app, its signature, the LaunchAgents, the clone paths, the socket and a real ping. It changes nothing. It can only remind you about permissions, because it does not read the protected macOS permission database.',
-    cliTitle: 'Meetings and the glossary, from the terminal',
-    cliNote: 'Mixed English and Chinese? Use <code>--language auto</code>. Output: Markdown, JSONL, SRT, VTT and a JSON summary.',
+    cliTitle: 'Meetings, the glossary and recognition modes, from the terminal',
+    cliNote: 'Mixed English and Chinese? Use <code>--language auto</code>. Output: Markdown, JSONL, SRT, VTT and a JSON summary. The <code>mode</code> command needs the opt-in setup from the modes guide first.',
     setupLink: 'Full setup guide',
+    modesLink: 'Fast and accurate modes',
+    releaseLink: 'Release v{v}: notes, source archive and app',
   },
 
   develop: {
@@ -227,11 +236,11 @@ export default {
     archDictate: 'dictation',
     archMeeting: 'meeting mode',
     protoTitle: 'The socket',
-    protoText: 'Five commands. Readers ignore fields they do not know, so the daemon can add diagnostics without breaking the app. <code>no_speech</code> is a normal outcome, not an error.',
+    protoText: 'Six commands. Readers ignore fields they do not know, so the daemon can add diagnostics without breaking the app. <code>no_speech</code> is a normal outcome, not an error.',
     protoNote: 'One constant pair is a contract on its own: the app’s transcription timeout and the daemon’s punctuation budget. Raise one without the other and the app reports the daemon offline while it finishes in the background. The contract explains the formula.',
     compTitle: 'Where things are',
     compHead: ['Part', 'Path'],
-    comps: ['Swift menu-bar app', 'Dictation daemon', 'Meeting CLI', 'Mishearing scanner', 'Review queue', 'Speaker layer', 'Starter glossaries', 'Glossary engine', 'Dictation log (local)'],
+    comps: ['Swift menu-bar app', 'Dictation daemon', 'Recognition router and worker', 'Meeting CLI', 'Mishearing scanner', 'Review queue', 'Speaker layer', 'Starter glossaries', 'Glossary engine', 'Dictation log (local)'],
     testTitle: 'Build and test',
     contribTitle: 'Before a pull request',
     contrib: [
@@ -242,10 +251,11 @@ export default {
     ],
     docsTitle: 'Docs',
     docsNote: 'Documents mix English and Traditional Chinese; a few are in one language only.',
-    docNames: { contract: 'IO-CONTRACT.md', setup: 'Setup', privacy: 'Privacy model', meeting: 'Meeting Mode', glossary: 'Self-evolving glossary', speaker: 'Speaker identity', distribution: 'macOS distribution', mcp: 'MCP roadmap', contributing: 'Contributing' },
+    docNames: { contract: 'IO-CONTRACT.md', setup: 'Setup', modes: 'Recognition modes', privacy: 'Privacy model', meeting: 'Meeting Mode', glossary: 'Self-evolving glossary', speaker: 'Speaker identity', distribution: 'macOS distribution', mcp: 'MCP roadmap', contributing: 'Contributing' },
     docs: {
       contract: 'Paths, the socket protocol, glossary schema, correction rules, quality gates',
       setup: 'Requirements, permissions, hotkey conflicts, doctor, uninstall',
+      modes: 'Fast and accurate: how to turn them on, models and licences, measured speed',
       privacy: 'Data classes, where they live, what may never be committed',
       meeting: 'Inputs, the pipeline, the segment schema, the safety rule',
       glossary: 'The review loop, its commands and its four buckets',
@@ -314,5 +324,6 @@ export default {
     license: 'MIT License. Made by <a href="{author}">Che-Yu Wu</a>.',
     sibling: 'A sibling of <a href="{sibling}">open-audiovisual</a>.',
     machine: 'Machine-readable',
+    release: 'Release v{v}',
   },
 };
