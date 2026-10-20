@@ -36,7 +36,7 @@ except ImportError:  # direct script execution: python daemon/dictated.py
     from product_config import (DATA_ROOT, LOG_ROOT, LEXICON_ROOT, PRIORITY_TERMS, SOCKET_PATH, env,
                                 PROMPT_CORE_TERMS as PROMPT_CORE_TERMS_RAW)
 
-__version__ = "0.7.0"
+__version__ = "0.7.1"
 
 # ---------------------------------------------------------------------------
 # 常數（路徑皆契約 SSOT，見 IO-CONTRACT.md §路徑約定）

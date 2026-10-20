@@ -42,7 +42,7 @@ Responses:
 
 ```json
 {"ok": true, "text": "校正後文字", "raw": "whisper 原始輸出", "changes": [["誤聽", "正確"]], "punct": "smart_zh", "asr_ms": 210, "total_ms": 260}
-{"ok": true, "pong": true, "model": "mlx-community/whisper-large-v3-turbo", "warm": true, "version": "0.7.0", "punct_llm": {"enabled": true, "loading": false, "ready_age_s": 12.3, "last_load_s": 8.9, "last_error": null}}
+{"ok": true, "pong": true, "model": "mlx-community/whisper-large-v3-turbo", "warm": true, "version": "0.7.1", "punct_llm": {"enabled": true, "loading": false, "ready_age_s": 12.3, "last_load_s": 8.9, "last_error": null}}
 {"ok": false, "error": "no_speech"}
 ```
 
@@ -140,8 +140,11 @@ All changes are daemon-internal; the wire protocol stays 1.0.
 
 ## Daemon 0.7.0: ASR router (remote first, local fallback, shadow)
 
-Opt-in with `<PREFIX>_ASR_BACKEND=router` (default `inproc` keeps the 0.6.x behaviour:
-mlx_whisper inside the daemon process). The socket protocol is unchanged; readers
+Selected with `<PREFIX>_ASR_BACKEND=router`; the daemon's own default `inproc` keeps the 0.6.x
+behaviour (mlx_whisper inside the daemon process). `./install.sh` (0.7.1 and later) writes
+`ASR_BACKEND=router`, `ASR_WORKER_PYTHON` and `ASR_MODE` into the daemon's LaunchAgent by default,
+so an installed Open Dictate runs the router and starts in `fast`; `--recognition off` leaves the
+three keys out. The socket protocol is unchanged; readers
 ignore the new fields.
 
 - **Paths.** Recognition runs in a child process (`daemon/asr_worker.py`, own Python via
@@ -183,8 +186,8 @@ Two recognition models stay loaded in the worker; the daemon picks one per utter
 
 - **Modes.** `fast` = `<PREFIX>_ASR_FAST_MODEL` (default `qwen3-asr-1.7b`, native punctuation);
   `accurate` = `<PREFIX>_ASR_ACCURATE_MODEL`, empty meaning `<PREFIX>_MODEL` (default
-  `mlx-community/whisper-large-v3-turbo`). `<PREFIX>_ASR_MODE` (default `accurate`) is the mode
-  of the first start; afterwards the last `set_mode` wins and is kept in
+  `mlx-community/whisper-large-v3-turbo`). `<PREFIX>_ASR_MODE` (the daemon's own default is `accurate`;
+  the installer sets `fast`) is the mode of the first start; afterwards the last `set_mode` wins and is kept in
   `<data root>/dictation-mode.json`. The model is captured when an utterance starts, so a switch
   never changes a sentence already being recognised.
 - **`set_mode`.** Request `{"cmd": "set_mode", "mode": "fast"}`; response
