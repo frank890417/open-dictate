@@ -3,7 +3,8 @@
 set -u
 cd "$(dirname "$0")/.."
 REPO="$(pwd)"
-APP="/Applications/OpenDictate.app"
+APP="${OPEN_DICTATE_APP_DIR:-/Applications}/OpenDictate.app"
+SOCKET="${OPEN_DICTATE_SOCKET_PATH:-/tmp/open-dictate.sock}"
 LA="$HOME/Library/LaunchAgents"
 DAEMON_PLIST="$LA/org.opendictate.daemon.plist"
 SHELL_PLIST="$LA/org.opendictate.shell.plist"
@@ -61,12 +62,34 @@ else
   warn "app LaunchAgent 未載入"
 fi
 
-if [ -S /tmp/open-dictate.sock ]; then pass "socket 存在"; else fail "socket 不存在"; fi
+if [ -S "$SOCKET" ]; then pass "socket 存在"; else fail "socket 不存在"; fi
 if [ -x "$APP/Contents/MacOS/OpenDictate" ] && \
    "$APP/Contents/MacOS/OpenDictate" --probe-ping >/dev/null 2>&1; then
   pass "daemon ping 成功（模型 ready）"
 else
   fail "daemon ping 失敗"
+fi
+
+# 辨識模式：只讀 plist 與 daemon 的 ping，不改任何東西
+BACKEND=""
+if [ -f "$DAEMON_PLIST" ]; then
+  BACKEND="$(/usr/libexec/PlistBuddy -c "Print :EnvironmentVariables:OPEN_DICTATE_ASR_BACKEND" "$DAEMON_PLIST" 2>/dev/null || true)"
+fi
+if [ "$BACKEND" = "router" ]; then
+  WORKER="$(/usr/libexec/PlistBuddy -c "Print :EnvironmentVariables:OPEN_DICTATE_ASR_WORKER_PYTHON" "$DAEMON_PLIST" 2>/dev/null || true)"
+  if [ -n "$WORKER" ] && [ -x "$WORKER" ]; then pass "辨識 worker 的 python 存在"; else fail "辨識 worker 的 python 不存在：${WORKER:-（plist 沒寫）}（重跑 ./install.sh）"; fi
+  if python3 scripts/install-recognition.py needs-download --mode fast >/dev/null 2>&1; then
+    warn "快／準模式要用的模型還沒完全下載到本機（約 4 GB），daemon 啟動時會卡在下載。請重跑 ./install.sh"
+  else
+    pass "快／準模式的模型都在本機"
+  fi
+  MODE_LINE="$(python3 daemon/dictate_cli.py --socket "$SOCKET" mode 2>&1 || true)"
+  case "$MODE_LINE" in
+    mode=fast*|mode=accurate*) pass "辨識模式：$MODE_LINE" ;;
+    *) fail "daemon 沒有回報辨識模式：$MODE_LINE" ;;
+  esac
+else
+  pass "辨識設定：單一 Whisper 模型，想開快／準模式請跑 ./install.sh --recognition fast"
 fi
 
 echo

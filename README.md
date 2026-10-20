@@ -38,7 +38,7 @@ Design rule: **the system may flag and suggest, but it must not silently rewrite
 |---|---|
 | Push-to-talk dictation / 按住說話輸入 | Public seed |
 | Local MLX Whisper daemon / 本地 Whisper 常駐 daemon | Public seed |
-| Fast and accurate recognition modes / 快與準兩種辨識模式 | MVP: opt-in, see [docs/RECOGNITION-MODES.md](docs/RECOGNITION-MODES.md) |
+| Fast and accurate recognition modes / 快與準兩種辨識模式 | MVP: on by default since 0.7.1, see [docs/RECOGNITION-MODES.md](docs/RECOGNITION-MODES.md) |
 | Deterministic glossary correction / 確定性詞庫校正 | Public seed |
 | Traditional Chinese punctuation / 繁中全形標點 | Public seed |
 | Menubar teaching flow / 選單列教詞庫 | Public seed |
@@ -66,12 +66,13 @@ Read: [`docs/PRIVACY.md`](docs/PRIVACY.md)
 ```bash
 git clone https://github.com/frank890417/open-dictate.git
 cd open-dictate
-./install.sh          # standalone install: creates .venv-dictate and uses vendor starter glossaries
+./install.sh          # standalone install: .venv-dictate, starter glossaries, fast + accurate recognition modes (starts in fast)
+./install.sh --plan   # optional first: what it will install and download, changing nothing
 ```
 
-The first install downloads Python packages and the Whisper model. Model warm-up can take about two minutes; the installer shows progress and waits up to 180 seconds before printing diagnostics.
+The installer sets up both recognition modes and starts in **fast** (Qwen3-ASR 1.7B); the accurate mode (Whisper large-v3-turbo) is one menu click away. It downloads the models from Hugging Face (4.1 GB for both) and **asks first**: it prints the sizes and how long they take at 25, 100 and 500 Mbps, and waits for a yes (`--yes` when there is no terminal). `./install.sh --recognition accurate` starts in accurate; `./install.sh --recognition off` keeps a single Whisper model (1.6 GB). Model warm-up can take another minute; the installer shows progress and waits up to 180 seconds before printing diagnostics.
 
-第一次安裝會下載 Python 套件與 Whisper 模型。模型載入可能約需兩分鐘；安裝器會顯示進度，最多等待 180 秒，逾時則印出診斷資訊。
+安裝程式會把快、準兩種辨識模式都裝好，並從**快**（Qwen3-ASR 1.7B）開始，準（Whisper large-v3-turbo）在選單列點一下就切過去。模型從 Hugging Face 下載（兩個共 4.1 GB），安裝程式會**先問**：列出大小與 25、100、500 Mbps 各要等多久，等你回答 y（沒有終端機時加 `--yes`）。`./install.sh --recognition accurate` 從準開始，`./install.sh --recognition off` 只留一個 Whisper 模型（1.6 GB）。模型載入可能再花約一分鐘。安裝器會顯示進度，最多等待 180 秒，逾時則印出診斷資訊。
 
 First-time permissions / 第一次使用需要開權限：
 
@@ -120,15 +121,16 @@ Full setup: [`docs/SETUP.md`](docs/SETUP.md)
   the clause has a question word), and an enumeration comma right before a coordinating
   conjunction is removed or turned into a comma after the punctuation layer.
   Daemon-internal; wire protocol stays 1.0.
-- **Fast and accurate recognition modes (v0.7.0, opt-in)**: the daemon can keep two models
+- **Fast and accurate recognition modes (v0.7.0; on by default in the installer since 0.7.1)**: the daemon keeps two models
   loaded in a separate worker process and switch between them from the menu bar, the CLI or
   the socket, without a restart. Fast is Qwen3-ASR 1.7B with its own punctuation; accurate is
   Whisper (large-v3-turbo by default, large-v3 optional) with your glossary as the prompt. A
   crash in the recognition worker (an MLX segfault) kills only the worker: it restarts by
   itself and the daemon stays up. The
-  default install is unchanged (one Whisper model); how to turn the modes on, what they
-  download, their licences and measured speed: [`docs/RECOGNITION-MODES.md`](docs/RECOGNITION-MODES.md).
-  快與準兩種辨識模式（v0.7.0，需自己開啟）：預設安裝不變。開啟方式、下載內容、授權與實測速度見上述文件。
+  installer starts in fast and asks before it downloads the models; `./install.sh --recognition off`
+  keeps the single-Whisper setup. Choices, downloads, licences and measured speed:
+  [`docs/RECOGNITION-MODES.md`](docs/RECOGNITION-MODES.md).
+  快與準兩種辨識模式（v0.7.0，安裝程式從 0.7.1 起預設開啟）：安裝程式從快開始，下載模型前會先問。`./install.sh --recognition off` 維持單一 Whisper。選項、下載內容、授權與實測速度見上述文件。
 - Text insertion uses Accessibility direct insertion when possible, then paste fallback.
 - Optional microphone selection.
 
@@ -208,6 +210,7 @@ Read: [`docs/SPEAKER-ID.md`](docs/SPEAKER-ID.md)
 | Dictation daemon | `daemon/dictated.py` |
 | Recognition router, worker, remote server | `daemon/asr_router.py`, `daemon/asr_worker.py`, `daemon/asr_server.py` |
 | Recognition benchmark | `scripts/modes-bench.py` |
+| Installer's model check and download | `scripts/install-recognition.py` |
 | Meeting CLI | `daemon/meeting_cli.py` |
 | QA scanner | `daemon/qa/mishear_detector.py` |
 | Review queue | `daemon/glossary/` |
@@ -249,7 +252,7 @@ The smoke test builds the app, runs deterministic tests, exports a meeting demo,
 - [x] Review-first glossary queue CLI.
 - [x] Anonymous speaker label layer.
 - [x] Local audio ASR backend for Meeting Mode.
-- [x] Fast and accurate recognition modes, switchable without a restart (opt-in router backend).
+- [x] Fast and accurate recognition modes, switchable without a restart (on by default in the installer since 0.7.1).
 - [ ] Optional local speaker profile enrollment.
 - [ ] Menubar UI for reviewing glossary candidates.
 - [ ] Import/export for user-owned glossary packages.

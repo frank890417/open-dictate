@@ -52,6 +52,17 @@ class LineRules(unittest.TestCase):
         self.assertTrue(self.hit(f"python = '{USERS}/somebody/venv/bin/python'"))
 
 
+class SkippedFolders(unittest.TestCase):
+    def test_every_virtualenv_the_installer_makes_is_skipped(self):
+        # ./install.sh (0.7.1) also creates .venv-asr; pip's packages hold plenty of lines that look
+        # like secrets to the scan, so after an install the documented pre-PR scan was red.
+        scan = load()
+        for name in (".venv", ".venv-dictate", ".venv-asr", ".venv-anything", ".git", "dist", "__pycache__"):
+            self.assertTrue(scan.skipped(ROOT / name / "lib" / "x.py"), name)
+        for name in ("daemon", "scripts", "site", "venv", "my.venv"):
+            self.assertFalse(scan.skipped(ROOT / name / "x.py"), name)
+
+
 class WholeTree(unittest.TestCase):
     def test_the_repository_passes(self):
         r = subprocess.run([sys.executable, str(SCAN)], capture_output=True, text=True, cwd=ROOT)

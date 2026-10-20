@@ -23,7 +23,7 @@ export const REPO = 'https://github.com/frank890417/open-dictate';
 export const BLOB = REPO + '/blob/main/';
 // The release the page advertises. Its tag must begin with the daemon version (site/test checks);
 // all releases so far are pre-releases, so /releases/latest would not find them: link the tag.
-export const RELEASE_TAG = 'v0.7.0-recognition-modes';
+export const RELEASE_TAG = 'v0.7.1';
 export const RELEASE_URL = REPO + '/releases/tag/' + RELEASE_TAG;
 const TREE = REPO + '/tree/main/';
 const AUTHOR_URL = { en: 'https://cheyuwu.com/', zh: 'https://cheyuwu.com/zh/' };
@@ -76,7 +76,9 @@ const DOCS = [
 // ---------- code shown on the page (identical in both languages) ----------
 const CMD_INSTALL = `git clone https://github.com/frank890417/open-dictate.git
 cd open-dictate
-./install.sh        # venv, app, LaunchAgents, model warm-up`;
+./install.sh        # asks before it downloads 4.1 GB of models; starts in fast mode
+# ./install.sh --recognition accurate    start in accurate mode
+# ./install.sh --recognition off         one Whisper model (1.6 GB)`;
 
 const CMD_MAINT = `./scripts/doctor.sh            # read-only checks, then a real ping
 ./uninstall.sh                 # removes the app and LaunchAgents, keeps ~/.open-dictate
@@ -89,7 +91,7 @@ python3 daemon/meeting_cli.py transcribe ~/Desktop/meeting.m4a --out /tmp/od-mee
 python3 daemon/glossary/cli.py candidates
 python3 daemon/glossary/cli.py accept cand_xxxxx
 
-# recognition mode (opt-in: docs/RECOGNITION-MODES.md)
+# recognition mode (docs/RECOGNITION-MODES.md)
 python3 daemon/dictate_cli.py mode          # show it
 python3 daemon/dictate_cli.py mode fast     # or accurate`;
 
@@ -101,7 +103,7 @@ OpenDictate.app (Swift)       records 16 kHz mono PCM16 WAV
 /tmp/open-dictate.sock        newline-delimited JSON
   |
 dictated.py (Python, warm)
-  |-- MLX Whisper | Qwen3-ASR   audio -> raw text   (fast mode: opt-in)
+  |-- MLX Whisper | Qwen3-ASR   audio -> raw text   (fast mode: default)
   |-- glossary pairs            raw -> corrected    (muse_lexicon)
   |-- punctuation               smart_zh | llm_zh (gated) | raw
   |-- log                       ~/.open-dictate/dictation-log/
@@ -126,7 +128,7 @@ const PROTO = `# requests: one JSON object per line on /tmp/open-dictate.sock
 {"cmd": "reload_lexicon"}
 {"cmd": "add_pair", "wrong": "誤聽", "right": "正確", "source": "dictate-ui"}
 {"cmd": "stats"}
-{"cmd": "set_mode", "mode": "fast"}      # opt-in recognition modes: fast | accurate | 快 | 準
+{"cmd": "set_mode", "mode": "fast"}      # recognition mode: fast | accurate | 快 | 準
 
 # responses
 {"ok": true, "text": "校正後文字", "raw": "whisper 原始輸出", "changes": [["誤聽", "正確"]], "punct": "smart_zh"}

@@ -1,8 +1,8 @@
 # Recognition modes: fast and accurate / 辨識模式：快與準
 
-Since daemon 0.7.0 Open Dictate can keep two recognition models loaded and switch between them without a restart. This page says what the two modes are, which one you get by default, how to turn the feature on, how to switch, what gets downloaded, and how fast it is.
+Since daemon 0.7.0 Open Dictate can keep two recognition models loaded and switch between them without a restart. This page says what the two modes are, which one you get by default, how to pick another or turn the feature off, how to switch, what gets downloaded, and how fast it is.
 
-daemon 0.7.0 起，Open Dictate 可以同時常駐兩個辨識模型，不用重啟就能切換。這份文件說明兩種模式是什麼、預設是哪一種、怎麼開啟與切換、會下載什麼、實測有多快。
+daemon 0.7.0 起，Open Dictate 可以同時常駐兩個辨識模型，不用重啟就能切換。這份文件說明兩種模式是什麼、預設是哪一種、怎麼改選或關掉、怎麼切換、會下載什麼、實測有多快。
 
 ## The two modes / 兩種模式
 
@@ -26,15 +26,32 @@ What we measured about the difference (details below): on a read-aloud calibrati
 
 ## Which one do I get? / 預設是哪一種
 
-Out of the box, **neither**: `./install.sh` sets up the 0.6.x behaviour, one Whisper model (`whisper-large-v3-turbo`) inside the daemon, and the menu-bar app hides the “辨識模式” menu because the daemon reports no modes. Recognition modes are **opt-in**. Once you turn them on (next section), the default mode is **accurate**, and the daemon remembers the last mode you chose in `~/.open-dictate/dictation-mode.json`.
+**Fast.** Since 0.7.1 a plain `./install.sh` sets up both modes and starts in **fast** (Qwen3-ASR 1.7B). The accurate mode is still there, with the same default model as before (`whisper-large-v3-turbo`), one click or one command away. The daemon remembers the last mode you chose in `~/.open-dictate/dictation-mode.json`.
 
-裝好之後**預設兩者都不是**：`./install.sh` 做出來的是 0.6.x 的行為，daemon 裡一個 Whisper 模型（`whisper-large-v3-turbo`），選單列 app 因為 daemon 沒回報模式而隱藏「辨識模式」選單。辨識模式要**自己開**。開了之後預設是**準**，daemon 會把你最後一次的選擇記在 `~/.open-dictate/dictation-mode.json`。
+**快。** 從 0.7.1 起，直接跑 `./install.sh` 會把兩種模式都裝好，並從**快**（Qwen3-ASR 1.7B）開始。準還在，預設模型和以前一樣（`whisper-large-v3-turbo`），選單列點一下或下一行指令就換過去。daemon 會把你最後一次的選擇記在 `~/.open-dictate/dictation-mode.json`。
 
-## Turn it on / 開啟
+```bash
+./install.sh                          # fast: both modes installed, starts in fast
+./install.sh --recognition accurate   # both modes installed, starts in accurate
+./install.sh --recognition off        # one Whisper model, as in 0.6.x (no mode menu, 1.6 GB)
+./install.sh --plan                   # say what would happen and what would be downloaded; change nothing
+```
 
-Needs the clone from `./install.sh`, about 5 GB of free memory for the two models (the author's worker, Qwen3-ASR plus large-v3, sits at 5.3 GB resident) and about 4 GB of disk for the downloads (7 GB with large-v3).
+- **It asks before it downloads.** Before anything is fetched the installer prints which models are missing, their size (4.1 GB for both, 1.6 GB with `off`) and how long that takes (about 22 minutes at 25 Mbps, 5 at 100, 1 at 500), then waits for a yes. With no terminal to ask in (a script, an agent) it refuses until you add `--yes`. Models already on your Mac are not downloaded again and nothing is asked. If a download is interrupted, run `./install.sh` again: files that already finished are not fetched again.
+- **Needs** about 5 GB of free memory for the two models (the installer warns below 16 GB of RAM), about 4.1 GB of disk for the models and about 2.6 GB for the two Python environments. Model licences and sources are below.
+- **Re-running the installer** rewrites the LaunchAgent. A plain `./install.sh` keeps the mode you last picked from the menu bar; passing `--recognition fast|accurate` sets it again, and `--recognition off` removes the router settings.
+- **Coming from 0.7.0 with the modes turned on by hand?** Re-run `./install.sh`: it writes the same keys (and the worker environment becomes `.venv-asr`, as in the 0.7.0 guide), and your remembered mode stays.
+- The daemon on its own (`python3 daemon/dictated.py` with no environment, tests, other products built on it) is unchanged: one Whisper model, no modes, unless `OPEN_DICTATE_ASR_BACKEND=router` is set. The installer is what sets it. If you enable the router yourself and set no mode, the daemon starts in accurate.
 
-需要 `./install.sh` 裝好的 clone、約 5 GB 可用記憶體放兩個模型（作者的 worker 載入 Qwen3-ASR 加 large-v3 常駐 5.3 GB），下載約 4 GB 磁碟（用 large-v3 則 7 GB）。
+- **它會先問再下載。** 抓任何東西之前，安裝程式會列出缺哪些模型、大小（兩個一共 4.1 GB，`off` 是 1.6 GB）、要等多久（25 Mbps 約 22 分鐘、100 Mbps 約 5 分鐘、500 Mbps 約 1 分鐘），然後等你回答 y。沒有終端機可以問的時候（腳本、AI 代理）會拒絕，要加 `--yes`。模型已經在你的 Mac 上就不會重抓、也不會問。下載中斷了，重跑 `./install.sh` 就好，已經下載完成的檔案不會重抓。
+- **需要**約 5 GB 可用記憶體放兩個模型（RAM 不到 16 GB 時安裝程式會提醒）、模型約 4.1 GB 磁碟、兩個 Python 環境約 2.6 GB 磁碟。模型授權與來源在下面。
+- **重跑安裝程式**會重寫 LaunchAgent。單純 `./install.sh` 會保留你在選單列最後選的模式。加 `--recognition fast|accurate` 會重設，`--recognition off` 會拿掉 router 設定。
+- **從 0.7.0 手動開啟的人**：重跑 `./install.sh` 就好，它寫的是同一組鍵（worker 環境同樣是 `.venv-asr`），你記住的模式不變。
+- daemon 本身（不經安裝程式直接跑 `python3 daemon/dictated.py`、測試、別的產品拿它當核心）沒有改：除非設了 `OPEN_DICTATE_ASR_BACKEND=router`，否則還是單一 Whisper 模型、沒有模式。設這個的是安裝程式。你自己開 router 又沒指定模式時，daemon 從準開始。
+
+## What the installer sets up / 安裝程式做了什麼
+
+Nothing hidden: this is what `./install.sh` does for the modes, and what you would type by hand.
 
 ```bash
 cd open-dictate
@@ -43,28 +60,24 @@ cd open-dictate
 python3 -m venv .venv-asr
 .venv-asr/bin/pip install -r daemon/requirements-asr.txt
 
-# 2. download the models now instead of during the first dictation (Qwen3-ASR 2.5 GB, Whisper turbo 1.6 GB)
-.venv-asr/bin/python3 -c "from huggingface_hub import snapshot_download as d; \
-d('mlx-community/Qwen3-ASR-1.7B-8bit'); d('mlx-community/whisper-large-v3-turbo')"
+# 2. the models (the installer asks first and shows the size; here Qwen3-ASR 2.5 GB, Whisper turbo 1.6 GB)
+.venv-asr/bin/python3 scripts/install-recognition.py download --mode fast
 
-# 3. tell the daemon to use the router backend (edit its LaunchAgent, then restart it)
+# 3. the daemon's LaunchAgent gets the router settings (then it is restarted)
 PLIST=~/Library/LaunchAgents/org.opendictate.daemon.plist
 PB=/usr/libexec/PlistBuddy
 $PB -c "Add :EnvironmentVariables:OPEN_DICTATE_ASR_BACKEND string router" "$PLIST"
 $PB -c "Add :EnvironmentVariables:OPEN_DICTATE_ASR_WORKER_PYTHON string $PWD/.venv-asr/bin/python3" "$PLIST"
+$PB -c "Add :EnvironmentVariables:OPEN_DICTATE_ASR_MODE string fast" "$PLIST"
 launchctl kickstart -k gui/$(id -u)/org.opendictate.daemon
 
 # 4. check
-python3 daemon/dictate_cli.py mode        # → mode=accurate main=whisper-turbo shadow=None
+python3 daemon/dictate_cli.py mode        # → mode=fast main=qwen3-asr-1.7b shadow=None
 ```
 
-Then the menu-bar icon shows **辨識模式 → 快 / 準**. The daemon takes a moment to start because it loads both models.
+The `OPEN_DICTATE_ASR_MODE` key only decides the very first start; after that the mode you last switched to wins. Use `whisper-large-v3` as the accurate model by also adding `OPEN_DICTATE_MODEL` = `mlx-community/whisper-large-v3-mlx` (3.1 GB, not downloaded by the installer; re-running the installer rewrites the plist, so add it again). Other keys: `OPEN_DICTATE_ASR_FAST_MODEL`, `OPEN_DICTATE_ASR_ACCURATE_MODEL`; known model names are `qwen3-asr-1.7b`, `qwen3-asr-0.6b`, `whisper-turbo`, `whisper-v3` (any other value is taken as a Hugging Face repo id).
 
-⚠️ `./install.sh` rewrites the LaunchAgent, so run step 3 again after every reinstall. To start in fast mode add `OPEN_DICTATE_ASR_MODE` = `fast` the same way (`PlistBuddy -c "Set …"` if the key already exists); it only decides the very first start, after that the mode you last switched to wins.
-
-⚠️ 每次重跑 `./install.sh` 都會重寫 LaunchAgent，第 3 步要再做一次。想一開始就是快：用同樣方式加 `OPEN_DICTATE_ASR_MODE` = `fast`（鍵已存在就用 `PlistBuddy -c "Set …"`）。它只決定第一次啟動，之後以你最後切換的模式為準。
-
-Use `whisper-large-v3` as the accurate model by adding `OPEN_DICTATE_MODEL` = `mlx-community/whisper-large-v3-mlx` (3.1 GB). Other keys: `OPEN_DICTATE_ASR_FAST_MODEL`, `OPEN_DICTATE_ASR_ACCURATE_MODEL`; known model names are `qwen3-asr-1.7b`, `qwen3-asr-0.6b`, `whisper-turbo`, `whisper-v3` (any other value is taken as a Hugging Face repo id). To go back to the default, remove the two keys and restart the daemon.
+這一段是 `./install.sh` 為模式做的事，也是你手動會打的指令：建第二個 Python 環境、下載模型、在 daemon 的 LaunchAgent 加 router 設定再重啟、最後檢查。`OPEN_DICTATE_ASR_MODE` 只決定第一次啟動，之後以你最後切換的模式為準。想用 `whisper-large-v3` 當準的模型，另外加 `OPEN_DICTATE_MODEL` = `mlx-community/whisper-large-v3-mlx`（3.1 GB，安裝程式不會下載它，重跑安裝程式會重寫 plist，要再加一次）。
 
 ## Switch / 切換
 
@@ -76,7 +89,7 @@ python3 daemon/dictate_cli.py mode 快       # or: fast
 python3 daemon/dictate_cli.py mode 準       # or: accurate
 ```
 
-Or use the menu bar: **辨識模式 → 快 / 準**. Programs can send `{"cmd": "set_mode", "mode": "fast"}` on the socket (see [IO-CONTRACT.md](../IO-CONTRACT.md)). On a default install `mode` prints `mode=None` and a switch request fails with `bad_request`.
+Or use the menu bar: **辨識模式 → 快 / 準**. Programs can send `{"cmd": "set_mode", "mode": "fast"}` on the socket (see [IO-CONTRACT.md](../IO-CONTRACT.md)). With `--recognition off` (or any daemon without the router) `mode` prints `mode=None` and a switch request fails with `bad_request`.
 
 ## What gets downloaded, and under which licence / 下載什麼、授權為何
 

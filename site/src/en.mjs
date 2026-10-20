@@ -12,9 +12,9 @@ export default {
 
   meta: {
     title: 'Open Dictate · local-first Traditional Chinese dictation for macOS',
-    description: 'Hold a key, speak, release. Open Dictate transcribes Traditional Chinese on your Apple Silicon Mac with MLX Whisper or, in the opt-in fast mode, Qwen3-ASR, fixes the words you taught it with a deterministic glossary, and types the sentence at your cursor. Audio stays on your Mac. Open source, MIT.',
+    description: 'Hold a key, speak, release. Open Dictate transcribes Traditional Chinese on your Apple Silicon Mac with Qwen3-ASR (the fast mode, which is the default) or MLX Whisper (the accurate mode), fixes the words you taught it with a deterministic glossary, and types the sentence at your cursor. Audio stays on your Mac. Open source, MIT.',
     ogDescription: 'Hold a key, speak, let go. The words land at your cursor, and your voice never leaves your Mac.',
-    ld: 'Local-first push-to-talk dictation and meeting transcription for Traditional Chinese on Apple Silicon Macs: a Swift menu-bar app records while a hotkey is held, a local Python daemon transcribes with MLX Whisper (or Qwen3-ASR in the opt-in fast mode), applies the user\'s deterministic glossary pairs and full-width punctuation, and the text is inserted at the cursor. Audio, transcripts and glossaries stay on the Mac.',
+    ld: 'Local-first push-to-talk dictation and meeting transcription for Traditional Chinese on Apple Silicon Macs: a Swift menu-bar app records while a hotkey is held, a local Python daemon transcribes with Qwen3-ASR (fast mode, the default) or MLX Whisper (accurate mode), applies the user\'s deterministic glossary pairs and full-width punctuation, and the text is inserted at the cursor. Audio, transcripts and glossaries stay on the Mac.',
     features: [
       'Push-to-talk dictation with fn or right Option',
       'Local transcription with MLX Whisper on Apple Silicon',
@@ -39,7 +39,7 @@ export default {
   hero: {
     eyebrow: 'Early public seed · daemon {v} · MIT · macOS 14+ · Apple Silicon',
     sub: 'Hold a key, speak, let go. The words land at your cursor.',
-    lede: 'Local-first dictation for Traditional Chinese on Apple Silicon Macs. <em>MLX Whisper</em> turns your voice into text on your own machine, <em>a glossary you own</em> corrects the words it knows, and the sentence is <em>typed where your cursor is</em>. The system may flag and suggest. It may not silently rewrite what you meant.',
+    lede: 'Local-first dictation for Traditional Chinese on Apple Silicon Macs. <em>Qwen3-ASR or MLX Whisper</em> turns your voice into text on your own machine, <em>a glossary you own</em> corrects the words it knows, and the sentence is <em>typed where your cursor is</em>. The system may flag and suggest. It may not silently rewrite what you meant.',
     doorsLabel: 'Where to start',
     doors: [
       { who: 'I want to use it', what: 'What it needs, how to install, what it can’t do yet', href: '#start' },
@@ -59,7 +59,7 @@ export default {
     bayLive: 'local',
     steps: [
       { name: 'Record', sub: 'app · 16 kHz mono WAV' },
-      { name: 'Transcribe', sub: 'daemon · MLX Whisper' },
+      { name: 'Transcribe', sub: 'daemon · MLX Whisper (accurate mode)' },
       { name: 'Correct', sub: 'daemon · your glossary' },
       { name: 'Punctuate', sub: 'daemon · smart_zh' },
       { name: 'Insert', sub: 'app · at the cursor' },
@@ -86,7 +86,7 @@ export default {
       '“Remember to sync the notes to Obsidian.” Whisper heard 阿布西店 and no pair matches, so the mishearing goes in as heard. Nothing is guessed. You teach the pair once.',
       'The same sentence, next time: the pair you taught fires.',
     ],
-    legend: 'Each row is a real stage, in the real order. The JSON has the shape of the actual socket messages; the sentences are written for this demo.',
+    legend: 'Each row is a real stage, in the real order. The JSON has the shape of the actual socket messages; the sentences are written for this demo. It shows the accurate mode: in fast mode the model writes its own punctuation and the punctuate step only makes it full-width.',
     caption: 'This is a demonstration animation. The sentences are scripted and this page never touches your microphone. The real thing is a menu-bar app and a daemon on your Mac.',
     contractLink: 'Read the contract',
     noscript: 'With JavaScript off you see the last frame of the demo.',
@@ -98,7 +98,7 @@ export default {
     lede: 'A Swift menu-bar app records while you hold the key and hands a WAV file to a Python daemon that keeps the model warm. The daemon transcribes, corrects and punctuates, then answers with text, and the app types it where your cursor is. After transcription, nothing changes your words except pairs you put in the glossary.',
     layers: [
       { name: 'Record', quote: 'while you hold the key', text: 'Hold <kbd>fn</kbd> or right Option. The app records 16 kHz mono audio. Presses under half a second are dropped, and a speech-shape gate catches accidental recordings of room noise.' },
-      { name: 'Transcribe', quote: 'what was said', text: 'A speech model runs on Apple Silicon inside a daemon that stays loaded: MLX Whisper by default, Qwen3-ASR in the opt-in fast mode. Guards drop known subtitle-credit hallucinations and cut runaway repetition before anything goes further.' },
+      { name: 'Transcribe', quote: 'what was said', text: 'A speech model runs on Apple Silicon inside a daemon that stays loaded: Qwen3-ASR in the fast mode, which is the default, or MLX Whisper in the accurate mode. Guards drop known subtitle-credit hallucinations and cut runaway repetition before anything goes further.' },
       { name: 'Correct', quote: 'what you meant', text: 'Your glossary is a table of <em>wrong → right</em> pairs. Only pairs that match are applied; the sentence is never rewritten. A missed correction is better than a wrong one.' },
       { name: 'Punctuate', quote: 'how it reads', text: 'The default <code>smart_zh</code> rules make marks full-width in Chinese context and leave English, numbers and URLs alone. An optional local LLM pass adds fuller punctuation and is thrown away if it changes anything else.' },
       { name: 'Insert', quote: 'where it lands', text: 'The text goes in through the Accessibility API, with paste as the fallback. The app never takes focus from the field you were typing in.' },
@@ -110,7 +110,7 @@ export default {
       { name: 'Review queue', text: 'A scanner flags likely mishearings and numbers as candidates. You accept, edit or reject; only accepted pairs reach the glossary, and every decision can be undone.' },
       { name: 'Speaker labels', text: 'Transcripts use anonymous labels, <code>SPEAKER_00</code>, <code>SPEAKER_01</code>. Knowing who is speaking is planned as an optional, local-only layer.' },
       { name: 'Menu bar', text: 'Teach a pair from the last sentence or from selected text, report a mishearing, and choose the hotkey, the microphone and the punctuation mode.' },
-      { name: 'Recognition modes', text: 'Opt in to keep a fast model (Qwen3-ASR) and an accurate one (Whisper) loaded, and switch between them from the menu bar or the terminal without a restart. A fresh install keeps one Whisper model.' },
+      { name: 'Recognition modes', text: 'The installer keeps a fast model (Qwen3-ASR, the starting mode) and an accurate one (Whisper) loaded, and you switch between them from the menu bar or the terminal without a restart. <code>./install.sh --recognition off</code> keeps a single Whisper model.' },
     ],
     rulesTitle: 'Seven rules',
     rules: [
@@ -126,8 +126,8 @@ export default {
     glossary: [
       { term: 'Push-to-talk', def: 'Hold a key while you speak, release to finish. Open Dictate uses <kbd>fn</kbd> or right Option.' },
       { term: 'Daemon', def: '<code>dictated.py</code>, the background process that keeps the model loaded so a short sentence needs no cold start. The app talks to it over a Unix socket.' },
-      { term: 'MLX Whisper', def: 'The Whisper speech model running on Apple’s MLX framework. Default: <code>whisper-large-v3-turbo</code>.' },
-      { term: 'Fast / accurate mode', def: 'Two recognition setups you can switch between, opt-in. Fast is Qwen3-ASR 1.7B, which writes its own punctuation. Accurate is Whisper, with your glossary as its prompt. Setup, downloads and licences are in <code>docs/RECOGNITION-MODES.md</code>.' },
+      { term: 'MLX Whisper', def: 'The Whisper speech model running on Apple’s MLX framework. It is the accurate mode’s model, <code>whisper-large-v3-turbo</code> by default.' },
+      { term: 'Fast / accurate mode', def: 'Two recognition setups you can switch between; fast is where a fresh install starts. Fast is Qwen3-ASR 1.7B, which writes its own punctuation. Accurate is Whisper, with your glossary as its prompt. Setup, downloads and licences are in <code>docs/RECOGNITION-MODES.md</code>.' },
       { term: 'Glossary pair', def: 'One <code>wrong → right</code> entry, such as <code>git hub → GitHub</code>. Applied exactly as written wherever the wrong side appears.' },
       { term: 'Contextual pair', def: 'A pair that is only safe in some sentences. It is never applied blindly; it waits for context or for you.' },
       { term: 'Review queue', def: 'Candidate pairs waiting for accept, edit or reject. Decisions are kept in a history and can be undone.' },
@@ -146,7 +146,7 @@ export default {
     features: [
       { name: 'Push-to-talk dictation', note: '' },
       { name: 'Local MLX Whisper daemon', note: '' },
-      { name: 'Fast and accurate recognition modes', note: 'opt-in; Qwen3-ASR or Whisper' },
+      { name: 'Fast and accurate recognition modes', note: 'on by default; Qwen3-ASR or Whisper' },
       { name: 'Deterministic glossary correction', note: '' },
       { name: 'Traditional Chinese full-width punctuation', note: '' },
       { name: 'Menu-bar teaching flow', note: '' },
@@ -163,8 +163,7 @@ export default {
       '<strong>It installs from source.</strong> You need Git, Xcode Command Line Tools and Python 3.11+. There is no DMG yet.',
       '<strong>The installed app depends on your clone.</strong> If you move the folder, run the doctor and install again.',
       '<strong>The app is ad-hoc signed.</strong> After a rebuild, macOS may ask you to switch its permissions off and on again.',
-      '<strong>The first run downloads the model</strong> and warming it up can take about two minutes.',
-      '<strong>Fast and accurate modes are opt-in.</strong> The installer sets up one Whisper model. A second model needs a second Python environment and about 4 GB of downloads; the modes guide has the steps.',
+      '<strong>The installer downloads 4.1 GB of models,</strong> after it has told you the sizes and waited for your yes: Qwen3-ASR for the fast mode and Whisper for the accurate mode. It needs about 5 GB of free memory. <code>--recognition off</code> keeps one Whisper model (1.6 GB).',
     ],
     roadmapTitle: 'On the way to an ordinary Mac app',
     phaseLabel: 'Phase',
@@ -195,8 +194,8 @@ export default {
     netTitle: 'When it does use the network',
     net: [
       '<strong>Installing.</strong> Python packages come from PyPI.',
-      '<strong>The model.</strong> The first run downloads <code>mlx-community/whisper-large-v3-turbo</code> from Hugging Face. When the daemon loads it, the download library may check for a newer copy; that request names the model and carries none of your audio or text.',
-      '<strong>The fast mode, if you turn it on.</strong> It downloads <code>mlx-community/Qwen3-ASR-1.7B-8bit</code> (2.5 GB, Apache-2.0) the same way. Open Dictate ships no model file.',
+      '<strong>The models.</strong> The installer downloads <code>mlx-community/whisper-large-v3-turbo</code> (1.6 GB, MIT) from Hugging Face, after it has asked. When the daemon loads a model, the download library may check for a newer copy; that request names the model and carries none of your audio or text.',
+      '<strong>The fast mode, which is on by default.</strong> The installer also downloads <code>mlx-community/Qwen3-ASR-1.7B-8bit</code> (2.5 GB, Apache-2.0) the same way. Open Dictate ships no model file, and <code>--recognition off</code> skips this one.',
       '<strong>LLM punctuation, if you turn it on.</strong> It talks to Ollama at <code>127.0.0.1</code>, a server on your own Mac. If you point <code>OPEN_DICTATE_PUNCT_LLM_URL</code> at another machine, your text goes there.',
       '<strong>Remote recognition, only if you set a URL.</strong> Off by default. If you set <code>OPEN_DICTATE_ASR_REMOTE_URL</code>, each recording is sent to that machine, so use a computer you own on a private network.',
       '<strong>Meeting Mode with <code>--model</code>.</strong> A model you name is downloaded the first time.',
@@ -211,8 +210,8 @@ export default {
     eyebrow: '05 · Install',
     title: 'Install it',
     lede: 'Today Open Dictate installs from source with one script. You need an Apple Silicon Mac on macOS 14 or later, Xcode Command Line Tools and Python 3.11 or newer.',
-    after: 'The installer creates a virtual environment, builds <code>OpenDictate.app</code> into Applications, writes two LaunchAgents for your clone and warms the model. It reports success only after a real ping to the daemon; a socket file alone does not count.',
-    slow: 'The first run downloads the model, which can take about two minutes. On a slow connection: <code>OPEN_DICTATE_WARM_TIMEOUT=300 ./install.sh</code>.',
+    after: 'The installer first lists the models it has to download and waits for your yes. Then it creates two virtual environments, downloads the models, builds <code>OpenDictate.app</code> into Applications, writes two LaunchAgents for your clone and starts in the fast recognition mode. It reports success only after a real ping to the daemon and an answer from the recognition mode; a socket file alone does not count.',
+    slow: 'The models are 4.1 GB: about 22 minutes at 25 Mbps, 5 at 100 Mbps, 1 at 500 Mbps. Prefer one Whisper model (1.6 GB)? Run <code>./install.sh --recognition off</code>. Slow machine: <code>OPEN_DICTATE_WARM_TIMEOUT=300 ./install.sh</code>.',
     permsTitle: 'Then three permissions and one key',
     perms: [
       'System Settings → Privacy &amp; Security: allow OpenDictate under <strong>Microphone</strong>, <strong>Accessibility</strong> and <strong>Input Monitoring</strong>.',
@@ -222,7 +221,7 @@ export default {
     maintTitle: 'When something is off',
     maintNote: 'The doctor checks the app, its signature, the LaunchAgents, the clone paths, the socket and a real ping. It changes nothing. It can only remind you about permissions, because it does not read the protected macOS permission database.',
     cliTitle: 'Meetings, the glossary and recognition modes, from the terminal',
-    cliNote: 'Mixed English and Chinese? Use <code>--language auto</code>. Output: Markdown, JSONL, SRT, VTT and a JSON summary. The <code>mode</code> command needs the opt-in setup from the modes guide first.',
+    cliNote: 'Mixed English and Chinese? Use <code>--language auto</code>. Output: Markdown, JSONL, SRT, VTT and a JSON summary. The <code>mode</code> command works when the recognition modes are on, which is the default.',
     setupLink: 'Full setup guide',
     modesLink: 'Fast and accurate modes',
     releaseLink: 'Release v{v}: notes, source archive and app',
@@ -274,7 +273,7 @@ export default {
     installPrompt: [
       'Clone https://github.com/frank890417/open-dictate and read README.md, docs/SETUP.md and docs/PRIVACY.md first.',
       'Check that this Mac is Apple Silicon on macOS 14 or later (uname -m, sw_vers). If not, stop and tell me.',
-      'Run ./install.sh. Then run ./scripts/doctor.sh and python3 daemon/dictate_cli.py ping, and report what they say.',
+      'Run ./install.sh --plan and tell me what it will download (about 4 GB) and how long that takes. Only after I say yes, run ./install.sh --yes. Then run ./scripts/doctor.sh and python3 daemon/dictate_cli.py ping, and report what they say.',
       'Tell me which three permissions to allow in System Settings and how to set the fn key. You cannot grant them for me.',
       '',
       'Do not delete anything under ~/.open-dictate. It holds my glossary and logs.',

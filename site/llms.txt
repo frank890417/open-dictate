@@ -1,10 +1,10 @@
 # Open Dictate
 
-> Local-first push-to-talk dictation and meeting transcription for Traditional Chinese on Apple Silicon Macs. Hold a hotkey (fn or right Option), speak, release: a Swift menu-bar app records 16 kHz mono audio, a local Python daemon transcribes it with MLX Whisper (whisper-large-v3-turbo; Qwen3-ASR 1.7B in the opt-in fast mode), applies the user's deterministic glossary pairs and full-width punctuation, and the app inserts the text at the cursor. Audio, transcripts, logs and glossaries stay on the Mac. MIT license. Early public seed (daemon 0.7.0).
+> Local-first push-to-talk dictation and meeting transcription for Traditional Chinese on Apple Silicon Macs. Hold a hotkey (fn or right Option), speak, release: a Swift menu-bar app records 16 kHz mono audio, a local Python daemon transcribes it with MLX Whisper (Qwen3-ASR 1.7B in the default fast mode, whisper-large-v3-turbo in the accurate mode), applies the user's deterministic glossary pairs and full-width punctuation, and the app inserts the text at the cursor. Audio, transcripts, logs and glossaries stay on the Mac. MIT license. Early public seed (daemon 0.7.1).
 
 Site: https://frank890417.github.io/open-dictate/ (English) · https://frank890417.github.io/open-dictate/zh/ (繁體中文, Traditional Chinese)
 Repository: https://github.com/frank890417/open-dictate
-Release: https://github.com/frank890417/open-dictate/releases/tag/v0.7.0-recognition-modes
+Release: https://github.com/frank890417/open-dictate/releases/tag/v0.7.1
 Author: Che-Yu Wu 吳哲宇 (https://cheyuwu.com)
 
 ## Core concepts
@@ -14,23 +14,25 @@ Author: Che-Yu Wu 吳哲宇 (https://cheyuwu.com)
 - **Design rule**: the system may flag and suggest, but it must not silently rewrite meaning. Prefer missed corrections over wrong corrections. Numbers are not changed automatically.
 - **Meeting Mode**: `daemon/meeting_cli.py` turns a local audio file or JSON/JSONL segments into Markdown, JSONL, SRT, VTT and meeting-result.json, with anonymous speaker labels (SPEAKER_00…) and QA flags.
 - **Self-evolving glossary**: a scanner flags possible mishearings as candidates; the user accepts, edits or rejects (`daemon/glossary/cli.py`); only accepted pairs reach the glossary.
-- **Privacy**: everything under `~/.open-dictate/`; speaker embeddings are biometric data, local only, never committed. Network use: PyPI at install, the Whisper model from Hugging Face (first run; the library may check for updates when loading), Qwen3-ASR from Hugging Face if the fast mode is turned on, optional LLM punctuation via Ollama on 127.0.0.1, and, only if `OPEN_DICTATE_ASR_REMOTE_URL` is set, each recording goes to the machine named there. No model file ships with the repository.
+- **Privacy**: everything under `~/.open-dictate/`; speaker embeddings are biometric data, local only, never committed. Network use: PyPI at install, the Whisper model from Hugging Face (first run; the library may check for updates when loading), Qwen3-ASR from Hugging Face (fast mode, the default install; the installer prints sizes and asks first), optional LLM punctuation via Ollama on 127.0.0.1, and, only if `OPEN_DICTATE_ASR_REMOTE_URL` is set, each recording goes to the machine named there. No model file ships with the repository.
 
 ## Status (from the README)
 
-Public seed: push-to-talk dictation, local MLX Whisper daemon, deterministic glossary correction, Traditional Chinese punctuation, menu-bar teaching flow, meeting transcript package, local audio ASR for Meeting Mode. MVP: fast and accurate recognition modes (opt-in: Qwen3-ASR or Whisper, switchable without a restart), post-transcription mishearing flags, review-first glossary queue (CLI), anonymous speaker labels. Planned: local speaker identity, menu-bar review UI, glossary import/export, a self-contained signed and notarized app (see docs/MACOS-DISTRIBUTION-ROADMAP.md), an MCP server (see docs/MCP-ROADMAP.md; none exists yet).
+Public seed: push-to-talk dictation, local MLX Whisper daemon, deterministic glossary correction, Traditional Chinese punctuation, menu-bar teaching flow, meeting transcript package, local audio ASR for Meeting Mode. MVP: fast and accurate recognition modes (on by default in the installer: Qwen3-ASR or Whisper, switchable without a restart), post-transcription mishearing flags, review-first glossary queue (CLI), anonymous speaker labels. Planned: local speaker identity, menu-bar review UI, glossary import/export, a self-contained signed and notarized app (see docs/MACOS-DISTRIBUTION-ROADMAP.md), an MCP server (see docs/MCP-ROADMAP.md; none exists yet).
 
 ## Install (Apple Silicon, macOS 14+, Xcode Command Line Tools, Python 3.11+)
 
 ```bash
 git clone https://github.com/frank890417/open-dictate.git
 cd open-dictate
-./install.sh                         # venv, builds OpenDictate.app into /Applications, LaunchAgents, model warm-up
+./install.sh --plan                  # what it would install and download (about 4 GB of models); changes nothing
+./install.sh --yes                   # venvs, models, OpenDictate.app into /Applications, LaunchAgents; starts in fast recognition mode
+./install.sh --recognition off       # alternative: one Whisper model (1.6 GB), no fast/accurate modes
 ./scripts/doctor.sh                  # read-only diagnostics
 python3 daemon/dictate_cli.py ping   # daemon health
 ```
 
-Then the user must allow OpenDictate under Microphone, Accessibility and Input Monitoring (System Settings → Privacy & Security) and set "Press fn key to" → Do Nothing. An agent cannot grant these. Never delete `~/.open-dictate` (user glossary and logs); `./uninstall.sh` keeps it.
+Then the user must allow OpenDictate under Microphone, Accessibility and Input Monitoring (System Settings → Privacy & Security) and set "Press fn key to" → Do Nothing. An agent cannot grant these. The installer asks before it downloads the models; with no terminal to ask in it refuses until it is run with `--yes`, so an agent should show the user `--plan` first. Never delete `~/.open-dictate` (user glossary and logs); `./uninstall.sh` keeps it.
 
 ## Develop
 
