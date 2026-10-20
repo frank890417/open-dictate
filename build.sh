@@ -46,6 +46,11 @@ PLIST="$APP/Contents/Info.plist"
 /usr/libexec/PlistBuddy -c "Set :ODPriorityTerms $PRIORITY_TERMS" "$PLIST"
 # Keep the standalone fallback usable after the source checkout is removed.
 ditto vendor "$APP/Contents/Resources/vendor"
+# A running daemon (or the test suite) writes bytecode caches into vendor/; they would be sealed into the
+# signed bundle and shipped. Keep them out, and fail loudly if one ever sneaks back in.
+find "$APP/Contents/Resources/vendor" -name '*.pyc' -delete
+find "$APP/Contents/Resources/vendor" -name __pycache__ -type d -empty -delete
+[ -z "$(find "$APP" \( -name '*.pyc' -o -name __pycache__ \))" ] || { echo "✗ app bundle 裡有 Python bytecode 快取" >&2; exit 1; }
 printf 'APPL????' > "$APP/Contents/PkgInfo"
 
 plutil -lint "$APP/Contents/Info.plist" >/dev/null
