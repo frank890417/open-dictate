@@ -196,7 +196,7 @@ export default {
       '<strong>安裝時。</strong>Python 套件從 PyPI 下載。',
       '<strong>模型。</strong>安裝程式問過之後，會從 Hugging Face 下載 <code>mlx-community/whisper-large-v3-turbo</code>（1.6 GB，MIT 授權）。daemon 載入模型時，下載用的函式庫可能會檢查有沒有新版。這個請求只帶模型名稱，不含你的音檔或文字。',
       '<strong>快速模式，預設開啟。</strong>安裝程式也用同樣的方式下載 <code>mlx-community/Qwen3-ASR-1.7B-8bit</code>（2.5 GB，Apache-2.0）。Open Dictate 不內附任何模型檔，<code>--recognition off</code> 不會下載這一個。',
-      '<strong>LLM 標點，如果你打開它。</strong>它連到 <code>127.0.0.1</code> 上的 Ollama，也就是你自己 Mac 上的伺服器。如果你把 <code>OPEN_DICTATE_PUNCT_LLM_URL</code> 指到別台機器，文字就會送到那裡。',
+      '<strong>LLM 標點，如果你打開它。</strong>它連到 <code>127.0.0.1</code> 上的 Ollama，也就是你自己 Mac 上的伺服器，而且 daemon 只有在某一句話真的要用它（準確模式加上 LLM 標點）時才向 Ollama 要這個模型，快速模式永遠不會。如果你把 <code>OPEN_DICTATE_PUNCT_LLM_URL</code> 指到別台機器，文字就會送到那裡。',
       '<strong>遠端辨識，只有你設了網址才會。</strong>預設關閉。設了 <code>OPEN_DICTATE_ASR_REMOTE_URL</code> 之後，每段錄音都會送到那台機器，所以只對你自己擁有、在私人網路裡的電腦使用。',
       '<strong>會議模式加上 <code>--model</code>。</strong>你指定的模型第一次使用時會下載。',
     ],

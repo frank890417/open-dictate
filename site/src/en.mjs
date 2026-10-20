@@ -196,7 +196,7 @@ export default {
       '<strong>Installing.</strong> Python packages come from PyPI.',
       '<strong>The models.</strong> The installer downloads <code>mlx-community/whisper-large-v3-turbo</code> (1.6 GB, MIT) from Hugging Face, after it has asked. When the daemon loads a model, the download library may check for a newer copy; that request names the model and carries none of your audio or text.',
       '<strong>The fast mode, which is on by default.</strong> The installer also downloads <code>mlx-community/Qwen3-ASR-1.7B-8bit</code> (2.5 GB, Apache-2.0) the same way. Open Dictate ships no model file, and <code>--recognition off</code> skips this one.',
-      '<strong>LLM punctuation, if you turn it on.</strong> It talks to Ollama at <code>127.0.0.1</code>, a server on your own Mac. If you point <code>OPEN_DICTATE_PUNCT_LLM_URL</code> at another machine, your text goes there.',
+      '<strong>LLM punctuation, if you turn it on.</strong> It talks to Ollama at <code>127.0.0.1</code>, a server on your own Mac, and the daemon asks Ollama for the model only when a sentence is about to use it (accurate mode with LLM punctuation), never in fast mode. If you point <code>OPEN_DICTATE_PUNCT_LLM_URL</code> at another machine, your text goes there.',
       '<strong>Remote recognition, only if you set a URL.</strong> Off by default. If you set <code>OPEN_DICTATE_ASR_REMOTE_URL</code>, each recording is sent to that machine, so use a computer you own on a private network.',
       '<strong>Meeting Mode with <code>--model</code>.</strong> A model you name is downloaded the first time.',
     ],
