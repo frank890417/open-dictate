@@ -39,7 +39,7 @@
   "inLanguage": "zh-Hant-TW",
   "applicationCategory": "UtilitiesApplication",
   "operatingSystem": "macOS 14 or later, Apple Silicon",
-  "softwareVersion": "0.7.1",
+  "softwareVersion": "0.7.2",
   "softwareRequirements": "Apple Silicon Mac; macOS 14+; Xcode Command Line Tools; Python 3.11+",
   "featureList": [
     "按住 fn 或右側 Option 說話的語音輸入",
@@ -50,8 +50,8 @@
     "會議逐字稿輸出 Markdown、JSONL、SRT、VTT",
     "從疑似誤聽出發、審核優先的詞庫成長"
   ],
-  "downloadUrl": "https://github.com/frank890417/open-dictate/releases/tag/v0.7.1",
-  "releaseNotes": "https://github.com/frank890417/open-dictate/releases/tag/v0.7.1",
+  "downloadUrl": "https://github.com/frank890417/open-dictate/releases/tag/v0.7.2",
+  "releaseNotes": "https://github.com/frank890417/open-dictate/releases/tag/v0.7.2",
   "installUrl": "https://frank890417.github.io/open-dictate/zh/#start",
   "license": "https://opensource.org/licenses/MIT",
   "isAccessibleForFree": true,
@@ -101,7 +101,7 @@
     <div class="hero-grid">
       <div class="hero-text">
         <p class="lede">Apple Silicon Mac 上的繁體中文語音輸入，本地優先。<em>Qwen3-ASR 或 MLX Whisper</em> 在你自己的電腦上把聲音轉成字，<em>你自己的詞庫</em>校正它認得的詞，整句話<em>直接打進游標所在的位置</em>。系統可以標記、可以建議，但不能靜默改寫你的意思。</p>
-        <p class="eyebrow facts">早期公開版 · daemon 0.7.1 · MIT 授權 · macOS 14 以上 · Apple Silicon</p>
+        <p class="eyebrow facts">早期公開版 · daemon 0.7.2 · MIT 授權 · macOS 14 以上 · Apple Silicon</p>
       </div>
       <nav class="doors" aria-label="從哪裡開始">
         <a class="door door-1" href="#start"><span class="door-who">我想用</span><span class="door-what">需要什麼、怎麼安裝、現在還做不到什麼</span><span class="door-arrow" aria-hidden="true">→</span></a>
@@ -310,7 +310,7 @@
           <li><strong>安裝時。</strong>Python 套件從 PyPI 下載。</li>
           <li><strong>模型。</strong>安裝程式問過之後，會從 Hugging Face 下載 <code>mlx-community/whisper-large-v3-turbo</code>（1.6 GB，MIT 授權）。daemon 載入模型時，下載用的函式庫可能會檢查有沒有新版。這個請求只帶模型名稱，不含你的音檔或文字。</li>
           <li><strong>快速模式，預設開啟。</strong>安裝程式也用同樣的方式下載 <code>mlx-community/Qwen3-ASR-1.7B-8bit</code>（2.5 GB，Apache-2.0）。Open Dictate 不內附任何模型檔，<code>--recognition off</code> 不會下載這一個。</li>
-          <li><strong>LLM 標點，如果你打開它。</strong>它連到 <code>127.0.0.1</code> 上的 Ollama，也就是你自己 Mac 上的伺服器。如果你把 <code>OPEN_DICTATE_PUNCT_LLM_URL</code> 指到別台機器，文字就會送到那裡。</li>
+          <li><strong>LLM 標點，如果你打開它。</strong>它連到 <code>127.0.0.1</code> 上的 Ollama，也就是你自己 Mac 上的伺服器，而且 daemon 只有在某一句話真的要用它（準確模式加上 LLM 標點）時才向 Ollama 要這個模型，快速模式永遠不會。如果你把 <code>OPEN_DICTATE_PUNCT_LLM_URL</code> 指到別台機器，文字就會送到那裡。</li>
           <li><strong>遠端辨識，只有你設了網址才會。</strong>預設關閉。設了 <code>OPEN_DICTATE_ASR_REMOTE_URL</code> 之後，每段錄音都會送到那台機器，所以只對你自己擁有、在私人網路裡的電腦使用。</li>
           <li><strong>會議模式加上 <code>--model</code>。</strong>你指定的模型第一次使用時會下載。</li>
         </ol>
@@ -345,7 +345,7 @@ cd open-dictate
       </div>
         <p>安裝程式會先列出要下載的模型，等你說好。接著建立兩個虛擬環境、下載模型、把 <code>OpenDictate.app</code> 建置到「應用程式」資料夾、依你的 clone 路徑寫好兩個 LaunchAgent，並從快速模式開始。要等 daemon 真的回應 ping、辨識模式也有回應才算成功，只有 socket 檔案不算。</p>
         <p class="note">模型共 4.1 GB：25 Mbps 約 22 分鐘，100 Mbps 約 5 分鐘，500 Mbps 約 1 分鐘。想只用一個 Whisper 模型（1.6 GB）：<code>./install.sh --recognition off</code>。機器慢的話：<code>OPEN_DICTATE_WARM_TIMEOUT=300 ./install.sh</code>。</p>
-        <p class="note"><a href="https://github.com/frank890417/open-dictate/releases/tag/v0.7.1">版本 v0.7.1：更新說明、原始碼壓縮檔與 app</a></p>
+        <p class="note"><a href="https://github.com/frank890417/open-dictate/releases/tag/v0.7.2">版本 v0.7.2：更新說明、原始碼壓縮檔與 app</a></p>
       </div>
       <div>
         <h3>接著開三個權限，設定一個鍵</h3>
@@ -605,7 +605,7 @@ repo 的規則：校正只用詞庫對照，不改寫句子，寧可漏改，不
     </div>
     <nav aria-label="給機器讀的">
       <a href="https://github.com/frank890417/open-dictate">GitHub</a>
-      <a href="https://github.com/frank890417/open-dictate/releases/tag/v0.7.1">版本 v0.7.1</a>
+      <a href="https://github.com/frank890417/open-dictate/releases/tag/v0.7.2">版本 v0.7.2</a>
       <a href="../llms.txt">llms.txt</a>
       <a href="../llms-full.txt">llms-full.txt</a>
       <a href="https://github.com/frank890417/open-dictate/blob/main/IO-CONTRACT.md">IO-CONTRACT.md</a>

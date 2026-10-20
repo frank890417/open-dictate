@@ -42,7 +42,7 @@ Responses:
 
 ```json
 {"ok": true, "text": "校正後文字", "raw": "whisper 原始輸出", "changes": [["誤聽", "正確"]], "punct": "smart_zh", "asr_ms": 210, "total_ms": 260}
-{"ok": true, "pong": true, "model": "mlx-community/whisper-large-v3-turbo", "warm": true, "version": "0.7.1", "punct_llm": {"enabled": true, "loading": false, "ready_age_s": 12.3, "last_load_s": 8.9, "last_error": null}}
+{"ok": true, "pong": true, "model": "mlx-community/whisper-large-v3-turbo", "warm": true, "version": "0.7.2", "punct_llm": {"enabled": true, "policy": "auto", "wanted": false, "loading": false, "ready_age_s": 12.3, "last_load_s": 8.9, "last_error": null}}
 {"ok": false, "error": "no_speech"}
 ```
 
@@ -109,6 +109,13 @@ All changes are daemon-internal; the wire protocol stays 1.0.
   `/api/ps` every `PUNCT_WARM_INTERVAL_S` (120 s). If the model is not resident, a
   request falls back to `smart_zh` immediately instead of waiting out a budget.
   Disable with `<PREFIX>_PUNCT_WARM=0`. Cost: the model stays resident.
+  **Since 0.7.2 the default is `auto`:** nothing is asked of Ollama at start. The keeper wakes
+  when a sentence really goes to the LLM (accurate mode, `punct: llm_zh`) or when the user
+  switches to accurate after the shell asked for `llm_zh`; switching to `fast` lets go (no reload,
+  no unload: the model may be shared, Ollama's `keep_alive` expires it). The first LLM sentence
+  after waking uses `smart_zh` while the model loads, as for any cold model. `<PREFIX>_PUNCT_WARM`
+  = `1` (or `true`, `yes`, `on`, `eager`) restores load-at-start for 0.6.0 to 0.7.1 behaviour;
+  `0` (or `false`, `no`, `off`) never. `ping`'s `punct_llm` carries `policy` and `wanted`.
 - **Contextual table filtering.** Only contextual pairs whose wrong side occurs in the
   current text are sent to the LLM and to the reachability gate. Pairs that do not
   occur cannot be applied, so the gate result is unchanged while the prompt stays small.

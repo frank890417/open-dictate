@@ -1,10 +1,10 @@
 # Open Dictate
 
-> Local-first push-to-talk dictation and meeting transcription for Traditional Chinese on Apple Silicon Macs. Hold a hotkey (fn or right Option), speak, release: a Swift menu-bar app records 16 kHz mono audio, a local Python daemon transcribes it with MLX Whisper (Qwen3-ASR 1.7B in the default fast mode, whisper-large-v3-turbo in the accurate mode), applies the user's deterministic glossary pairs and full-width punctuation, and the app inserts the text at the cursor. Audio, transcripts, logs and glossaries stay on the Mac. MIT license. Early public seed (daemon 0.7.1).
+> Local-first push-to-talk dictation and meeting transcription for Traditional Chinese on Apple Silicon Macs. Hold a hotkey (fn or right Option), speak, release: a Swift menu-bar app records 16 kHz mono audio, a local Python daemon transcribes it with MLX Whisper (Qwen3-ASR 1.7B in the default fast mode, whisper-large-v3-turbo in the accurate mode), applies the user's deterministic glossary pairs and full-width punctuation, and the app inserts the text at the cursor. Audio, transcripts, logs and glossaries stay on the Mac. MIT license. Early public seed (daemon 0.7.2).
 
 Site: https://frank890417.github.io/open-dictate/ (English) · https://frank890417.github.io/open-dictate/zh/ (繁體中文, Traditional Chinese)
 Repository: https://github.com/frank890417/open-dictate
-Release: https://github.com/frank890417/open-dictate/releases/tag/v0.7.1
+Release: https://github.com/frank890417/open-dictate/releases/tag/v0.7.2
 Author: Che-Yu Wu 吳哲宇 (https://cheyuwu.com)
 
 ## Core concepts

@@ -13,6 +13,7 @@ from __future__ import annotations
 
 import math
 import struct
+import os
 import sys
 import tempfile
 import types
@@ -26,6 +27,8 @@ DAEMON_DIR = ROOT / "daemon"
 if str(DAEMON_DIR) not in sys.path:
     sys.path.insert(0, str(DAEMON_DIR))
 
+# The suite must never reach a real Ollama (the warm keeper would load a 21 GB model on a developer's Mac): port 9 refuses at once.
+os.environ.setdefault("OPEN_DICTATE_PUNCT_LLM_URL", "http://127.0.0.1:9/api/chat")
 import dictated  # type: ignore[import-not-found]  # noqa: E402
 
 

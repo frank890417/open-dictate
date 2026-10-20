@@ -23,7 +23,7 @@ export const REPO = 'https://github.com/frank890417/open-dictate';
 export const BLOB = REPO + '/blob/main/';
 // The release the page advertises. Its tag must begin with the daemon version (site/test checks);
 // all releases so far are pre-releases, so /releases/latest would not find them: link the tag.
-export const RELEASE_TAG = 'v0.7.1';
+export const RELEASE_TAG = 'v0.7.2';
 export const RELEASE_URL = REPO + '/releases/tag/' + RELEASE_TAG;
 const TREE = REPO + '/tree/main/';
 const AUTHOR_URL = { en: 'https://cheyuwu.com/', zh: 'https://cheyuwu.com/zh/' };

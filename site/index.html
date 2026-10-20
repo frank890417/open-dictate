@@ -39,7 +39,7 @@
   "inLanguage": "en",
   "applicationCategory": "UtilitiesApplication",
   "operatingSystem": "macOS 14 or later, Apple Silicon",
-  "softwareVersion": "0.7.1",
+  "softwareVersion": "0.7.2",
   "softwareRequirements": "Apple Silicon Mac; macOS 14+; Xcode Command Line Tools; Python 3.11+",
   "featureList": [
     "Push-to-talk dictation with fn or right Option",
@@ -50,8 +50,8 @@
     "Meeting transcripts as Markdown, JSONL, SRT and VTT",
     "Review-first glossary growth from flagged mishearings"
   ],
-  "downloadUrl": "https://github.com/frank890417/open-dictate/releases/tag/v0.7.1",
-  "releaseNotes": "https://github.com/frank890417/open-dictate/releases/tag/v0.7.1",
+  "downloadUrl": "https://github.com/frank890417/open-dictate/releases/tag/v0.7.2",
+  "releaseNotes": "https://github.com/frank890417/open-dictate/releases/tag/v0.7.2",
   "installUrl": "https://frank890417.github.io/open-dictate/#start",
   "license": "https://opensource.org/licenses/MIT",
   "isAccessibleForFree": true,
@@ -101,7 +101,7 @@
     <div class="hero-grid">
       <div class="hero-text">
         <p class="lede">Local-first dictation for Traditional Chinese on Apple Silicon Macs. <em>Qwen3-ASR or MLX Whisper</em> turns your voice into text on your own machine, <em>a glossary you own</em> corrects the words it knows, and the sentence is <em>typed where your cursor is</em>. The system may flag and suggest. It may not silently rewrite what you meant.</p>
-        <p class="eyebrow facts">Early public seed · daemon 0.7.1 · MIT · macOS 14+ · Apple Silicon</p>
+        <p class="eyebrow facts">Early public seed · daemon 0.7.2 · MIT · macOS 14+ · Apple Silicon</p>
       </div>
       <nav class="doors" aria-label="Where to start">
         <a class="door door-1" href="#start"><span class="door-who">I want to use it</span><span class="door-what">What it needs, how to install, what it can’t do yet</span><span class="door-arrow" aria-hidden="true">→</span></a>
@@ -310,7 +310,7 @@
           <li><strong>Installing.</strong> Python packages come from PyPI.</li>
           <li><strong>The models.</strong> The installer downloads <code>mlx-community/whisper-large-v3-turbo</code> (1.6 GB, MIT) from Hugging Face, after it has asked. When the daemon loads a model, the download library may check for a newer copy; that request names the model and carries none of your audio or text.</li>
           <li><strong>The fast mode, which is on by default.</strong> The installer also downloads <code>mlx-community/Qwen3-ASR-1.7B-8bit</code> (2.5 GB, Apache-2.0) the same way. Open Dictate ships no model file, and <code>--recognition off</code> skips this one.</li>
-          <li><strong>LLM punctuation, if you turn it on.</strong> It talks to Ollama at <code>127.0.0.1</code>, a server on your own Mac. If you point <code>OPEN_DICTATE_PUNCT_LLM_URL</code> at another machine, your text goes there.</li>
+          <li><strong>LLM punctuation, if you turn it on.</strong> It talks to Ollama at <code>127.0.0.1</code>, a server on your own Mac, and the daemon asks Ollama for the model only when a sentence is about to use it (accurate mode with LLM punctuation), never in fast mode. If you point <code>OPEN_DICTATE_PUNCT_LLM_URL</code> at another machine, your text goes there.</li>
           <li><strong>Remote recognition, only if you set a URL.</strong> Off by default. If you set <code>OPEN_DICTATE_ASR_REMOTE_URL</code>, each recording is sent to that machine, so use a computer you own on a private network.</li>
           <li><strong>Meeting Mode with <code>--model</code>.</strong> A model you name is downloaded the first time.</li>
         </ol>
@@ -345,7 +345,7 @@ cd open-dictate
       </div>
         <p>The installer first lists the models it has to download and waits for your yes. Then it creates two virtual environments, downloads the models, builds <code>OpenDictate.app</code> into Applications, writes two LaunchAgents for your clone and starts in the fast recognition mode. It reports success only after a real ping to the daemon and an answer from the recognition mode; a socket file alone does not count.</p>
         <p class="note">The models are 4.1 GB: about 22 minutes at 25 Mbps, 5 at 100 Mbps, 1 at 500 Mbps. Prefer one Whisper model (1.6 GB)? Run <code>./install.sh --recognition off</code>. Slow machine: <code>OPEN_DICTATE_WARM_TIMEOUT=300 ./install.sh</code>.</p>
-        <p class="note"><a href="https://github.com/frank890417/open-dictate/releases/tag/v0.7.1">Release v0.7.1: notes, source archive and app</a></p>
+        <p class="note"><a href="https://github.com/frank890417/open-dictate/releases/tag/v0.7.2">Release v0.7.2: notes, source archive and app</a></p>
       </div>
       <div>
         <h3>Then three permissions and one key</h3>
@@ -605,7 +605,7 @@ Done when: python3 -m unittest discover tests, python3 scripts/golden-bench.py -
     </div>
     <nav aria-label="Machine-readable">
       <a href="https://github.com/frank890417/open-dictate">GitHub</a>
-      <a href="https://github.com/frank890417/open-dictate/releases/tag/v0.7.1">Release v0.7.1</a>
+      <a href="https://github.com/frank890417/open-dictate/releases/tag/v0.7.2">Release v0.7.2</a>
       <a href="./llms.txt">llms.txt</a>
       <a href="./llms-full.txt">llms-full.txt</a>
       <a href="https://github.com/frank890417/open-dictate/blob/main/IO-CONTRACT.md">IO-CONTRACT.md</a>
