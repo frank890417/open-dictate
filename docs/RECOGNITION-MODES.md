@@ -106,9 +106,9 @@ Both modes run on your Mac. The recognition worker is a local child process of t
 
 Measured with `scripts/modes-bench.py` on 2026-10-20: MacBook Pro, Apple M4 Max, 128 GB, macOS 27.0.1, Python 3.14.7, models already on disk. The audio is the five fictional sentences of `fixtures/calibration-v1.json` read by the macOS voice Meijia (6.6 to 14.1 s each, 50.3 s joined), so anyone can repeat it.
 
-> **Read this before quoting the numbers.** The Mac was shared with other jobs during every run (load average 9 to 35 on 16 cores), and that alone moved a model's time by up to 2×. So each cell gives the **best time seen** (the least disturbed run) and the **typical time** (median of the runs). The models were visited in turn inside every repetition, so a busy moment slows them all alike and the comparison between rows holds better than either column. A synthetic voice is cleaner than a person in a room: speed carries over, accuracy figures are a sanity check only.
+> **Read this before quoting the numbers.** The Mac was shared with other jobs during every run (load average 9 to 35 on 16 cores), and that alone moved a model's time by up to 2×. So each cell gives the **best time seen** (the least disturbed run) and the **typical time** (median of the runs). In the last two model-time runs and in every whole-request run the models (or modes) were visited in turn inside each repetition, so a busy moment slows them all alike and the comparison between rows holds better than either column. A synthetic voice is cleaner than a person in a room: speed carries over, accuracy figures are a sanity check only.
 
-Model time per sentence clip, milliseconds (`asr_engine`, the code the worker and the remote server share; 4 runs, 5 to 9 repetitions each):
+Model time per sentence clip, milliseconds (`asr_engine`, the code the worker and the remote server share; 4 runs of 5 to 9 repetitions, the first two timing the models one after another, the last two interleaving them):
 
 | Model | best seen | typical | 50 s clip, best / typical |
 |---|---|---|---|
