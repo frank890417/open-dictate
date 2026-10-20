@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Open Dictate｜macOS 上本地優先的繁體中文語音輸入</title>
-<meta name="description" content="按住快捷鍵、說話、放開。Open Dictate 在你的 Apple Silicon Mac 上用 MLX Whisper 轉錄繁體中文，用你自己的確定性詞庫校正專有名詞，再把整句話打進游標所在的位置。音檔留在本機。開源，MIT 授權。">
+<meta name="description" content="按住快捷鍵、說話、放開。Open Dictate 在你的 Apple Silicon Mac 上用 MLX Whisper（或自己開啟的快速模式 Qwen3-ASR）轉錄繁體中文，用你自己的確定性詞庫校正專有名詞，再把整句話打進游標所在的位置。音檔留在本機。開源，MIT 授權。">
 <link rel="canonical" href="https://frank890417.github.io/open-dictate/zh/">
 <link rel="alternate" hreflang="en" href="https://frank890417.github.io/open-dictate/">
 <link rel="alternate" hreflang="zh-Hant" href="https://frank890417.github.io/open-dictate/zh/">
@@ -34,22 +34,24 @@
   "@type": "SoftwareApplication",
   "name": "Open Dictate",
   "alternateName": "open-dictate",
-  "description": "Apple Silicon Mac 上本地優先的繁體中文語音輸入與會議轉錄工具：按住快捷鍵時由 Swift 選單列 app 錄音，本機的 Python daemon 用 MLX Whisper 轉錄，套用使用者的確定性詞庫與全形標點，再把文字插入游標位置。音檔、逐字稿與詞庫都留在本機。",
+  "description": "Apple Silicon Mac 上本地優先的繁體中文語音輸入與會議轉錄工具：按住快捷鍵時由 Swift 選單列 app 錄音，本機的 Python daemon 用 MLX Whisper（自己開啟快速模式時用 Qwen3-ASR）轉錄，套用使用者的確定性詞庫與全形標點，再把文字插入游標位置。音檔、逐字稿與詞庫都留在本機。",
   "url": "https://frank890417.github.io/open-dictate/zh/",
   "inLanguage": "zh-Hant-TW",
   "applicationCategory": "UtilitiesApplication",
   "operatingSystem": "macOS 14 or later, Apple Silicon",
-  "softwareVersion": "0.6.1",
+  "softwareVersion": "0.7.0",
   "softwareRequirements": "Apple Silicon Mac; macOS 14+; Xcode Command Line Tools; Python 3.11+",
   "featureList": [
     "按住 fn 或右側 Option 說話的語音輸入",
     "在 Apple Silicon 上用 MLX Whisper 本地轉錄",
+    "快與準兩種辨識模式（Qwen3-ASR 或 Whisper），切換不用重啟",
     "使用者擁有的確定性詞庫校正",
     "繁體中文全形標點",
     "會議逐字稿輸出 Markdown、JSONL、SRT、VTT",
     "從疑似誤聽出發、審核優先的詞庫成長"
   ],
-  "downloadUrl": "https://github.com/frank890417/open-dictate",
+  "downloadUrl": "https://github.com/frank890417/open-dictate/releases/tag/v0.7.0-recognition-modes",
+  "releaseNotes": "https://github.com/frank890417/open-dictate/releases/tag/v0.7.0-recognition-modes",
   "installUrl": "https://frank890417.github.io/open-dictate/zh/#start",
   "license": "https://opensource.org/licenses/MIT",
   "isAccessibleForFree": true,
@@ -99,7 +101,7 @@
     <div class="hero-grid">
       <div class="hero-text">
         <p class="lede">Apple Silicon Mac 上的繁體中文語音輸入，本地優先。<em>MLX Whisper</em> 在你自己的電腦上把聲音轉成字，<em>你自己的詞庫</em>校正它認得的詞，整句話<em>直接打進游標所在的位置</em>。系統可以標記、可以建議，但不能靜默改寫你的意思。</p>
-        <p class="eyebrow facts">早期公開版 · daemon 0.6.1 · MIT 授權 · macOS 14 以上 · Apple Silicon</p>
+        <p class="eyebrow facts">早期公開版 · daemon 0.7.0 · MIT 授權 · macOS 14 以上 · Apple Silicon</p>
       </div>
       <nav class="doors" aria-label="從哪裡開始">
         <a class="door door-1" href="#start"><span class="door-who">我想用</span><span class="door-what">需要什麼、怎麼安裝、現在還做不到什麼</span><span class="door-arrow" aria-hidden="true">→</span></a>
@@ -168,7 +170,7 @@
       <li class="layer layer-2">
         <p class="layer-tag"><span>02</span> 轉錄</p>
         <p class="layer-quote">說了什麼</p>
-        <p class="layer-text">MLX Whisper 在 Apple Silicon 上執行，模型一直載入在 daemon 裡。進下一步之前，先濾掉已知的字幕署名幻覺，截斷失控的重複迴圈。</p>
+        <p class="layer-text">語音模型在 Apple Silicon 上執行，一直載入在 daemon 裡：預設是 MLX Whisper，自己開啟快速模式時用 Qwen3-ASR。進下一步之前，先濾掉已知的字幕署名幻覺，截斷失控的重複迴圈。</p>
         <p class="layer-spec"><code><span class="k">model</span> = <b>large-v3-turbo</b></code><small>數值來自上面的示範</small></p>
       </li>
       <li class="layer layer-3">
@@ -199,6 +201,7 @@
           <div><dt>審核佇列 Review queue</dt><dd>掃描器把疑似誤聽和數字標成候選。你決定接受、修改或拒絕，只有接受的才進詞庫，每個決定都能復原。</dd></div>
           <div><dt>說話者標籤 Speaker labels</dt><dd>逐字稿使用匿名標籤 <code>SPEAKER_00</code>、<code>SPEAKER_01</code>。辨識是誰在說話，規劃成另一層選用、只在本機的功能。</dd></div>
           <div><dt>選單列 Menu bar</dt><dd>從上一句或選取的文字教詞庫、回報誤聽，也在這裡切換快捷鍵、麥克風和標點模式。</dd></div>
+          <div><dt>辨識模式 Recognition modes</dt><dd>自己開啟之後，可以同時載入一個快的模型（Qwen3-ASR）和一個準的模型（Whisper），在選單列或終端機切換，不用重啟。剛裝好的預設只有一個 Whisper 模型。</dd></div>
         </dl>
       </div>
       <div>
@@ -220,6 +223,7 @@
       <div><dt><dfn>按住說話 Push-to-talk</dfn></dt><dd>說話時按住一個鍵，放開就結束。Open Dictate 用 <kbd>fn</kbd> 或右側 Option。</dd></div>
       <div><dt><dfn>常駐程式 Daemon</dfn></dt><dd><code>dictated.py</code>，在背景一直把模型載入著的程式，短句不用等冷啟動。app 透過 Unix socket 跟它溝通。</dd></div>
       <div><dt><dfn>MLX Whisper</dfn></dt><dd>在 Apple 的 MLX 框架上執行的 Whisper 語音辨識模型。預設是 <code>whisper-large-v3-turbo</code>。</dd></div>
+      <div><dt><dfn>快／準模式 Fast / accurate mode</dfn></dt><dd>兩種可以來回切換的辨識設定，要自己開啟。快是 Qwen3-ASR 1.7B，模型自己寫標點。準是 Whisper，把你的詞庫當提示詞。設定方式、下載量與授權寫在 <code>docs/RECOGNITION-MODES.md</code>。</dd></div>
       <div><dt><dfn>詞庫對照 Glossary pair</dfn></dt><dd>一筆 <code>誤聽 → 正確</code>，例如 <code>git hub → GitHub</code>。只要誤聽那一邊出現，就照寫好的字替換。</dd></div>
       <div><dt><dfn>語境對照 Contextual pair</dfn></dt><dd>只在某些句子裡才安全的對照。它不會被盲目套用，要等上下文或你來判斷。</dd></div>
       <div><dt><dfn>審核佇列 Review queue</dfn></dt><dd>等你接受、修改或拒絕的候選對照。每個決定都留在歷史紀錄裡，可以復原。</dd></div>
@@ -243,6 +247,7 @@
         <ul class="feats">
           <li><span class="feat-name">按住說話輸入</span><span class="chip chip-seed">公開版</span></li>
           <li><span class="feat-name">本地 MLX Whisper daemon</span><span class="chip chip-seed">公開版</span></li>
+          <li><span class="feat-name">快與準兩種辨識模式</span><span class="chip chip-mvp">MVP</span><span class="feat-note">要自己開啟，Qwen3-ASR 或 Whisper</span></li>
           <li><span class="feat-name">確定性詞庫校正</span><span class="chip chip-seed">公開版</span></li>
           <li><span class="feat-name">繁中全形標點</span><span class="chip chip-seed">公開版</span></li>
           <li><span class="feat-name">選單列教詞庫</span><span class="chip chip-seed">公開版</span></li>
@@ -262,6 +267,7 @@
           <li><strong>裝好的 app 依賴你 clone 下來的資料夾。</strong>搬動資料夾之後，跑一次 doctor，再重新安裝。</li>
           <li><strong>app 目前是 ad-hoc 簽章。</strong>重新建置後，macOS 可能要你把權限關掉再打開。</li>
           <li><strong>第一次執行會下載模型，</strong>載入可能要兩分鐘左右。</li>
+          <li><strong>快與準模式要自己開啟。</strong>安裝程式只裝一個 Whisper 模型。第二個模型要另外一個 Python 環境和約 4 GB 的下載，步驟在模式說明裡。</li>
         </ul>
       </div>
     </div>
@@ -304,7 +310,9 @@
         <ol class="net">
           <li><strong>安裝時。</strong>Python 套件從 PyPI 下載。</li>
           <li><strong>模型。</strong>第一次執行會從 Hugging Face 下載 <code>mlx-community/whisper-large-v3-turbo</code>。daemon 載入模型時，下載用的函式庫可能會檢查有沒有新版。這個請求只帶模型名稱，不含你的音檔或文字。</li>
+          <li><strong>快速模式，如果你打開它。</strong>它用同樣的方式下載 <code>mlx-community/Qwen3-ASR-1.7B-8bit</code>（2.5 GB，Apache-2.0）。Open Dictate 不內附任何模型檔。</li>
           <li><strong>LLM 標點，如果你打開它。</strong>它連到 <code>127.0.0.1</code> 上的 Ollama，也就是你自己 Mac 上的伺服器。如果你把 <code>OPEN_DICTATE_PUNCT_LLM_URL</code> 指到別台機器，文字就會送到那裡。</li>
+          <li><strong>遠端辨識，只有你設了網址才會。</strong>預設關閉。設了 <code>OPEN_DICTATE_ASR_REMOTE_URL</code> 之後，每段錄音都會送到那台機器，所以只對你自己擁有、在私人網路裡的電腦使用。</li>
           <li><strong>會議模式加上 <code>--model</code>。</strong>你指定的模型第一次使用時會下載。</li>
         </ol>
         <p class="net-end">就這些。模型下載到本機之後，沒有網路也能繼續語音輸入。</p>
@@ -336,6 +344,7 @@ cd open-dictate
       </div>
         <p>安裝程式會建立虛擬環境、把 <code>OpenDictate.app</code> 建置到「應用程式」資料夾、依你的 clone 路徑寫好兩個 LaunchAgent，然後載入模型。要等 daemon 真的回應 ping 才算成功，只有 socket 檔案不算。</p>
         <p class="note">第一次會下載模型，可能要兩分鐘左右。網路慢的話：<code>OPEN_DICTATE_WARM_TIMEOUT=300 ./install.sh</code>。</p>
+        <p class="note"><a href="https://github.com/frank890417/open-dictate/releases/tag/v0.7.0-recognition-modes">版本 v0.7.0：更新說明、原始碼壓縮檔與 app</a></p>
       </div>
       <div>
         <h3>接著開三個權限，設定一個鍵</h3>
@@ -359,7 +368,7 @@ cd open-dictate
         <p class="note">doctor 會檢查 app、簽章、LaunchAgent、clone 路徑、socket，最後實際 ping 一次，什麼都不改。權限的部分它只能提醒，因為它不讀 macOS 受保護的權限資料庫。</p>
       </div>
       <div>
-        <h3>會議和詞庫，從終端機操作</h3>
+        <h3>會議、詞庫和辨識模式，從終端機操作</h3>
         
       <div class="term term-quiet">
         <div class="term-bar"><span>terminal</span><button type="button" class="copy" data-copy="cmd-cli">複製</button></div>
@@ -368,12 +377,16 @@ python3 daemon/meeting_cli.py transcribe ~/Desktop/meeting.m4a --out /tmp/od-mee
 
 <span class="tc"># the review queue: look, then decide</span>
 python3 daemon/glossary/cli.py candidates
-python3 daemon/glossary/cli.py accept cand_xxxxx</code></pre>
+python3 daemon/glossary/cli.py accept cand_xxxxx
+
+<span class="tc"># recognition mode (opt-in: docs/RECOGNITION-MODES.md)</span>
+python3 daemon/dictate_cli.py mode          <span class="tc"># show it</span>
+python3 daemon/dictate_cli.py mode fast     <span class="tc"># or accurate</span></code></pre>
       </div>
-        <p class="note">中英混雜的會議用 <code>--language auto</code>。輸出 Markdown、JSONL、SRT、VTT，外加一份 JSON 摘要。</p>
+        <p class="note">中英混雜的會議用 <code>--language auto</code>。輸出 Markdown、JSONL、SRT、VTT，外加一份 JSON 摘要。<code>mode</code> 指令要先照模式說明把功能開起來。</p>
       </div>
     </div>
-    <p><a class="more" href="https://github.com/frank890417/open-dictate/blob/main/docs/SETUP.md">完整安裝說明 →</a></p>
+    <p><a class="more" href="https://github.com/frank890417/open-dictate/blob/main/docs/SETUP.md">完整安裝說明 →</a> <a class="more" href="https://github.com/frank890417/open-dictate/blob/main/docs/RECOGNITION-MODES.md">快與準辨識模式 →</a></p>
   </section>
 
   <!-- ═════ 06 · develop ═════ -->
@@ -398,10 +411,10 @@ OpenDictate.app (Swift)       records 16 kHz mono PCM16 WAV
 /tmp/open-dictate.sock        newline-delimited JSON
   |
 dictated.py (Python, warm)
-  |-- MLX Whisper             audio -&gt; raw text
-  |-- glossary pairs          raw -&gt; corrected   (muse_lexicon)
-  |-- punctuation             smart_zh | llm_zh (gated) | raw
-  |-- log                     ~/.open-dictate/dictation-log/
+  |-- MLX Whisper | Qwen3-ASR   audio -&gt; raw text   (fast mode: opt-in)
+  |-- glossary pairs            raw -&gt; corrected    (muse_lexicon)
+  |-- punctuation               smart_zh | llm_zh (gated) | raw
+  |-- log                       ~/.open-dictate/dictation-log/
   v
 {"ok": true, "text": "...", "raw": "...", "changes": [...]}
   |
@@ -423,7 +436,7 @@ transcript.md  .jsonl  .srt  .vtt  meeting-result.json</code></pre>
       </div>
       <div>
         <h3>socket 協定</h3>
-        <p>五個指令。讀取端會忽略不認得的欄位，所以 daemon 加診斷資訊不會弄壞 app。<code>no_speech</code> 是正常結果，不算錯誤。</p>
+        <p>六個指令。讀取端會忽略不認得的欄位，所以 daemon 加診斷資訊不會弄壞 app。<code>no_speech</code> 是正常結果，不算錯誤。</p>
         
       <div class="term term-quiet">
         <div class="term-bar"><span>IO-CONTRACT.md</span></div>
@@ -433,6 +446,7 @@ transcript.md  .jsonl  .srt  .vtt  meeting-result.json</code></pre>
 {<span class="ts">"cmd"</span>: <span class="ts">"reload_lexicon"</span>}
 {<span class="ts">"cmd"</span>: <span class="ts">"add_pair"</span>, <span class="ts">"wrong"</span>: <span class="ts">"誤聽"</span>, <span class="ts">"right"</span>: <span class="ts">"正確"</span>, <span class="ts">"source"</span>: <span class="ts">"dictate-ui"</span>}
 {<span class="ts">"cmd"</span>: <span class="ts">"stats"</span>}
+{<span class="ts">"cmd"</span>: <span class="ts">"set_mode"</span>, <span class="ts">"mode"</span>: <span class="ts">"fast"</span>}      <span class="tc"># opt-in recognition modes: fast | accurate | 快 | 準</span>
 
 <span class="tc"># responses</span>
 {<span class="ts">"ok"</span>: true, <span class="ts">"text"</span>: <span class="ts">"校正後文字"</span>, <span class="ts">"raw"</span>: <span class="ts">"whisper 原始輸出"</span>, <span class="ts">"changes"</span>: [[<span class="ts">"誤聽"</span>, <span class="ts">"正確"</span>]], <span class="ts">"punct"</span>: <span class="ts">"smart_zh"</span>}
@@ -449,6 +463,7 @@ transcript.md  .jsonl  .srt  .vtt  meeting-result.json</code></pre>
           <tbody>
             <tr><th scope="row">Swift 選單列 app</th><td><a href="https://github.com/frank890417/open-dictate/tree/main/OpenDictate/"><code>OpenDictate/</code></a></td></tr>
             <tr><th scope="row">語音輸入 daemon</th><td><a href="https://github.com/frank890417/open-dictate/blob/main/daemon/dictated.py"><code>daemon/dictated.py</code></a></td></tr>
+            <tr><th scope="row">辨識路由與 worker</th><td><a href="https://github.com/frank890417/open-dictate/blob/main/daemon/asr_router.py"><code>daemon/asr_router.py</code></a></td></tr>
             <tr><th scope="row">會議 CLI</th><td><a href="https://github.com/frank890417/open-dictate/blob/main/daemon/meeting_cli.py"><code>daemon/meeting_cli.py</code></a></td></tr>
             <tr><th scope="row">誤聽掃描器</th><td><a href="https://github.com/frank890417/open-dictate/blob/main/daemon/qa/mishear_detector.py"><code>daemon/qa/mishear_detector.py</code></a></td></tr>
             <tr><th scope="row">審核佇列</th><td><a href="https://github.com/frank890417/open-dictate/tree/main/daemon/glossary/"><code>daemon/glossary/</code></a></td></tr>
@@ -484,6 +499,7 @@ python3 scripts/public-safety-scan.py
     <ul class="docs">
       <li><a href="https://github.com/frank890417/open-dictate/blob/main/IO-CONTRACT.md">IO-CONTRACT.md</a><span>路徑、socket 協定、詞庫 schema、校正規則、品質關卡</span></li>
       <li><a href="https://github.com/frank890417/open-dictate/blob/main/docs/SETUP.md">安裝</a><span>系統需求、權限、快捷鍵衝突、doctor、解除安裝</span></li>
+      <li><a href="https://github.com/frank890417/open-dictate/blob/main/docs/RECOGNITION-MODES.md">辨識模式</a><span>快與準：怎麼開啟、模型與授權、實測速度</span></li>
       <li><a href="https://github.com/frank890417/open-dictate/blob/main/docs/PRIVACY.md">隱私模型</a><span>資料分類、存放位置、哪些永遠不能 commit</span></li>
       <li><a href="https://github.com/frank890417/open-dictate/blob/main/docs/MEETING.md">會議模式</a><span>輸入格式、處理流程、分段 schema、安全規則</span></li>
       <li><a href="https://github.com/frank890417/open-dictate/blob/main/docs/SELF-EVOLVING-GLOSSARY.md">自我進化詞庫</a><span>審核閉環、指令，和四個資料桶</span></li>
@@ -588,6 +604,7 @@ repo 的規則：校正只用詞庫對照，不改寫句子，寧可漏改，不
     </div>
     <nav aria-label="給機器讀的">
       <a href="https://github.com/frank890417/open-dictate">GitHub</a>
+      <a href="https://github.com/frank890417/open-dictate/releases/tag/v0.7.0-recognition-modes">版本 v0.7.0</a>
       <a href="../llms.txt">llms.txt</a>
       <a href="../llms-full.txt">llms-full.txt</a>
       <a href="https://github.com/frank890417/open-dictate/blob/main/IO-CONTRACT.md">IO-CONTRACT.md</a>

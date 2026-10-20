@@ -21,6 +21,10 @@
 export const SITE = 'https://frank890417.github.io/open-dictate/';
 export const REPO = 'https://github.com/frank890417/open-dictate';
 export const BLOB = REPO + '/blob/main/';
+// The release the page advertises. Its tag must begin with the daemon version (site/test checks);
+// all releases so far are pre-releases, so /releases/latest would not find them: link the tag.
+export const RELEASE_TAG = 'v0.7.0-recognition-modes';
+export const RELEASE_URL = REPO + '/releases/tag/' + RELEASE_TAG;
 const TREE = REPO + '/tree/main/';
 const AUTHOR_URL = { en: 'https://cheyuwu.com/', zh: 'https://cheyuwu.com/zh/' };
 const SIBLING = { en: 'https://openaudiovisual.com/', zh: 'https://openaudiovisual.com/zh/' };
@@ -53,18 +57,18 @@ export const UTTERANCES = [
 const DOC_TITLE = '週會筆記';
 
 // feature table, in README order; the status of each row is README's, not ours
-export const FEATURES = ['seed', 'seed', 'seed', 'seed', 'seed', 'seed', 'seed', 'mvp', 'mvp', 'mvp', 'planned'];
+export const FEATURES = ['seed', 'seed', 'mvp', 'seed', 'seed', 'seed', 'seed', 'seed', 'mvp', 'mvp', 'mvp', 'planned'];
 const DATA_PATHS = ['~/.open-dictate/dictation-log/', '~/.open-dictate/meetings/', '~/.open-dictate/review-queue/',
   '~/.open-dictate/glossaries/', '~/.open-dictate/speakers/', 'fixtures/ · examples/'];
 const DATA_REPO = ['no', 'no', 'no', 'default', 'never', 'yes'];
 const COMPONENTS = [
-  ['OpenDictate/', 'tree'], ['daemon/dictated.py', 'blob'], ['daemon/meeting_cli.py', 'blob'],
+  ['OpenDictate/', 'tree'], ['daemon/dictated.py', 'blob'], ['daemon/asr_router.py', 'blob'], ['daemon/meeting_cli.py', 'blob'],
   ['daemon/qa/mishear_detector.py', 'blob'], ['daemon/glossary/', 'tree'], ['daemon/speaker/', 'tree'],
   ['vendor/tools/td-subtitle/glossaries/', 'tree'], ['vendor/tools/muse-lexicon/muse_lexicon.py', 'blob'],
   ['~/.open-dictate/dictation-log/', null],
 ];
 const DOCS = [
-  ['contract', 'IO-CONTRACT.md'], ['setup', 'docs/SETUP.md'], ['privacy', 'docs/PRIVACY.md'],
+  ['contract', 'IO-CONTRACT.md'], ['setup', 'docs/SETUP.md'], ['modes', 'docs/RECOGNITION-MODES.md'], ['privacy', 'docs/PRIVACY.md'],
   ['meeting', 'docs/MEETING.md'], ['glossary', 'docs/SELF-EVOLVING-GLOSSARY.md'], ['speaker', 'docs/SPEAKER-ID.md'],
   ['distribution', 'docs/MACOS-DISTRIBUTION-ROADMAP.md'], ['mcp', 'docs/MCP-ROADMAP.md'], ['contributing', 'CONTRIBUTING.md'],
 ];
@@ -83,7 +87,11 @@ python3 daemon/meeting_cli.py transcribe ~/Desktop/meeting.m4a --out /tmp/od-mee
 
 # the review queue: look, then decide
 python3 daemon/glossary/cli.py candidates
-python3 daemon/glossary/cli.py accept cand_xxxxx`;
+python3 daemon/glossary/cli.py accept cand_xxxxx
+
+# recognition mode (opt-in: docs/RECOGNITION-MODES.md)
+python3 daemon/dictate_cli.py mode          # show it
+python3 daemon/dictate_cli.py mode fast     # or accurate`;
 
 const ARCH_DICTATE = `hold fn
   |
@@ -93,10 +101,10 @@ OpenDictate.app (Swift)       records 16 kHz mono PCM16 WAV
 /tmp/open-dictate.sock        newline-delimited JSON
   |
 dictated.py (Python, warm)
-  |-- MLX Whisper             audio -> raw text
-  |-- glossary pairs          raw -> corrected   (muse_lexicon)
-  |-- punctuation             smart_zh | llm_zh (gated) | raw
-  |-- log                     ~/.open-dictate/dictation-log/
+  |-- MLX Whisper | Qwen3-ASR   audio -> raw text   (fast mode: opt-in)
+  |-- glossary pairs            raw -> corrected    (muse_lexicon)
+  |-- punctuation               smart_zh | llm_zh (gated) | raw
+  |-- log                       ~/.open-dictate/dictation-log/
   v
 {"ok": true, "text": "...", "raw": "...", "changes": [...]}
   |
@@ -118,6 +126,7 @@ const PROTO = `# requests: one JSON object per line on /tmp/open-dictate.sock
 {"cmd": "reload_lexicon"}
 {"cmd": "add_pair", "wrong": "誤聽", "right": "正確", "source": "dictate-ui"}
 {"cmd": "stats"}
+{"cmd": "set_mode", "mode": "fast"}      # opt-in recognition modes: fast | accurate | 快 | 準
 
 # responses
 {"ok": true, "text": "校正後文字", "raw": "whisper 原始輸出", "changes": [["誤聽", "正確"]], "punct": "smart_zh"}
@@ -240,7 +249,8 @@ export function renderPage(t, { locale, other, version }) {
     softwareVersion: version,
     softwareRequirements: 'Apple Silicon Mac; macOS 14+; Xcode Command Line Tools; Python 3.11+',
     featureList: t.meta.features,
-    downloadUrl: REPO,
+    downloadUrl: RELEASE_URL,
+    releaseNotes: RELEASE_URL,
     installUrl: self + '#start',
     license: 'https://opensource.org/licenses/MIT',
     isAccessibleForFree: true,
@@ -473,6 +483,7 @@ ${JSON.stringify(ld, null, 2)}
         ${term('terminal', 'cmd-install', CMD_INSTALL)}
         <p>${t.start.after}</p>
         <p class="note">${t.start.slow}</p>
+        <p class="note"><a href="${RELEASE_URL}">${t.start.releaseLink.replace('{v}', version)}</a></p>
       </div>
       <div>
         <h3>${t.start.permsTitle}</h3>
@@ -493,7 +504,7 @@ ${JSON.stringify(ld, null, 2)}
         <p class="note">${t.start.cliNote}</p>
       </div>
     </div>
-    <p><a class="more" href="${BLOB}docs/SETUP.md">${t.start.setupLink} →</a></p>
+    <p><a class="more" href="${BLOB}docs/SETUP.md">${t.start.setupLink} →</a> <a class="more" href="${BLOB}docs/RECOGNITION-MODES.md">${t.start.modesLink} →</a></p>
   </section>
 
   <!-- ═════ 06 · develop ═════ -->
@@ -607,6 +618,7 @@ ${JSON.stringify(ld, null, 2)}
     </div>
     <nav aria-label="${attr(t.footer.machine)}">
       <a href="${REPO}">GitHub</a>
+      <a href="${RELEASE_URL}">${t.footer.release.replace('{v}', version)}</a>
       <a href="${root}llms.txt">llms.txt</a>
       <a href="${root}llms-full.txt">llms-full.txt</a>
       <a href="${BLOB}IO-CONTRACT.md">IO-CONTRACT.md</a>

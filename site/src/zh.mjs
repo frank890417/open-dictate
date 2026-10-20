@@ -12,12 +12,13 @@ export default {
 
   meta: {
     title: 'Open Dictate｜macOS 上本地優先的繁體中文語音輸入',
-    description: '按住快捷鍵、說話、放開。Open Dictate 在你的 Apple Silicon Mac 上用 MLX Whisper 轉錄繁體中文，用你自己的確定性詞庫校正專有名詞，再把整句話打進游標所在的位置。音檔留在本機。開源，MIT 授權。',
+    description: '按住快捷鍵、說話、放開。Open Dictate 在你的 Apple Silicon Mac 上用 MLX Whisper（或自己開啟的快速模式 Qwen3-ASR）轉錄繁體中文，用你自己的確定性詞庫校正專有名詞，再把整句話打進游標所在的位置。音檔留在本機。開源，MIT 授權。',
     ogDescription: '按住、說話、放開，字就出現在游標。你的聲音不會離開你的 Mac。',
-    ld: 'Apple Silicon Mac 上本地優先的繁體中文語音輸入與會議轉錄工具：按住快捷鍵時由 Swift 選單列 app 錄音，本機的 Python daemon 用 MLX Whisper 轉錄，套用使用者的確定性詞庫與全形標點，再把文字插入游標位置。音檔、逐字稿與詞庫都留在本機。',
+    ld: 'Apple Silicon Mac 上本地優先的繁體中文語音輸入與會議轉錄工具：按住快捷鍵時由 Swift 選單列 app 錄音，本機的 Python daemon 用 MLX Whisper（自己開啟快速模式時用 Qwen3-ASR）轉錄，套用使用者的確定性詞庫與全形標點，再把文字插入游標位置。音檔、逐字稿與詞庫都留在本機。',
     features: [
       '按住 fn 或右側 Option 說話的語音輸入',
       '在 Apple Silicon 上用 MLX Whisper 本地轉錄',
+      '快與準兩種辨識模式（Qwen3-ASR 或 Whisper），切換不用重啟',
       '使用者擁有的確定性詞庫校正',
       '繁體中文全形標點',
       '會議逐字稿輸出 Markdown、JSONL、SRT、VTT',
@@ -97,7 +98,7 @@ export default {
     lede: '你按住快捷鍵時，Swift 寫的選單列 app 開始錄音，放開後把 WAV 檔交給一直保持載入的 Python daemon。daemon 轉錄、校正、加標點，回傳文字，app 再把字打進游標所在的位置。轉錄之後，能改動你字詞的只有你放進詞庫的那些對照。',
     layers: [
       { name: '錄音', quote: '按住鍵的時候', text: '按住 <kbd>fn</kbd> 或右側 Option，app 錄下 16 kHz 單聲道音訊。不到半秒的按壓直接丟掉，另有一道語音形狀檢查，擋下只錄到環境噪音的誤觸。' },
-      { name: '轉錄', quote: '說了什麼', text: 'MLX Whisper 在 Apple Silicon 上執行，模型一直載入在 daemon 裡。進下一步之前，先濾掉已知的字幕署名幻覺，截斷失控的重複迴圈。' },
+      { name: '轉錄', quote: '說了什麼', text: '語音模型在 Apple Silicon 上執行，一直載入在 daemon 裡：預設是 MLX Whisper，自己開啟快速模式時用 Qwen3-ASR。進下一步之前，先濾掉已知的字幕署名幻覺，截斷失控的重複迴圈。' },
       { name: '校正', quote: '你的意思', text: '詞庫是一張<em>誤聽 → 正確</em>的對照表，只有命中的詞會被替換，整句話不會被改寫。寧可漏改，不可錯改。' },
       { name: '標點', quote: '讀起來的樣子', text: '預設的 <code>smart_zh</code> 規則只在中文語境把標點轉成全形，英文、數字、網址都不動。可以另外開本機 LLM 補完整標點，它只要動到標點以外的任何一個字，整段結果就作廢。' },
       { name: '插入', quote: '字落在哪裡', text: '文字透過輔助使用（Accessibility）API 直接插入，不行再改用貼上。app 不會把焦點從你正在打字的輸入框搶走。' },
@@ -109,6 +110,7 @@ export default {
       { name: '審核佇列 Review queue', text: '掃描器把疑似誤聽和數字標成候選。你決定接受、修改或拒絕，只有接受的才進詞庫，每個決定都能復原。' },
       { name: '說話者標籤 Speaker labels', text: '逐字稿使用匿名標籤 <code>SPEAKER_00</code>、<code>SPEAKER_01</code>。辨識是誰在說話，規劃成另一層選用、只在本機的功能。' },
       { name: '選單列 Menu bar', text: '從上一句或選取的文字教詞庫、回報誤聽，也在這裡切換快捷鍵、麥克風和標點模式。' },
+      { name: '辨識模式 Recognition modes', text: '自己開啟之後，可以同時載入一個快的模型（Qwen3-ASR）和一個準的模型（Whisper），在選單列或終端機切換，不用重啟。剛裝好的預設只有一個 Whisper 模型。' },
     ],
     rulesTitle: '七條規則',
     rules: [
@@ -125,6 +127,7 @@ export default {
       { term: '按住說話 Push-to-talk', def: '說話時按住一個鍵，放開就結束。Open Dictate 用 <kbd>fn</kbd> 或右側 Option。' },
       { term: '常駐程式 Daemon', def: '<code>dictated.py</code>，在背景一直把模型載入著的程式，短句不用等冷啟動。app 透過 Unix socket 跟它溝通。' },
       { term: 'MLX Whisper', def: '在 Apple 的 MLX 框架上執行的 Whisper 語音辨識模型。預設是 <code>whisper-large-v3-turbo</code>。' },
+      { term: '快／準模式 Fast / accurate mode', def: '兩種可以來回切換的辨識設定，要自己開啟。快是 Qwen3-ASR 1.7B，模型自己寫標點。準是 Whisper，把你的詞庫當提示詞。設定方式、下載量與授權寫在 <code>docs/RECOGNITION-MODES.md</code>。' },
       { term: '詞庫對照 Glossary pair', def: '一筆 <code>誤聽 → 正確</code>，例如 <code>git hub → GitHub</code>。只要誤聽那一邊出現，就照寫好的字替換。' },
       { term: '語境對照 Contextual pair', def: '只在某些句子裡才安全的對照。它不會被盲目套用，要等上下文或你來判斷。' },
       { term: '審核佇列 Review queue', def: '等你接受、修改或拒絕的候選對照。每個決定都留在歷史紀錄裡，可以復原。' },
@@ -143,6 +146,7 @@ export default {
     features: [
       { name: '按住說話輸入', note: '' },
       { name: '本地 MLX Whisper daemon', note: '' },
+      { name: '快與準兩種辨識模式', note: '要自己開啟，Qwen3-ASR 或 Whisper' },
       { name: '確定性詞庫校正', note: '' },
       { name: '繁中全形標點', note: '' },
       { name: '選單列教詞庫', note: '' },
@@ -160,6 +164,7 @@ export default {
       '<strong>裝好的 app 依賴你 clone 下來的資料夾。</strong>搬動資料夾之後，跑一次 doctor，再重新安裝。',
       '<strong>app 目前是 ad-hoc 簽章。</strong>重新建置後，macOS 可能要你把權限關掉再打開。',
       '<strong>第一次執行會下載模型，</strong>載入可能要兩分鐘左右。',
+      '<strong>快與準模式要自己開啟。</strong>安裝程式只裝一個 Whisper 模型。第二個模型要另外一個 Python 環境和約 4 GB 的下載，步驟在模式說明裡。',
     ],
     roadmapTitle: '變成一般 Mac app 的路',
     phaseLabel: '階段',
@@ -191,7 +196,9 @@ export default {
     net: [
       '<strong>安裝時。</strong>Python 套件從 PyPI 下載。',
       '<strong>模型。</strong>第一次執行會從 Hugging Face 下載 <code>mlx-community/whisper-large-v3-turbo</code>。daemon 載入模型時，下載用的函式庫可能會檢查有沒有新版。這個請求只帶模型名稱，不含你的音檔或文字。',
+      '<strong>快速模式，如果你打開它。</strong>它用同樣的方式下載 <code>mlx-community/Qwen3-ASR-1.7B-8bit</code>（2.5 GB，Apache-2.0）。Open Dictate 不內附任何模型檔。',
       '<strong>LLM 標點，如果你打開它。</strong>它連到 <code>127.0.0.1</code> 上的 Ollama，也就是你自己 Mac 上的伺服器。如果你把 <code>OPEN_DICTATE_PUNCT_LLM_URL</code> 指到別台機器，文字就會送到那裡。',
+      '<strong>遠端辨識，只有你設了網址才會。</strong>預設關閉。設了 <code>OPEN_DICTATE_ASR_REMOTE_URL</code> 之後，每段錄音都會送到那台機器，所以只對你自己擁有、在私人網路裡的電腦使用。',
       '<strong>會議模式加上 <code>--model</code>。</strong>你指定的模型第一次使用時會下載。',
     ],
     netEnd: '就這些。模型下載到本機之後，沒有網路也能繼續語音輸入。',
@@ -214,9 +221,11 @@ export default {
     ],
     maintTitle: '出狀況的時候',
     maintNote: 'doctor 會檢查 app、簽章、LaunchAgent、clone 路徑、socket，最後實際 ping 一次，什麼都不改。權限的部分它只能提醒，因為它不讀 macOS 受保護的權限資料庫。',
-    cliTitle: '會議和詞庫，從終端機操作',
-    cliNote: '中英混雜的會議用 <code>--language auto</code>。輸出 Markdown、JSONL、SRT、VTT，外加一份 JSON 摘要。',
+    cliTitle: '會議、詞庫和辨識模式，從終端機操作',
+    cliNote: '中英混雜的會議用 <code>--language auto</code>。輸出 Markdown、JSONL、SRT、VTT，外加一份 JSON 摘要。<code>mode</code> 指令要先照模式說明把功能開起來。',
     setupLink: '完整安裝說明',
+    modesLink: '快與準辨識模式',
+    releaseLink: '版本 v{v}：更新說明、原始碼壓縮檔與 app',
   },
 
   develop: {
@@ -227,11 +236,11 @@ export default {
     archDictate: '語音輸入',
     archMeeting: '會議模式',
     protoTitle: 'socket 協定',
-    protoText: '五個指令。讀取端會忽略不認得的欄位，所以 daemon 加診斷資訊不會弄壞 app。<code>no_speech</code> 是正常結果，不算錯誤。',
+    protoText: '六個指令。讀取端會忽略不認得的欄位，所以 daemon 加診斷資訊不會弄壞 app。<code>no_speech</code> 是正常結果，不算錯誤。',
     protoNote: 'app 的轉錄逾時和 daemon 的標點預算，這兩個常數本身就是一組契約。只調其中一個，app 會以為 daemon 離線，daemon 其實在背景把事情做完。公式寫在契約裡。',
     compTitle: '東西在哪裡',
     compHead: ['元件', '路徑'],
-    comps: ['Swift 選單列 app', '語音輸入 daemon', '會議 CLI', '誤聽掃描器', '審核佇列', '說話者層', '內建詞庫', '詞庫引擎', '語音輸入日誌（本機）'],
+    comps: ['Swift 選單列 app', '語音輸入 daemon', '辨識路由與 worker', '會議 CLI', '誤聽掃描器', '審核佇列', '說話者層', '內建詞庫', '詞庫引擎', '語音輸入日誌（本機）'],
     testTitle: '建置與測試',
     contribTitle: '發 pull request 之前',
     contrib: [
@@ -242,10 +251,11 @@ export default {
     ],
     docsTitle: '文件',
     docsNote: '文件中英混合，有幾份只有單一語言。',
-    docNames: { contract: 'IO-CONTRACT.md', setup: '安裝', privacy: '隱私模型', meeting: '會議模式', glossary: '自我進化詞庫', speaker: '說話者辨識', distribution: 'macOS 發布', mcp: 'MCP 路線圖', contributing: '貢獻指南' },
+    docNames: { contract: 'IO-CONTRACT.md', setup: '安裝', modes: '辨識模式', privacy: '隱私模型', meeting: '會議模式', glossary: '自我進化詞庫', speaker: '說話者辨識', distribution: 'macOS 發布', mcp: 'MCP 路線圖', contributing: '貢獻指南' },
     docs: {
       contract: '路徑、socket 協定、詞庫 schema、校正規則、品質關卡',
       setup: '系統需求、權限、快捷鍵衝突、doctor、解除安裝',
+      modes: '快與準：怎麼開啟、模型與授權、實測速度',
       privacy: '資料分類、存放位置、哪些永遠不能 commit',
       meeting: '輸入格式、處理流程、分段 schema、安全規則',
       glossary: '審核閉環、指令，和四個資料桶',
@@ -314,5 +324,6 @@ export default {
     license: 'MIT 授權。<a href="{author}">吳哲宇 Che-Yu Wu</a> 製作。',
     sibling: '<a href="{sibling}">open-audiovisual</a> 的姊妹專案。',
     machine: '給機器讀的',
+    release: '版本 v{v}',
   },
 };

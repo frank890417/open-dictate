@@ -17,7 +17,7 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { renderPage, LOCALES, SITE, REPO, FAVICON_SVG } from './src/page.mjs';
+import { renderPage, LOCALES, SITE, REPO, FAVICON_SVG, RELEASE_URL } from './src/page.mjs';
 import en from './src/en.mjs';
 import zh from './src/zh.mjs';
 
@@ -54,10 +54,11 @@ export function shapeDiff(a, b, at = '') {
 function llms(version) {
   return `# Open Dictate
 
-> Local-first push-to-talk dictation and meeting transcription for Traditional Chinese on Apple Silicon Macs. Hold a hotkey (fn or right Option), speak, release: a Swift menu-bar app records 16 kHz mono audio, a local Python daemon transcribes it with MLX Whisper (whisper-large-v3-turbo), applies the user's deterministic glossary pairs and full-width punctuation, and the app inserts the text at the cursor. Audio, transcripts, logs and glossaries stay on the Mac. MIT license. Early public seed (daemon ${version}).
+> Local-first push-to-talk dictation and meeting transcription for Traditional Chinese on Apple Silicon Macs. Hold a hotkey (fn or right Option), speak, release: a Swift menu-bar app records 16 kHz mono audio, a local Python daemon transcribes it with MLX Whisper (whisper-large-v3-turbo; Qwen3-ASR 1.7B in the opt-in fast mode), applies the user's deterministic glossary pairs and full-width punctuation, and the app inserts the text at the cursor. Audio, transcripts, logs and glossaries stay on the Mac. MIT license. Early public seed (daemon ${version}).
 
 Site: ${SITE} (English) · ${SITE}zh/ (繁體中文, Traditional Chinese)
 Repository: ${REPO}
+Release: ${RELEASE_URL}
 Author: Che-Yu Wu 吳哲宇 (https://cheyuwu.com)
 
 ## Core concepts
@@ -67,11 +68,11 @@ Author: Che-Yu Wu 吳哲宇 (https://cheyuwu.com)
 - **Design rule**: the system may flag and suggest, but it must not silently rewrite meaning. Prefer missed corrections over wrong corrections. Numbers are not changed automatically.
 - **Meeting Mode**: \`daemon/meeting_cli.py\` turns a local audio file or JSON/JSONL segments into Markdown, JSONL, SRT, VTT and meeting-result.json, with anonymous speaker labels (SPEAKER_00…) and QA flags.
 - **Self-evolving glossary**: a scanner flags possible mishearings as candidates; the user accepts, edits or rejects (\`daemon/glossary/cli.py\`); only accepted pairs reach the glossary.
-- **Privacy**: everything under \`~/.open-dictate/\`; speaker embeddings are biometric data, local only, never committed. Network use: PyPI at install, the Whisper model from Hugging Face (first run; the library may check for updates when loading), optional LLM punctuation via Ollama on 127.0.0.1.
+- **Privacy**: everything under \`~/.open-dictate/\`; speaker embeddings are biometric data, local only, never committed. Network use: PyPI at install, the Whisper model from Hugging Face (first run; the library may check for updates when loading), Qwen3-ASR from Hugging Face if the fast mode is turned on, optional LLM punctuation via Ollama on 127.0.0.1, and, only if \`OPEN_DICTATE_ASR_REMOTE_URL\` is set, each recording goes to the machine named there. No model file ships with the repository.
 
 ## Status (from the README)
 
-Public seed: push-to-talk dictation, local MLX Whisper daemon, deterministic glossary correction, Traditional Chinese punctuation, menu-bar teaching flow, meeting transcript package, local audio ASR for Meeting Mode. MVP: post-transcription mishearing flags, review-first glossary queue (CLI), anonymous speaker labels. Planned: local speaker identity, menu-bar review UI, glossary import/export, a self-contained signed and notarized app (see docs/MACOS-DISTRIBUTION-ROADMAP.md), an MCP server (see docs/MCP-ROADMAP.md; none exists yet).
+Public seed: push-to-talk dictation, local MLX Whisper daemon, deterministic glossary correction, Traditional Chinese punctuation, menu-bar teaching flow, meeting transcript package, local audio ASR for Meeting Mode. MVP: fast and accurate recognition modes (opt-in: Qwen3-ASR or Whisper, switchable without a restart), post-transcription mishearing flags, review-first glossary queue (CLI), anonymous speaker labels. Planned: local speaker identity, menu-bar review UI, glossary import/export, a self-contained signed and notarized app (see docs/MACOS-DISTRIBUTION-ROADMAP.md), an MCP server (see docs/MCP-ROADMAP.md; none exists yet).
 
 ## Install (Apple Silicon, macOS 14+, Xcode Command Line Tools, Python 3.11+)
 
@@ -96,6 +97,7 @@ Then the user must allow OpenDictate under Microphone, Accessibility and Input M
 - [README](${RAW}README.md): overview, feature status, quick start, architecture, roadmap.
 - [IO-CONTRACT.md](${RAW}IO-CONTRACT.md): paths, socket protocol, glossary schema, correction rules, quality gates. Source of truth.
 - [Setup](${RAW}docs/SETUP.md): requirements, permissions, hotkey conflicts, doctor, uninstall.
+- [Recognition modes](${RAW}docs/RECOGNITION-MODES.md): fast and accurate, how to turn them on, models and licences, measured speed.
 - [Privacy](${RAW}docs/PRIVACY.md): data classes and where they live.
 - [Meeting Mode](${RAW}docs/MEETING.md): inputs, pipeline, segment schema.
 - [Self-evolving glossary](${RAW}docs/SELF-EVOLVING-GLOSSARY.md): the review loop and its commands.
@@ -111,7 +113,7 @@ Then the user must allow OpenDictate under Microphone, Accessibility and Input M
 `;
 }
 
-const LLMS_FULL_SOURCES = ['README.md', 'IO-CONTRACT.md', 'docs/SETUP.md', 'docs/PRIVACY.md', 'docs/MEETING.md',
+const LLMS_FULL_SOURCES = ['README.md', 'IO-CONTRACT.md', 'docs/SETUP.md', 'docs/RECOGNITION-MODES.md', 'docs/PRIVACY.md', 'docs/MEETING.md',
   'docs/SELF-EVOLVING-GLOSSARY.md', 'docs/SPEAKER-ID.md', 'docs/MACOS-DISTRIBUTION-ROADMAP.md', 'docs/MCP-ROADMAP.md',
   'CONTRIBUTING.md', 'SECURITY.md'];
 
