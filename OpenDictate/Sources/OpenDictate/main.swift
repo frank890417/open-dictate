@@ -10,4 +10,6 @@ let delegate = AppDelegate()
 app.delegate = delegate
 // menubar-only：不進 Dock、不搶焦點（bundle 內另有 LSUIElement=true，裸跑時靠這行）
 app.setActivationPolicy(.accessory)
+// 背景不搶滑鼠指標（見 CursorGuard）
+CursorGuard.install()
 app.run()
