@@ -240,7 +240,7 @@ struct ControlCenterView: View {
     private func meta(_ u: ControlCenterModel.Utterance) -> String {
         var bits = [Self.clock.string(from: u.at)]
         if let ms = u.latencyMs { bits.append(ms >= 1000 ? String(format: "%.1f 秒", Double(ms) / 1000) : "\(ms) ms") }
-        if !u.changes.isEmpty { bits.append("詞庫改 \(u.changes.count) 處") }
+        if !u.changes.isEmpty { bits.append("校正 \(u.changes.count) 處") }
         bits.append("\(u.text.count) 字")
         return bits.joined(separator: " · ")
     }

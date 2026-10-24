@@ -11,6 +11,7 @@ import SwiftUI
 ///   OpenDictate --probe-wav <輸出路徑>            # 無麥克風：合成 48k 正弦波 → 轉檔管線 → 16k mono PCM16 wav
 ///   OpenDictate --probe-mic                       # 印出這次錄音會用哪支麥克風、為什麼（不錄音）
 ///   OpenDictate --probe-snapshot <png> [light|dark]  # 用今天的真實資料把控制中心畫成 PNG（不開視窗）
+///   OpenDictate --probe-toggle                    # 叫正在跑的那一份打開／關上控制中心（可綁 Raycast／捷徑）
 ///
 /// exit code：0 = 拿到合法 daemon 回應（含 ok:false，如 no_speech）或 wav 產出成功；
 ///            2 = 傳輸層失敗（連不上 / timeout / 格式錯）；64 = 用法錯誤。
@@ -49,6 +50,11 @@ enum ProbeCLI {
             }
             let dark = arguments.count >= 4 && arguments[3] == "dark"
             return MainActor.assumeIsolated { probeSnapshot(outputPath: arguments[2], dark: dark) }
+        case "--probe-toggle":
+            DistributedNotificationCenter.default().postNotificationName(
+                StatusItemController.toggleNotification, object: nil, userInfo: nil, deliverImmediately: true)
+            print("posted \(StatusItemController.toggleNotification.rawValue)")
+            return 0
         case "--probe-wav":
             guard arguments.count >= 3 else {
                 FileHandle.standardError.write(Data("用法：--probe-wav <輸出 wav 路徑>\n".utf8))

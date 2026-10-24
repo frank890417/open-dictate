@@ -49,7 +49,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
         statusController.refreshStats()
         pingDaemon()
-        mdLog("\(ProductConfig.appName) v0.5 啟動（熱鍵=\(DictateSettings.hotkeyLabel), AX=\(PermissionGuide.isAccessibilityTrusted)）")
+        mdLog("\(ProductConfig.appName) v\(Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "?") 啟動（熱鍵=\(DictateSettings.hotkeyLabel), AX=\(PermissionGuide.isAccessibilityTrusted)）")
     }
 
     func applicationSupportsSecureRestorableState(_ app: NSApplication) -> Bool { true }

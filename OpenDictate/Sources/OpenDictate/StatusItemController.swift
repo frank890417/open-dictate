@@ -243,7 +243,12 @@ final class StatusItemController: NSObject, NSMenuDelegate, NSPopoverDelegate {
 
     // MARK: - Control center
 
+    /// 外部叫控制中心（`--probe-toggle`、Raycast／捷徑）：同一個 bundle id 底下的分散式通知
+    static let toggleNotification = Notification.Name("\(ProductConfig.productID).toggleControlCenter")
+
     private func setupControlCenter() {
+        DistributedNotificationCenter.default().addObserver(
+            forName: Self.toggleNotification, object: nil, queue: .main) { [weak self] _ in self?.togglePopover() }
         let hosting = NSHostingController(rootView: ControlCenterView(model: model))
         hosting.sizingOptions = [.preferredContentSize]
         popover.contentViewController = hosting
