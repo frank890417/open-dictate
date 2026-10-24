@@ -4,65 +4,194 @@
   "title": "Open Dictate product overlay configuration",
   "type": "object",
   "additionalProperties": false,
-  "required": ["schemaVersion", "product", "runtime", "lexicon"],
+  "required": [
+    "schemaVersion",
+    "product",
+    "runtime",
+    "lexicon"
+  ],
   "properties": {
-    "schemaVersion": {"const": 1},
+    "schemaVersion": {
+      "const": 1
+    },
     "product": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["id", "name", "bundleIdentifier", "executable", "daemonLaunchAgentLabel", "shellLaunchAgentLabel", "environmentPrefix", "dataRoot", "logRoot"],
+      "required": [
+        "id",
+        "name",
+        "bundleIdentifier",
+        "executable",
+        "daemonLaunchAgentLabel",
+        "shellLaunchAgentLabel",
+        "environmentPrefix",
+        "dataRoot",
+        "logRoot"
+      ],
       "properties": {
-        "id": {"type": "string", "pattern": "^[a-z0-9][a-z0-9-]*$"},
-        "name": {"type": "string", "minLength": 1},
-        "bundleIdentifier": {"type": "string", "pattern": "^[A-Za-z0-9-]+(\\.[A-Za-z0-9-]+)+$"},
-        "executable": {"type": "string", "pattern": "^[A-Za-z0-9_-]+$"},
-        "daemonLaunchAgentLabel": {"type": "string", "pattern": "^[A-Za-z0-9-]+(\\.[A-Za-z0-9-]+)+$"},
-        "shellLaunchAgentLabel": {"type": "string", "pattern": "^[A-Za-z0-9-]+(\\.[A-Za-z0-9-]+)+$"},
-        "environmentPrefix": {"type": "string", "pattern": "^[A-Z][A-Z0-9_]+$"},
-        "dataRoot": {"type": "string", "minLength": 1},
-        "logRoot": {"type": "string", "minLength": 1},
-        "runtimeLogRoot": {"type": "string", "minLength": 1,
-          "description": "Where launchd stdout/stderr logs go. Default: <dataRoot>/runtime-logs."},
-        "signingIdentity": {"type": "string", "minLength": 1,
-          "description": "codesign identity (keychain certificate name). Default: 'OpenDictate Local Signing', then ad-hoc."}
+        "id": {
+          "type": "string",
+          "pattern": "^[a-z0-9][a-z0-9-]*$"
+        },
+        "name": {
+          "type": "string",
+          "minLength": 1
+        },
+        "bundleIdentifier": {
+          "type": "string",
+          "pattern": "^[A-Za-z0-9-]+(\\.[A-Za-z0-9-]+)+$"
+        },
+        "executable": {
+          "type": "string",
+          "pattern": "^[A-Za-z0-9_-]+$"
+        },
+        "daemonLaunchAgentLabel": {
+          "type": "string",
+          "pattern": "^[A-Za-z0-9-]+(\\.[A-Za-z0-9-]+)+$"
+        },
+        "shellLaunchAgentLabel": {
+          "type": "string",
+          "pattern": "^[A-Za-z0-9-]+(\\.[A-Za-z0-9-]+)+$"
+        },
+        "environmentPrefix": {
+          "type": "string",
+          "pattern": "^[A-Z][A-Z0-9_]+$"
+        },
+        "dataRoot": {
+          "type": "string",
+          "minLength": 1
+        },
+        "logRoot": {
+          "type": "string",
+          "minLength": 1
+        },
+        "runtimeLogRoot": {
+          "type": "string",
+          "minLength": 1,
+          "description": "Where launchd stdout/stderr logs go. Default: <dataRoot>/runtime-logs."
+        },
+        "signingIdentity": {
+          "type": "string",
+          "minLength": 1,
+          "description": "codesign identity (keychain certificate name). Default: 'OpenDictate Local Signing', then ad-hoc."
+        }
       }
     },
     "runtime": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["socketPath", "wireProtocolVersion", "updateChannel", "priorityTerms"],
+      "required": [
+        "socketPath",
+        "wireProtocolVersion",
+        "updateChannel",
+        "priorityTerms"
+      ],
       "properties": {
-        "socketPath": {"type": "string", "pattern": "^/tmp/[A-Za-z0-9._-]+\\.sock$"},
-        "wireProtocolVersion": {"type": "string", "pattern": "^[0-9]+\\.[0-9]+$"},
-        "updateChannel": {"enum": ["stable", "beta"]},
-        "priorityTerms": {"type": "string"},
-        "model": {"type": "string", "pattern": "^[A-Za-z0-9][A-Za-z0-9._/-]*$",
-          "description": "ASR model (Hugging Face repo or local path). Default: the daemon's built-in default."},
-        "promptCoreTerms": {"type": "string",
-          "description": "Terms (separated by the ideographic comma) that must survive Whisper prompt budgeting, e.g. the user's own name."}
+        "socketPath": {
+          "type": "string",
+          "pattern": "^/tmp/[A-Za-z0-9._-]+\\.sock$"
+        },
+        "wireProtocolVersion": {
+          "type": "string",
+          "pattern": "^[0-9]+\\.[0-9]+$"
+        },
+        "updateChannel": {
+          "enum": [
+            "stable",
+            "beta"
+          ]
+        },
+        "priorityTerms": {
+          "type": "string"
+        },
+        "model": {
+          "type": "string",
+          "pattern": "^[A-Za-z0-9][A-Za-z0-9._/-]*$",
+          "description": "ASR model (Hugging Face repo or local path). Default: the daemon's built-in default."
+        },
+        "promptCoreTerms": {
+          "type": "string",
+          "description": "Terms (separated by the ideographic comma) that must survive Whisper prompt budgeting, e.g. the user's own name."
+        },
+        "meetingURL": {
+          "type": "string",
+          "minLength": 1,
+          "description": "Optional: URL the control center's meeting button opens (e.g. a meeting app's toggle URL)"
+        },
+        "meetingStatusFile": {
+          "type": "string",
+          "minLength": 1,
+          "description": "Optional: file that exists while that meeting app is recording (the button then shows recording / stop)"
+        }
       }
     },
     "lexicon": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["provider", "starterBundle"],
+      "required": [
+        "provider",
+        "starterBundle"
+      ],
       "properties": {
-        "provider": {"enum": ["bundled", "external"]},
-        "starterBundle": {"type": "string", "minLength": 1},
-        "externalRootEnvironment": {"type": "string", "pattern": "^[A-Z][A-Z0-9_]+$"},
-        "legacyExternalRootEnvironment": {"type": "string", "pattern": "^[A-Z][A-Z0-9_]+$"},
-        "defaultExternalRoot": {"type": "string", "minLength": 1}
+        "provider": {
+          "enum": [
+            "bundled",
+            "external"
+          ]
+        },
+        "starterBundle": {
+          "type": "string",
+          "minLength": 1
+        },
+        "externalRootEnvironment": {
+          "type": "string",
+          "pattern": "^[A-Z][A-Z0-9_]+$"
+        },
+        "legacyExternalRootEnvironment": {
+          "type": "string",
+          "pattern": "^[A-Z][A-Z0-9_]+$"
+        },
+        "defaultExternalRoot": {
+          "type": "string",
+          "minLength": 1
+        }
       }
     },
     "adapters": {
       "type": "array",
       "uniqueItems": true,
-      "items": {"type": "string", "pattern": "^[a-z0-9][a-z0-9._-]*$"},
+      "items": {
+        "type": "string",
+        "pattern": "^[a-z0-9][a-z0-9._-]*$"
+      },
       "default": []
     }
   },
-  "allOf": [{
-    "if": {"properties": {"lexicon": {"properties": {"provider": {"const": "external"}}, "required": ["provider"]}}},
-    "then": {"properties": {"lexicon": {"required": ["externalRootEnvironment"]}}}
-  }]
+  "allOf": [
+    {
+      "if": {
+        "properties": {
+          "lexicon": {
+            "properties": {
+              "provider": {
+                "const": "external"
+              }
+            },
+            "required": [
+              "provider"
+            ]
+          }
+        }
+      },
+      "then": {
+        "properties": {
+          "lexicon": {
+            "required": [
+              "externalRootEnvironment"
+            ]
+          }
+        }
+      }
+    }
+  ]
 }

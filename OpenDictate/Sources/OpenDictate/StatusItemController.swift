@@ -304,8 +304,11 @@ final class StatusItemController: NSObject, NSMenuDelegate, NSPopoverDelegate {
             }
         }
         model.onStartMeeting = { [weak self] in
+            self?.keepFocusOnClose = true          // 會議面板自己會到前面，別把焦點搶回原 app
             self?.closePopover()
-            if let url = URL(string: ProductConfig.meetingURL) { NSWorkspace.shared.open(url) }
+            guard let url = URL(string: ProductConfig.meetingURL) else { return }
+            mdLog("會議按鈕：\(ProductConfig.meetingStatusFile.map { FileManager.default.fileExists(atPath: $0) ? "結束" : "開始" } ?? "開啟") → \(url.absoluteString)")
+            NSWorkspace.shared.open(url)
         }
 
         // 重開 app 後控制中心不是空的：今天最後幾句從 log 讀回來

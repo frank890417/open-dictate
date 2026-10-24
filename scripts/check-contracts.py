@@ -93,11 +93,14 @@ def validate_product(value: dict) -> None:
         raise ContractError("product.product.signingIdentity: control characters not allowed")
     runtime = value["runtime"]
     runtime_keys = {"socketPath", "wireProtocolVersion", "updateChannel", "priorityTerms"}
-    require_keys(runtime, runtime_keys, runtime_keys | {"model", "promptCoreTerms"}, "product.runtime")
+    require_keys(runtime, runtime_keys, runtime_keys | {"model", "promptCoreTerms", "meetingURL", "meetingStatusFile"}, "product.runtime")
     if "model" in runtime:
         require_pattern(runtime["model"], r"[A-Za-z0-9][A-Za-z0-9._/-]*", "product.runtime.model")
     if "promptCoreTerms" in runtime and not isinstance(runtime["promptCoreTerms"], str):
         raise ContractError("product.runtime.promptCoreTerms: must be a string")
+    for key in ("meetingURL", "meetingStatusFile"):
+        if key in runtime and (not isinstance(runtime[key], str) or not runtime[key]):
+            raise ContractError(f"product.runtime.{key}: must be a non-empty string")
     require_pattern(runtime["socketPath"], r"/tmp/[A-Za-z0-9._-]+\.sock", "product.runtime.socketPath")
     require_pattern(runtime["wireProtocolVersion"], r"\d+\.\d+", "product.runtime.wireProtocolVersion")
     if runtime["updateChannel"] not in {"stable", "beta"}:

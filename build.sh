@@ -43,6 +43,13 @@ PLIST="$APP/Contents/Info.plist"
 /usr/libexec/PlistBuddy -c "Set :ODDaemonLaunchLabel $DAEMON_LABEL" "$PLIST"
 /usr/libexec/PlistBuddy -c "Set :ODShellLaunchLabel $SHELL_LABEL" "$PLIST"
 /usr/libexec/PlistBuddy -c "Set :ODEnvironmentPrefix $ENV_PREFIX" "$PLIST"
+# 選配：控制中心「會議錄音」按鈕（沒設＝ProductConfig 預設 <productID>-meeting://start，沒人認領就顯示「開發中」）
+for kv in "ODMeetingURL=${PRODUCT_MEETING_URL:-}" "ODMeetingStatusFile=${PRODUCT_MEETING_STATUS_FILE:-}"; do
+  k="${kv%%=*}"; v="${kv#*=}"
+  [[ -n "$v" ]] || continue
+  /usr/libexec/PlistBuddy -c "Delete :$k" "$PLIST" 2>/dev/null || true
+  /usr/libexec/PlistBuddy -c "Add :$k string $v" "$PLIST"
+done
 /usr/libexec/PlistBuddy -c "Set :ODPriorityTerms $PRIORITY_TERMS" "$PLIST"
 # Keep the standalone fallback usable after the source checkout is removed.
 ditto vendor "$APP/Contents/Resources/vendor"

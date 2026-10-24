@@ -44,6 +44,13 @@ final class ControlCenterModel: ObservableObject {
     @Published var notice: String?                 // 最近一次錯誤（麥克風靜音、daemon 沒回應…）
     @Published var copiedID: UUID?
     @Published var meetingAvailable = false
+    /// 會議 app 正在錄（ProductConfig.meetingStatusFile 存在）；nil＝沒在錄或不知道
+    @Published var meeting: MeetingStatus?
+
+    struct MeetingStatus: Equatable {
+        let title: String
+        let startedAt: Date?
+    }
     /// 今天 3 題（LexiconQuiz）；nil＝這個產品沒有出題腳本或讀不到
     @Published var quiz: LexiconQuiz.Snapshot?
     @Published var answering: Set<String> = []
@@ -84,8 +91,25 @@ final class ControlCenterModel: ObservableObject {
         micName = MicDevice.resolveRecordingDevice().name   // 這次錄音實際會用的那支（含闔蓋改用外接的判斷）
         micFollowsSystem = DictateSettings.preferredMicUID == nil
         stats = DictationStats.loadToday()
+        meeting = Self.readMeetingStatus()
         meetingAvailable = URL(string: ProductConfig.meetingURL)
             .flatMap { NSWorkspace.shared.urlForApplication(toOpen: $0) } != nil
+    }
+
+    /// 狀態檔（會議 app 錄音中才有）：{"title": …, "started_at": ISO8601 或 epoch 秒, …}
+    static func readMeetingStatus() -> MeetingStatus? {
+        guard let path = ProductConfig.meetingStatusFile,
+              let data = FileManager.default.contents(atPath: path) else { return nil }
+        let obj = (try? JSONSerialization.jsonObject(with: data)) as? [String: Any] ?? [:]
+        var started: Date?
+        if let n = obj["started_at"] as? NSNumber {
+            started = Date(timeIntervalSince1970: n.doubleValue)
+        } else if let s = obj["started_at"] as? String {
+            let f = ISO8601DateFormatter()
+            f.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
+            started = f.date(from: s) ?? ISO8601DateFormatter().date(from: s)
+        }
+        return MeetingStatus(title: obj["title"] as? String ?? "", startedAt: started)
     }
 
     func push(_ u: Utterance) {
@@ -456,12 +480,21 @@ struct ControlCenterView: View {
     private var meetingButton: some View {
         Button(action: model.onStartMeeting) {
             HStack(spacing: 10) {
-                Image(systemName: "record.circle").font(.system(size: 17, weight: .semibold))
-                    .foregroundStyle(model.meetingAvailable ? Color.red : Color.secondary)
+                Image(systemName: model.meeting != nil ? "stop.circle.fill" : "record.circle")
+                    .font(.system(size: 17, weight: .semibold))
+                    .foregroundStyle(model.meetingAvailable || model.meeting != nil ? Color.red : Color.secondary)
                 VStack(alignment: .leading, spacing: 1) {
-                    Text("會議錄音").font(.system(size: 12.5, weight: .semibold))
-                    Text(model.meetingAvailable ? "邊錄邊出逐字稿與即時重點" : "即時會議面板開發中")
-                        .font(.system(size: 10.5)).foregroundStyle(.secondary)
+                    Text(model.meeting != nil ? "會議錄音中・點一下結束" : "會議錄音")
+                        .font(.system(size: 12.5, weight: .semibold))
+                    if let m = model.meeting {
+                        TimelineView(.periodic(from: .now, by: 1)) { ctx in
+                            Text(meetingSubtitle(m, now: ctx.date))
+                                .font(.system(size: 10.5).monospacedDigit()).foregroundStyle(.secondary)
+                        }
+                    } else {
+                        Text(model.meetingAvailable ? "邊錄邊出逐字稿與即時重點" : "即時會議面板未安裝")
+                            .font(.system(size: 10.5)).foregroundStyle(.secondary)
+                    }
                 }
                 Spacer()
                 if model.meetingAvailable { Image(systemName: "chevron.right").foregroundStyle(.tertiary) }
@@ -469,8 +502,22 @@ struct ControlCenterView: View {
             .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
-        .tile()
+        .padding(10)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(RoundedRectangle(cornerRadius: 12, style: .continuous)
+            .fill(model.meeting != nil ? Color.red.opacity(0.14) : Color.primary.opacity(0.06)))
         .disabled(!model.meetingAvailable)
+    }
+
+    private func meetingSubtitle(_ m: ControlCenterModel.MeetingStatus, now: Date) -> String {
+        var bits: [String] = []
+        if !m.title.isEmpty { bits.append(m.title) }
+        if let t0 = m.startedAt {
+            let s = max(0, Int(now.timeIntervalSince(t0)))
+            bits.append(s >= 3600 ? String(format: "已錄 %d:%02d:%02d", s / 3600, s / 60 % 60, s % 60)
+                                  : String(format: "已錄 %d:%02d", s / 60, s % 60))
+        }
+        return bits.isEmpty ? "錄音中" : bits.joined(separator: " · ")
     }
 
     private var footer: some View {

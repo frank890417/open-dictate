@@ -23,6 +23,11 @@ enum ProductConfig {
     static let priorityTerms = string("ODPriorityTerms", default: "")
     /// 控制中心「會議錄音」打開的網址；沒有 app 認領這個 scheme 時按鈕顯示「開發中」
     static let meetingURL = string("ODMeetingURL", default: "\(productID)-meeting://start")
+    /// 會議 app 錄音中才存在的檔（JSON：title／started_at…）；空＝不知道狀態，按鈕只當啟動器
+    static let meetingStatusFile: String? = {
+        let v = string("ODMeetingStatusFile", default: "")
+        return v.isEmpty ? nil : NSString(string: v).expandingTildeInPath
+    }()
 
     static var bundledLexiconRoot: String {
         Bundle.main.resourceURL?.appendingPathComponent("vendor").path
