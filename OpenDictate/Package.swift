@@ -12,6 +12,12 @@ let package = Package(
         .executableTarget(
             name: "OpenDictate",
             path: "Sources/OpenDictate"
+        ),
+        // 不開 GUI、不碰麥克風的邏輯測試：swift test
+        .testTarget(
+            name: "OpenDictateTests",
+            dependencies: ["OpenDictate"],
+            path: "Tests/OpenDictateTests"
         )
     ]
 )

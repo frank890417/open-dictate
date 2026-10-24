@@ -107,6 +107,12 @@ python3 daemon/dictate_cli.py mode 準       # or: accurate
 
 Or use the menu bar: **辨識模式 → 快 / 準**. Programs can send `{"cmd": "set_mode", "mode": "fast"}` on the socket (see [IO-CONTRACT.md](../IO-CONTRACT.md)). With `--recognition off` (or any daemon without the router) `mode` prints `mode=None` and a switch request fails with `bad_request`.
 
+### Redo one sentence in the accurate mode / 只重轉一句（daemon 0.9）
+
+You do not have to switch modes to fix one misheard sentence. Stay in fast; when a sentence comes out wrong, open the control center (left-click the menu bar icon) and press **用準模式重轉** on the 上一句 card. The daemon runs the same recording through the accurate model and the app swaps the text in place, or puts it on the clipboard when it cannot safely do that (you typed or clicked after the sentence went in, or switched apps). **撤回** removes the sentence instead. To make this possible the daemon keeps each recording for 60 seconds (`OPEN_DICTATE_RECENT_AUDIO_S`, `0` keeps none) in `~/.open-dictate/dictation-recent/`, readable only by you, and deletes it after that.
+
+不用為了一句聽錯就切模式。留在「快」，哪句出錯就打開控制中心（左鍵點選單列圖示），在「上一句」卡上按「用準模式重轉」：daemon 用同一段錄音跑準確模式的模型，app 直接把字換掉；換不了（字打進去之後你又打了字、點了滑鼠、或換了 app）就放剪貼簿。「撤回」則是整句拿掉。為了能重轉，daemon 會把每句錄音留 60 秒（`OPEN_DICTATE_RECENT_AUDIO_S`，設 `0` 不留），放在只有你讀得到的 `~/.open-dictate/dictation-recent/`，時間到就刪。
+
 ## What gets downloaded, and under which licence / 下載什麼、授權為何
 
 Open Dictate does not ship or redistribute any model file. Each model is downloaded from Hugging Face by the user's own Mac the first time it is needed, and stays in the Hugging Face cache (`~/.cache/huggingface`).
@@ -123,9 +129,9 @@ Python packages (`daemon/requirements-asr.txt`, installed from PyPI, not bundled
 
 ## Privacy / 隱私
 
-Both modes run on your Mac. The recognition worker is a local child process of the daemon; audio does not leave the machine.
+Both modes run on your Mac. The recognition worker is a local child process of the daemon; audio does not leave the machine. In the router setup each recording is also kept on disk for 60 seconds so a sentence can be redone in the other mode (see above), then deleted.
 
-兩種模式都在你的 Mac 上跑。辨識 worker 是 daemon 的本機子行程，音訊不會離開這台機器。
+兩種模式都在你的 Mac 上跑。辨識 worker 是 daemon 的本機子行程，音訊不會離開這台機器。快／準兩檔的設定下，每段錄音另外在本機留 60 秒（給「只重轉一句」用），之後刪除。
 
 **One option changes that.** If you also set `OPEN_DICTATE_ASR_REMOTE_URL` (and `OPEN_DICTATE_ASR_REMOTE_KEYCHAIN`, the keychain service that holds the shared token), each clip is first sent as FLAC to `daemon/asr_server.py` on the machine you named, and the local worker is only the fallback. Use it only with a computer you own, on a private network; the server binds one address, refuses `0.0.0.0`, compares the token in constant time and writes timings only, never audio or text. Leave both variables unset and nothing is sent anywhere. In the log, `asr_where` says `local` or `studio`; `studio` is simply the name this field uses for “the remote recognition service”.
 

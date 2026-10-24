@@ -7,6 +7,8 @@ import SwiftUI
 /// 為什麼長這樣（2026-10 一個月的使用紀錄）：
 /// - 模式只切過 2 次、詞庫回報 0 次——藏在第二層子選單裡的東西不會被用到，常用的要在第一眼。
 /// - 他最常做的是「接著上一句講」、偶爾要把上一句再拿出來：上一句是一張卡，複製／再貼一次／教詞庫都在卡上。
+/// - v0.9：準確模式一個月 0 句、聽錯時不換模式而是抱怨——「準」變成上一句卡上的「用準模式重轉」，旁邊是「撤回」；
+///   晚到沒貼上的那句單獨一張卡，一鍵貼回去。
 final class ControlCenterModel: ObservableObject {
 
     struct Utterance: Identifiable, Equatable {
@@ -16,6 +18,12 @@ final class ControlCenterModel: ObservableObject {
         let changes: [[String]]
         let latencyMs: Int?
         let at: Date
+        /// daemon 給的 id（v0.9）：用準模式重轉要它
+        var uid: String? = nil
+        /// 這句是哪一句的重轉結果
+        var redoOf: String? = nil
+        /// 已從文件裡撤回
+        var withdrawn = false
     }
 
     enum Phase { case idle, recording, transcribing, error }
@@ -39,6 +47,11 @@ final class ControlCenterModel: ObservableObject {
     /// 今天 3 題（LexiconQuiz）；nil＝這個產品沒有出題腳本或讀不到
     @Published var quiz: LexiconQuiz.Snapshot?
     @Published var answering: Set<String> = []
+    @Published var transcribingLabel = "轉錄中…"   // 久了變「還在轉…」
+    @Published var queued = 0                     // 送出還沒回來的句數（連講時可以 >1）
+    @Published var recentAudioSeconds: Double?    // daemon 留錄音幾秒可以重轉；nil＝不能重轉
+    @Published var redoBusy = false
+    @Published var undelivered: Utterance?        // 晚到、焦點換了沒貼上的那句
 
     // 由 StatusItemController 接線
     var onSetMode: (String) -> Void = { _ in }
@@ -53,6 +66,9 @@ final class ControlCenterModel: ObservableObject {
     var onPermissions: () -> Void = {}
     var onStartMeeting: () -> Void = {}
     var onAnswerQuiz: (String, Bool) -> Void = { _, _ in }
+    var onRetranscribe: (Utterance) -> Void = { _ in }
+    var onWithdraw: (Utterance) -> Void = { _ in }
+    var onPasteUndelivered: (Utterance) -> Void = { _ in }
 
     enum MenuKind { case mic, punct, teach }
 
@@ -76,6 +92,22 @@ final class ControlCenterModel: ObservableObject {
         if let first = history.first, first.text == u.text { return }
         history.insert(u, at: 0)
         if history.count > 8 { history.removeLast(history.count - 8) }
+    }
+
+    func markWithdrawn(_ u: Utterance) {
+        guard let i = history.firstIndex(where: { $0.id == u.id }) else { return }
+        history[i].withdrawn = true
+    }
+
+    /// 上一句不能用準模式重轉的原因（nil＝可以）：按鈕變灰、滑過去看得到為什麼
+    func redoBlocker(_ u: Utterance, now: Date = Date()) -> String? {
+        guard let keep = recentAudioSeconds else { return "辨識服務不支援重轉（要 daemon 0.9 的快／準模式）" }
+        if daemonOnline == false { return "辨識服務離線" }
+        if u.redoOf != nil { return "這句已經是準模式的結果" }
+        if mode == "accurate" { return "現在就是準模式" }
+        guard u.uid != nil else { return "這句沒有錄音編號（辨識服務重啟前的句子）" }
+        if now.timeIntervalSince(u.at) > keep - 1 { return "錄音只留 \(Int(keep)) 秒，已經刪掉了" }
+        return nil
     }
 
     func copy(_ u: Utterance) {
@@ -133,6 +165,7 @@ struct ControlCenterView: View {
                 .disabled(model.mode == "fast")
                 .help(model.mode == "fast" ? "快速模式用模型自帶的標點；切到「準」才能選" : "標點模式")
             }
+            if let u = model.undelivered { undeliveredCard(u) }
             lastCard
             if let quiz = model.quiz, !quiz.questions.isEmpty { quizCard(quiz) }
             if model.history.count > 1 { historyList }
@@ -166,8 +199,8 @@ struct ControlCenterView: View {
     private var phaseText: String {
         switch model.phase {
         case .idle: return "按住 \(model.hotkeyLabel) 講話，放開就打字"
-        case .recording: return "錄音中…"
-        case .transcribing: return "轉錄中…"
+        case .recording: return model.queued > 0 ? "錄音中…（上一句還在轉）" : "錄音中…"
+        case .transcribing: return model.queued > 1 ? "\(model.transcribingLabel)（\(model.queued) 句）" : model.transcribingLabel
         case .error: return "剛剛出了點問題"
         }
     }
@@ -183,6 +216,7 @@ struct ControlCenterView: View {
             VStack(alignment: .leading, spacing: 1) {
                 Text(ProductConfig.appName).font(.system(size: 14, weight: .semibold))
                 Text(phaseText).font(.system(size: 11)).foregroundStyle(.secondary)
+                    .lineLimit(1).minimumScaleFactor(0.75)
             }
             Spacer(minLength: 4)
             HStack(spacing: 5) {
@@ -256,13 +290,36 @@ struct ControlCenterView: View {
                 Text("上一句").font(.system(size: 11, weight: .semibold)).foregroundStyle(.secondary)
                 if let u = model.last { Text(meta(u)).font(.system(size: 11)).foregroundStyle(.tertiary) }
                 Spacer()
+                if let u = model.last, u.withdrawn {
+                    Badge(text: "已撤回", color: .secondary)
+                } else if let u = model.last, u.redoOf != nil {
+                    Badge(text: "準模式", color: .accentColor)
+                }
             }
             if let u = model.last {
                 Text(u.text)
                     .font(.system(size: 12.5))
+                    .strikethrough(u.withdrawn)
+                    .foregroundStyle(u.withdrawn ? .secondary : .primary)
                     .lineLimit(5)
                     .fixedSize(horizontal: false, vertical: true)
                     .textSelection(.enabled)
+                // 聽錯了的兩條路：換成準模式的結果、或整句拿掉
+                HStack(spacing: 6) {
+                    let blocker = model.redoBlocker(u)
+                    PillButton(symbol: model.redoBusy ? "hourglass" : "scope",
+                               title: model.redoBusy ? "重轉中…" : "用準模式重轉", prominent: true) {
+                        model.onRetranscribe(u)
+                    }
+                    .disabled(blocker != nil || model.redoBusy || u.withdrawn)
+                    .help(blocker ?? "用 Whisper 把剛才那段錄音再轉一次，換掉打進去的字")
+                    PillButton(symbol: "arrow.uturn.backward", title: u.withdrawn ? "已撤回" : "撤回") {
+                        model.onWithdraw(u)
+                    }
+                    .disabled(u.withdrawn || model.redoBusy)
+                    .help("把剛打進去的這句刪掉（打進去之後有打字或換了視窗就只提示、不動文件）")
+                    Spacer(minLength: 0)
+                }
                 HStack(spacing: 6) {
                     PillButton(symbol: model.copiedID == u.id ? "checkmark" : "doc.on.doc",
                                title: model.copiedID == u.id ? "已複製" : "複製") { model.copy(u) }
@@ -329,6 +386,33 @@ struct ControlCenterView: View {
                 ChoiceButton(title: "否", primary: false) { model.onAnswerQuiz(q.id, false) }
             }
         }
+    }
+
+    private func undeliveredCard(_ u: ControlCenterModel.Utterance) -> some View {
+        VStack(alignment: .leading, spacing: 7) {
+            HStack(spacing: 6) {
+                Image(systemName: "tray.and.arrow.down.fill").font(.system(size: 11)).foregroundStyle(.orange)
+                Text("剛剛沒送到的那句").font(.system(size: 11, weight: .semibold))
+                Text(Self.clock.string(from: u.at)).font(.system(size: 11)).foregroundStyle(.tertiary)
+                Spacer()
+                Button { model.undelivered = nil } label: { Image(systemName: "xmark").font(.system(size: 9, weight: .bold)) }
+                    .buttonStyle(.plain).foregroundStyle(.secondary).help("不用了")
+            }
+            Text(u.text)
+                .font(.system(size: 12))
+                .lineLimit(3)
+                .fixedSize(horizontal: false, vertical: true)
+            HStack(spacing: 6) {
+                PillButton(symbol: "arrow.uturn.down", title: "貼上", prominent: true) { model.onPasteUndelivered(u) }
+                    .help("貼到你剛剛在用的地方")
+                PillButton(symbol: model.copiedID == u.id ? "checkmark" : "doc.on.doc",
+                           title: model.copiedID == u.id ? "已複製" : "複製") { model.copy(u) }
+                Spacer(minLength: 0)
+            }
+        }
+        .padding(10)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(RoundedRectangle(cornerRadius: 12, style: .continuous).fill(Color.orange.opacity(0.12)))
     }
 
     private var historyList: some View {
@@ -545,7 +629,9 @@ private struct ChoiceButton: View {
 private struct PillButton: View {
     let symbol: String
     let title: String
+    var prominent = false
     let action: () -> Void
+    @Environment(\.isEnabled) private var isEnabled
 
     var body: some View {
         Button(action: action) {
@@ -553,11 +639,26 @@ private struct PillButton: View {
                 Image(systemName: symbol).font(.system(size: 10.5, weight: .semibold))
                 Text(title).font(.system(size: 11, weight: .medium))
             }
+            .foregroundStyle(prominent && isEnabled ? Color.accentColor : Color.primary)
             .padding(.horizontal, 9).padding(.vertical, 5)
-            .background(Capsule().fill(Color.primary.opacity(0.09)))
+            .background(Capsule().fill(prominent && isEnabled ? Color.accentColor.opacity(0.16) : Color.primary.opacity(0.09)))
             .contentShape(Capsule())
+            .opacity(isEnabled ? 1 : 0.45)
         }
         .buttonStyle(.plain)
+    }
+}
+
+private struct Badge: View {
+    let text: String
+    let color: Color
+
+    var body: some View {
+        Text(text)
+            .font(.system(size: 10, weight: .semibold))
+            .foregroundStyle(color)
+            .padding(.horizontal, 6).padding(.vertical, 2)
+            .background(Capsule().fill(color.opacity(0.14)))
     }
 }
 

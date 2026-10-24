@@ -37,7 +37,11 @@ struct SocketClient {
     }
 
     /// 送一則請求、讀一行回應。throws SocketClientError。
-    func roundTrip(_ request: DaemonRequest) throws -> DaemonResponse {
+    ///
+    /// slowAfter（v0.9）：過了這麼多秒還沒回應就呼叫 onSlow 一次，然後繼續等到 timeout 才放棄——
+    /// 長口述的殼逾時不再等於丟掉那句（10-16 殼放棄 9 次，daemon 其實轉完 7 句）。onSlow 在這條背景執行緒上呼叫。
+    func roundTrip(_ request: DaemonRequest, slowAfter: TimeInterval? = nil,
+                   onSlow: (() -> Void)? = nil) throws -> DaemonResponse {
         let requestData = try request.jsonLine()
 
         let fd = socket(AF_UNIX, SOCK_STREAM, 0)
@@ -50,10 +54,10 @@ struct SocketClient {
         var one: Int32 = 1
         setsockopt(fd, SOL_SOCKET, SO_NOSIGPIPE, &one, socklen_t(MemoryLayout<Int32>.size))
 
-        // 讀寫 timeout
-        var tv = timeval(tv_sec: Int(timeout), tv_usec: Int32((timeout - Double(Int(timeout))) * 1_000_000))
-        setsockopt(fd, SOL_SOCKET, SO_RCVTIMEO, &tv, socklen_t(MemoryLayout<timeval>.size))
-        setsockopt(fd, SOL_SOCKET, SO_SNDTIMEO, &tv, socklen_t(MemoryLayout<timeval>.size))
+        // 讀寫 timeout（有 slowAfter 時先只等到 slowAfter，見讀取迴圈）
+        Self.setTimeout(fd, SO_SNDTIMEO, timeout)
+        var slowPending = slowAfter.map { $0 < timeout } ?? false
+        Self.setTimeout(fd, SO_RCVTIMEO, slowPending ? slowAfter! : timeout)
 
         // sockaddr_un
         var addr = sockaddr_un()
@@ -92,6 +96,7 @@ struct SocketClient {
         }
 
         // 讀到第一個 '\n' 為止
+        let started = Date()
         var acc = Data()
         var buf = [UInt8](repeating: 0, count: 4096)
         while true {
@@ -107,11 +112,25 @@ struct SocketClient {
                 throw SocketClientError.connectionClosed
             }
             if n < 0 {
-                if errno == EAGAIN || errno == EWOULDBLOCK { throw SocketClientError.timeout }
+                if errno == EAGAIN || errno == EWOULDBLOCK {
+                    let left = timeout - Date().timeIntervalSince(started)
+                    if slowPending && left > 0.05 {
+                        slowPending = false
+                        onSlow?()
+                        Self.setTimeout(fd, SO_RCVTIMEO, left)
+                        continue
+                    }
+                    throw SocketClientError.timeout
+                }
                 throw SocketClientError.connectFailed("recv: \(Self.errnoString())")
             }
             acc.append(contentsOf: buf[0..<n])
         }
+    }
+
+    private static func setTimeout(_ fd: Int32, _ option: Int32, _ seconds: TimeInterval) {
+        var tv = timeval(tv_sec: Int(seconds), tv_usec: Int32((seconds - Double(Int(seconds))) * 1_000_000))
+        setsockopt(fd, SOL_SOCKET, option, &tv, socklen_t(MemoryLayout<timeval>.size))
     }
 
     private static func errnoString() -> String {

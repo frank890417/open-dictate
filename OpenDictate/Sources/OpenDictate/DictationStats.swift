@@ -39,6 +39,7 @@ struct DictationStats {
         for line in data.split(separator: "\n") {
             guard let row = try? JSONSerialization.jsonObject(with: Data(line.utf8)) as? [String: Any] else { continue }
             if row["tag"] != nil { continue }      // 測試／重放句不算
+            if row["redo_of"] != nil { continue }  // 重轉同一段錄音（v0.9），不是新的一句
             if let e = row["error"] as? String, !e.isEmpty {
                 err += 1
                 if e == "no_speech" { noSpeech += 1 }
@@ -110,6 +111,9 @@ struct DictationStats {
         let raw: String?
         let changes: [[String]]
         let totalMs: Int?
+        /// daemon 給這句的 id（router 模式的 log 才有）；重轉時用
+        var uid: String? = nil
+        var redoOf: String? = nil
 
         /// log 的 ts（本地時間 yyyy-MM-ddTHH:mm:ss）；讀不懂就當作現在
         var date: Date {
@@ -133,7 +137,8 @@ struct DictationStats {
             guard let text = row["text"] as? String, !text.isEmpty else { continue }
             out.append(Entry(ts: row["ts"] as? String, text: text, raw: row["raw"] as? String,
                              changes: (row["changes"] as? [[String]]) ?? [],
-                             totalMs: (row["total_ms"] as? NSNumber)?.intValue))
+                             totalMs: (row["total_ms"] as? NSNumber)?.intValue,
+                             uid: row["uid"] as? String, redoOf: row["redo_of"] as? String))
         }
         return out
     }
@@ -153,7 +158,8 @@ struct DictationStats {
             let totalMs: Int?
             if let n = row["total_ms"] as? NSNumber { totalMs = n.intValue } else { totalMs = nil }
             return Entry(ts: row["ts"] as? String, text: text, raw: row["raw"] as? String,
-                        changes: (row["changes"] as? [[String]]) ?? [], totalMs: totalMs)
+                         changes: (row["changes"] as? [[String]]) ?? [], totalMs: totalMs,
+                         uid: row["uid"] as? String, redoOf: row["redo_of"] as? String)
         }
         return nil
     }

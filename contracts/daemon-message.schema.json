@@ -41,6 +41,20 @@
         "cmd": {"const": "set_mode"},
         "mode": {"enum": ["fast", "accurate", "快", "準"]}
       }
+    },
+    {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["cmd", "uid"],
+      "description": "daemon ≥0.9.0, ASR_BACKEND=router: recognise a recent sentence again in another mode (default accurate); its recording is kept for recent_audio_s seconds",
+      "properties": {
+        "cmd": {"const": "retranscribe"},
+        "uid": {"type": "string", "pattern": "^[0-9a-f]{6,32}$", "description": "uid from that sentence's transcribe response"},
+        "mode": {"enum": ["fast", "accurate", "快", "準"], "default": "accurate"},
+        "punct": {"enum": ["raw", "smart_zh", "llm_zh"], "default": "smart_zh"},
+        "fillers": {"enum": ["keep", "strip"], "default": "keep"},
+        "tag": {"type": "string", "maxLength": 40}
+      }
     }
   ]
 }

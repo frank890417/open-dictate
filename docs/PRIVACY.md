@@ -9,6 +9,8 @@ Open Dictate 是本地優先工具。音檔、逐字稿、日誌、審核佇列�
 | 類型 | 預設位置 | 是否可進 repo |
 |---|---|---|
 | Dictation logs / 語音輸入日誌 | `~/.open-dictate/dictation-log/` | No |
+| Last results / 最後結果（殼等不到回應時撿回來，最近 10 句） | `~/.open-dictate/dictation-last.json` | No |
+| Recent recordings / 最近錄音（重轉上一句用，60 秒後刪除；`OPEN_DICTATE_RECENT_AUDIO_S=0` 不留） | `~/.open-dictate/dictation-recent/` | Never |
 | Meeting transcripts / 會議逐字稿 | `~/.open-dictate/meetings/` | No |
 | Review queue / 誤聽候選審核 | `~/.open-dictate/review-queue/` | No |
 | Personal glossary / 個人詞庫 | `~/.open-dictate/glossaries/` | No by default |

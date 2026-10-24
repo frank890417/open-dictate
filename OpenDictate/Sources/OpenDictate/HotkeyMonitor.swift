@@ -52,11 +52,13 @@ final class HotkeyMonitor {
             self?.handle(event)
             return event
         }
-        globalKeyMonitor = NSEvent.addGlobalMonitorForEvents(matching: .keyDown) { [weak self] _ in
+        // 自己送出的 Cmd-V／倒退鍵不算（連講時上一句在錄下一句的期間才貼上，見 TextInjector.syntheticMarker）
+        globalKeyMonitor = NSEvent.addGlobalMonitorForEvents(matching: .keyDown) { [weak self] event in
+            guard !TextInjector.isSynthetic(event) else { return }
             self?.otherKeyPressed("按鍵")
         }
         localKeyMonitor = NSEvent.addLocalMonitorForEvents(matching: .keyDown) { [weak self] event in
-            self?.otherKeyPressed("按鍵")
+            if !TextInjector.isSynthetic(event) { self?.otherKeyPressed("按鍵") }
             return event
         }
         mdLog("熱鍵監聽啟動：\(kind.label)（global \(globalMonitor == nil ? "掛載失敗" : "OK")）")
@@ -84,6 +86,7 @@ final class HotkeyMonitor {
     }
 
     private func handle(_ event: NSEvent) {
+        guard !TextInjector.isSynthetic(event) else { return }
         guard event.keyCode == kind.keyCode else {
             // 按住熱鍵時動了別的修飾鍵（fn＋Control＋F 之類的系統快捷鍵）也算組合鍵
             if isDown { otherKeyPressed("修飾鍵") }

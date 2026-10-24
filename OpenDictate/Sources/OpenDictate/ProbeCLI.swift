@@ -7,10 +7,13 @@ import SwiftUI
 ///
 ///   OpenDictate --probe-ping                      # ping daemon
 ///   OpenDictate --probe-reload                    # reload_lexicon
-///   OpenDictate --probe-transcribe <wav 路徑>     # 送 transcribe
+///   OpenDictate --probe-transcribe <wav 路徑> [秒]  # 送 transcribe；給秒數＝過了這麼久印 slow 再繼續等（v0.9 殼的「還在轉…」路徑）
 ///   OpenDictate --probe-wav <輸出路徑>            # 無麥克風：合成 48k 正弦波 → 轉檔管線 → 16k mono PCM16 wav
 ///   OpenDictate --probe-mic                       # 印出這次錄音會用哪支麥克風、為什麼（不錄音）
-///   OpenDictate --probe-snapshot <png> [light|dark]  # 用今天的真實資料把控制中心畫成 PNG（不開視窗）
+///   OpenDictate --probe-snapshot <png> [light|dark] [late] [queued] [fresh]
+///                                                 # 用今天的真實資料把控制中心畫成 PNG（不開視窗）；
+///                                                 # late＝把最新那句當成「沒送到」畫出那張卡，queued＝畫「還在轉、還有 2 句」，
+///                                                 # fresh＝把最新那句當成剛講完（錄音還在保留期內，重轉按鈕亮著）
 ///   OpenDictate --probe-toggle                    # 叫正在跑的那一份打開／關上控制中心（可綁 Raycast／捷徑）
 ///   OpenDictate --probe-quiz [answer <id> yes|no] # 今天 3 題：印出題目（只看不記），或回答一題
 ///
@@ -35,7 +38,9 @@ enum ProbeCLI {
                 FileHandle.standardError.write(Data("用法：--probe-transcribe <wav 路徑>\n".utf8))
                 return 64
             }
-            return probeRoundTrip(.transcribe(wavPath: arguments[2], punct: DictateSettings.punctMode))
+            let slowAfter = arguments.count >= 4 ? TimeInterval(arguments[3]) : nil
+            return probeRoundTrip(.transcribe(wavPath: arguments[2], punct: DictateSettings.punctMode),
+                                  timeout: slowAfter.map { max(10, $0 * 4) } ?? 10, slowAfter: slowAfter)
         case "--probe-mic":
             let r = MicDevice.resolveRecordingDevice()
             print("lid_closed=\(MicDevice.isLidClosed())")
@@ -49,8 +54,12 @@ enum ProbeCLI {
                 FileHandle.standardError.write(Data("用法：--probe-snapshot <輸出 png> [light|dark]\n".utf8))
                 return 64
             }
-            let dark = arguments.count >= 4 && arguments[3] == "dark"
-            return MainActor.assumeIsolated { probeSnapshot(outputPath: arguments[2], dark: dark) }
+            let options = Set(arguments.dropFirst(3))
+            return MainActor.assumeIsolated {
+                probeSnapshot(outputPath: arguments[2], dark: options.contains("dark"),
+                              late: options.contains("late"), queued: options.contains("queued"),
+                              fresh: options.contains("fresh"))
+            }
         case "--probe-toggle":
             DistributedNotificationCenter.default().postNotificationName(
                 StatusItemController.toggleNotification, object: nil, userInfo: nil, deliverImmediately: true)
@@ -79,11 +88,15 @@ enum ProbeCLI {
         }
     }
 
-    private static func probeRoundTrip(_ request: DaemonRequest) -> Int32 {
-        let client = SocketClient()
+    private static func probeRoundTrip(_ request: DaemonRequest, timeout: TimeInterval = 10,
+                                       slowAfter: TimeInterval? = nil) -> Int32 {
+        let client = SocketClient(timeout: timeout)
         do {
             let started = Date()
-            let response = try client.roundTrip(request)
+            let response = try client.roundTrip(request, slowAfter: slowAfter) {
+                print(String(format: "slow: no answer after %.1fs, still waiting (up to %.0fs)",
+                             Date().timeIntervalSince(started), timeout))
+            }
             let elapsed = Int(Date().timeIntervalSince(started) * 1000)
             print("raw: \(response.rawLine)")
             print("parsed: ok=\(response.ok)" +
@@ -138,20 +151,34 @@ enum ProbeCLI {
     }
 
     @MainActor
-    private static func probeSnapshot(outputPath: String, dark: Bool) -> Int32 {
+    private static func probeSnapshot(outputPath: String, dark: Bool, late: Bool, queued: Bool, fresh: Bool) -> Int32 {
         _ = NSApplication.shared
         let model = ControlCenterModel()
         model.refresh()
         for e in DictationStats.recentSuccessEntries(limit: 6).reversed() {
-            model.push(.init(text: e.text, raw: e.raw, changes: e.changes, latencyMs: e.totalMs, at: e.date))
+            model.push(.init(text: e.text, raw: e.raw, changes: e.changes, latencyMs: e.totalMs, at: e.date,
+                             uid: e.uid, redoOf: e.redoOf))
         }
         model.quiz = LexiconQuiz.today(peek: true)
         if let r = try? SocketClient(timeout: 2).roundTrip(.ping), r.ok {
             model.daemonOnline = true
             model.mode = r.mode
             model.daemonDetail = "線上（\(r.asrMain ?? r.model ?? "?")）"
+            model.recentAudioSeconds = r.recentAudioSeconds
         } else {
             model.daemonOnline = false
+        }
+        if fresh, let u = model.history.first {
+            model.history[0] = .init(text: u.text, raw: u.raw, changes: u.changes, latencyMs: u.latencyMs,
+                                     at: Date().addingTimeInterval(-8), uid: u.uid ?? "000000000000", redoOf: nil)
+        }
+        if late, let newest = model.history.first {
+            model.undelivered = newest
+        }
+        if queued {
+            model.phase = .transcribing
+            model.transcribingLabel = "還在轉，轉完會補上…"
+            model.queued = 2
         }
         let view = ControlCenterView(model: model, solidBackground: true)
             .environment(\.colorScheme, dark ? .dark : .light)
