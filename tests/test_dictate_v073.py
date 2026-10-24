@@ -34,10 +34,14 @@ class PromptEcho(unittest.TestCase):
     def test_whole_list_read_back_is_echo(self) -> None:
         for s in (", ".join(TERMS[:14]) + ", 北",                     # half-width commas, cut mid-term
                   "，".join(TERMS[:12]) + "，",                        # full-width, trailing separator
-                  "王小明，小明，Alice，Open Dictate，README.md，TouchDesigner，p5.js，斗阵，驻村",  # simplified
                   ", ".join(TERMS[:9]) + ", �",                   # broken last byte
                   ", ".join(TERMS)):
             self.assertTrue(dictated.is_prompt_echo(s, INDEX), s)
+
+    @unittest.skipUnless(dictated.apply_opencc("驻") == "駐", "needs OpenCC to fold simplified terms")
+    def test_simplified_read_back_is_echo(self) -> None:
+        s = "王小明，小明，Alice，Open Dictate，README.md，TouchDesigner，p5.js，斗阵，驻村"
+        self.assertTrue(dictated.is_prompt_echo(s, INDEX), s)
 
     def test_speech_that_names_some_terms_is_kept(self) -> None:
         for s in ("作品的話，萬物公式、靈魂魚、演算詩篇、咖啡幻夢就剛好整個講過去，然後抓二十分鐘左右",

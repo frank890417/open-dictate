@@ -1,5 +1,7 @@
+import AppKit
 import Foundation
 import AVFoundation
+import SwiftUI
 
 /// Headless 驗證模式（不起 GUI），走的是「生產同一份」SocketClient / PCM16Resampler / WavWriter 程式碼。
 ///
@@ -8,6 +10,8 @@ import AVFoundation
 ///   OpenDictate --probe-transcribe <wav 路徑>     # 送 transcribe
 ///   OpenDictate --probe-wav <輸出路徑>            # 無麥克風：合成 48k 正弦波 → 轉檔管線 → 16k mono PCM16 wav
 ///   OpenDictate --probe-mic                       # 印出這次錄音會用哪支麥克風、為什麼（不錄音）
+///   OpenDictate --probe-snapshot <png> [light|dark]  # 用今天的真實資料把控制中心畫成 PNG（不開視窗）
+///   OpenDictate --probe-toggle                    # 叫正在跑的那一份打開／關上控制中心（可綁 Raycast／捷徑）
 ///
 /// exit code：0 = 拿到合法 daemon 回應（含 ok:false，如 no_speech）或 wav 產出成功；
 ///            2 = 傳輸層失敗（連不上 / timeout / 格式錯）；64 = 用法錯誤。
@@ -38,6 +42,18 @@ enum ProbeCLI {
             print("system_default=\(MicDevice.defaultInputDeviceID().flatMap(MicDevice.name(of:)) ?? "?")")
             print("will_use=\(r.name)" + (r.deviceID.map { " deviceID=\($0)" } ?? ""))
             print("note=\(r.note ?? "—")")
+            return 0
+        case "--probe-snapshot":
+            guard arguments.count >= 3 else {
+                FileHandle.standardError.write(Data("用法：--probe-snapshot <輸出 png> [light|dark]\n".utf8))
+                return 64
+            }
+            let dark = arguments.count >= 4 && arguments[3] == "dark"
+            return MainActor.assumeIsolated { probeSnapshot(outputPath: arguments[2], dark: dark) }
+        case "--probe-toggle":
+            DistributedNotificationCenter.default().postNotificationName(
+                StatusItemController.toggleNotification, object: nil, userInfo: nil, deliverImmediately: true)
+            print("posted \(StatusItemController.toggleNotification.rawValue)")
             return 0
         case "--probe-wav":
             guard arguments.count >= 3 else {
@@ -107,5 +123,40 @@ enum ProbeCLI {
         let seconds = Double(pcm.count / 2) / 16000.0
         print("wav written: \(outputPath) pcm_bytes=\(pcm.count) duration=\(String(format: "%.3f", seconds))s (expect ~1.0s @16k mono PCM16)")
         return 0
+    }
+
+    @MainActor
+    private static func probeSnapshot(outputPath: String, dark: Bool) -> Int32 {
+        _ = NSApplication.shared
+        let model = ControlCenterModel()
+        model.refresh()
+        for e in DictationStats.recentSuccessEntries(limit: 6).reversed() {
+            model.push(.init(text: e.text, raw: e.raw, changes: e.changes, latencyMs: e.totalMs, at: e.date))
+        }
+        if let r = try? SocketClient(timeout: 2).roundTrip(.ping), r.ok {
+            model.daemonOnline = true
+            model.mode = r.mode
+            model.daemonDetail = "線上（\(r.asrMain ?? r.model ?? "?")）"
+        } else {
+            model.daemonOnline = false
+        }
+        let view = ControlCenterView(model: model, solidBackground: true)
+            .environment(\.colorScheme, dark ? .dark : .light)
+        let renderer = ImageRenderer(content: view)
+        renderer.scale = 2
+        guard let cg = renderer.cgImage else {
+            FileHandle.standardError.write(Data("畫不出來\n".utf8))
+            return 2
+        }
+        let rep = NSBitmapImageRep(cgImage: cg)
+        guard let png = rep.representation(using: .png, properties: [:]) else { return 2 }
+        do {
+            try png.write(to: URL(fileURLWithPath: outputPath))
+            print("snapshot=\(outputPath) \(cg.width)x\(cg.height)")
+            return 0
+        } catch {
+            FileHandle.standardError.write(Data("寫檔失敗：\(error)\n".utf8))
+            return 2
+        }
     }
 }

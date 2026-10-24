@@ -18,6 +18,12 @@ enum DictateSettings {
         set { d.set(newValue, forKey: "showRawDiff") }
     }
 
+    /// 去掉「呃」「嗯」（daemon v0.8+ 的 fillers=strip；raw 照樣留原文）。預設開：快速模式三成的句子有。
+    static var stripFillers: Bool {
+        get { d.object(forKey: "stripFillers") as? Bool ?? true }
+        set { d.set(newValue, forKey: "stripFillers") }
+    }
+
     // MARK: - 標點
 
     /// smart_zh / llm_zh / raw

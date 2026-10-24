@@ -42,13 +42,14 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
         hotkeyMonitor.onDown = { [weak self] in self?.pttPressed() }
         hotkeyMonitor.onUp = { [weak self] in self?.pttReleased() }
+        hotkeyMonitor.onCancel = { [weak self] in self?.pttCancelled() }
         hotkeyMonitor.start()
 
         recorder.onLevel = { [weak self] level in self?.hud.updateLevel(level) }
 
         statusController.refreshStats()
         pingDaemon()
-        mdLog("\(ProductConfig.appName) v0.5 啟動（熱鍵=\(DictateSettings.hotkeyLabel), AX=\(PermissionGuide.isAccessibilityTrusted)）")
+        mdLog("\(ProductConfig.appName) v\(Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "?") 啟動（熱鍵=\(DictateSettings.hotkeyLabel), AX=\(PermissionGuide.isAccessibilityTrusted)）")
     }
 
     func applicationSupportsSecureRestorableState(_ app: NSApplication) -> Bool { true }
@@ -61,7 +62,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     // MARK: - Push-to-talk
 
     private func pttPressed() {
-        guard state == .idle else { return }
+        guard state == .idle else {
+            mdLog("熱鍵按下但上一句還在\(state == .transcribing ? "轉錄" : "錄音")，這次忽略")
+            return
+        }
         do {
             try recorder.start()
             state = .recording
@@ -114,6 +118,13 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         transcribe(wavPath: wavPath, audioSeconds: result.audioSeconds)
     }
 
+    /// 按住熱鍵時按了別的鍵（組合鍵）：這次不是要講話，錄到的丟掉、不送 daemon。
+    private func pttCancelled() {
+        guard state == .recording else { return }
+        _ = recorder.stop()
+        backToIdle()
+    }
+
     private static func makeWavPath() -> String {
         let formatter = DateFormatter()
         formatter.dateFormat = "yyyyMMdd-HHmmss"
@@ -145,9 +156,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private func transcribe(wavPath: String, audioSeconds: Double) {
         let client = SocketClient(timeout: Self.transcribeTimeout(forAudioSeconds: audioSeconds))
         let punct = DictateSettings.punctMode
+        let fillers = DictateSettings.stripFillers ? "strip" : nil
         socketQueue.async { [weak self] in
             let outcome: Result<DaemonResponse, Error> = Result {
-                try client.roundTrip(.transcribe(wavPath: wavPath, punct: punct))
+                try client.roundTrip(.transcribe(wavPath: wavPath, punct: punct, fillers: fillers))
             }
             DispatchQueue.main.async {
                 self?.handleTranscribeOutcome(outcome, wavPath: wavPath)
@@ -163,7 +175,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
                 let changes = response.changes ?? []
                 mdLog("轉錄 OK\(latencyMs.map { " (\($0)ms)" } ?? "")：\(text.prefix(80))")
                 statusController.setSuccess(text: text, raw: response.raw, latencyMs: latencyMs, changes: changes)
-                statusController.pushHistory(text: text, raw: response.raw)
+                statusController.pushHistory(text: text, raw: response.raw, changes: changes, latencyMs: latencyMs)
                 settingsWindow.refreshStats()
 
                 if DictateSettings.hudEnabled {

@@ -21,6 +21,8 @@ enum ProductConfig {
     static let shellLaunchLabel = string("ODShellLaunchLabel", default: "org.opendictate.shell")
     static let environmentPrefix = string("ODEnvironmentPrefix", default: "OPEN_DICTATE")
     static let priorityTerms = string("ODPriorityTerms", default: "")
+    /// 控制中心「會議錄音」打開的網址；沒有 app 認領這個 scheme 時按鈕顯示「開發中」
+    static let meetingURL = string("ODMeetingURL", default: "\(productID)-meeting://start")
 
     static var bundledLexiconRoot: String {
         Bundle.main.resourceURL?.appendingPathComponent("vendor").path
