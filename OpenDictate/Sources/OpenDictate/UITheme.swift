@@ -45,6 +45,7 @@ enum UITheme {
         static let restart = "arrow.clockwise"
         static let quit = "power"
         static let copy = "doc.on.doc"
+        static let clipboard = "doc.on.clipboard"
     }
 
     static func symbolImage(_ name: String, pointSize: CGFloat = statusSymbolPointSize, weight: NSFont.Weight = .medium) -> NSImage? {

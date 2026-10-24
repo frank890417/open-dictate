@@ -3,14 +3,16 @@ import ApplicationServices
 import QuartzCore
 
 /// 錄音浮動提示（游標旁；拿不到游標 → 螢幕底部中央）。
-/// recording / transcribing / success（可含 raw 對照）/ error。
+/// recording / transcribing（可帶「還在轉…」「還有 2 句」）/ success（可含 raw 對照）/ notice（字放剪貼簿之類）/ error。
 /// nonactivating + ignoresMouseEvents：絕不搶焦點。
 final class RecordingHUD {
 
     enum HUDState {
         case recording
-        case transcribing
-        case success(text: String, raw: String?, latencyMs: Int?, changes: [[String]]?)
+        case transcribing(label: String = "轉錄中…")
+        case success(text: String, raw: String?, latencyMs: Int?, changes: [[String]]?, label: String? = nil)
+        /// 不是錯、但要你知道：晚到的那句放剪貼簿、撤回沒做成…
+        case notice(message: String, detail: String? = nil)
         case error(message: String, detail: String? = nil)
     }
 
@@ -126,13 +128,13 @@ final class RecordingHUD {
             startTimer()
             startPulse()
 
-        case .transcribing:
+        case .transcribing(let label):
             recordingActive = false
             resize(to: Self.compactSize, layout: .compact)
             setIcon(UITheme.Symbol.transcribing, tint: UITheme.transcribe)
             waveView.isHidden = true
             timeLabel.isHidden = true
-            phaseLabel.stringValue = "轉錄中…"
+            phaseLabel.stringValue = label
             phaseLabel.textColor = UITheme.transcribe
             phaseLabel.isHidden = false
             previewLabel.isHidden = true
@@ -140,7 +142,7 @@ final class RecordingHUD {
             setBorder(UITheme.transcribe.withAlphaComponent(0.35))
             stopTimer()
 
-        case .success(let text, let raw, let latencyMs, let changes):
+        case .success(let text, let raw, let latencyMs, let changes, let label):
             recordingActive = false
             let changePairs = changes ?? []
             let showDiff = DictateSettings.showRawDiff
@@ -154,7 +156,7 @@ final class RecordingHUD {
             timeLabel.isHidden = true
             let ms = latencyMs.map { " · \($0)ms" } ?? ""
             let hit = changePairs.isEmpty ? "" : " · 詞庫 \(changePairs.count)"
-            phaseLabel.stringValue = "已插入\(ms)\(hit)"
+            phaseLabel.stringValue = "\(label ?? "已插入")\(ms)\(hit)"
             phaseLabel.textColor = UITheme.success
             phaseLabel.isHidden = false
             previewLabel.stringValue = text.replacingOccurrences(of: "\n", with: " ")
@@ -176,6 +178,23 @@ final class RecordingHUD {
             setBorder(UITheme.success.withAlphaComponent(0.4))
             stopTimer()
             scheduleHide(after: UITheme.successHold)
+
+        case .notice(let message, let detail):
+            recordingActive = false
+            resize(to: Self.expandedSize, layout: .expanded(hasDiff: false))
+            setIcon(UITheme.Symbol.clipboard, tint: UITheme.warning)
+            waveView.isHidden = true
+            timeLabel.isHidden = true
+            phaseLabel.stringValue = message
+            phaseLabel.textColor = UITheme.warning
+            phaseLabel.isHidden = false
+            previewLabel.stringValue = (detail ?? "").replacingOccurrences(of: "\n", with: " ")
+            previewLabel.textColor = UITheme.muted
+            previewLabel.isHidden = (detail == nil)
+            diffLabel.isHidden = true
+            setBorder(UITheme.warning.withAlphaComponent(0.4))
+            stopTimer()
+            scheduleHide(after: UITheme.errorHold + 1)
 
         case .error(let message, let detail):
             recordingActive = false

@@ -34,9 +34,11 @@ Requests:
 {"cmd": "add_pair", "wrong": "誤聽", "right": "正確", "source": "dictate-ui"}
 {"cmd": "stats"}
 {"cmd": "set_mode", "mode": "fast"}
+{"cmd": "retranscribe", "uid": "3f9a1c0b7e21", "mode": "accurate", "punct": "smart_zh"}
 ```
 
 `set_mode` (daemon ≥0.7.0, router backend only) takes `fast`, `accurate`, `快` or `準`; see §Daemon 0.7.0.
+`retranscribe` (daemon ≥0.9.0, router backend only) recognises a recent sentence again; see §Daemon 0.9.0.
 
 Responses:
 
@@ -58,7 +60,10 @@ wire response; the socket contract is unchanged.
 without raising the shell headroom produces a false "daemon offline" state while the
 daemon actually completes the work in the background. Since daemon 0.6.0 the daemon
 also computes the shell deadline itself (formula above minus a 2 s margin) and never
-starts or extends an LLM punctuation request past it.
+starts or extends an LLM punctuation request past it. Since shell 0.9.0 that timeout is
+the point where the shell says "still transcribing", not where it gives up: it keeps the
+connection open up to a hard cap, and after that reads the result file (§Daemon 0.9.0).
+The formula still matters: it is the latency the daemon plans for.
 
 `punct` may also be `llm_zh_partial` (daemon ≥0.5.4): long dictation is punctuated in
 chunks and only some chunks passed; the rest used `smart_zh`. Responses may carry
@@ -218,3 +223,35 @@ Two recognition models stay loaded in the worker; the daemon picks one per utter
   comma. This is the only step that deletes content characters, so it is opt-in per request;
   `raw` always keeps the original and the log row carries `fillers` (how many were removed).
 - An utterance that is nothing but fillers is `no_speech` (`dehall: "only_fillers"`).
+
+## Daemon 0.9.0: redo a sentence, result file, back-to-back dictation
+
+- **`uid`.** A successful `transcribe` response carries `uid` (12 hex characters), the id of
+  that sentence. The log row already had it in router mode.
+- **Recent recordings.** In router mode the daemon keeps each successful recording for
+  `<PREFIX>_RECENT_AUDIO_S` seconds (default 60; `0` keeps none) under
+  `<data root>/dictation-recent/<uid>.wav` (directory 0700, files 0600, PCM16 like the input).
+  A timer deletes each one when it expires, a read checks the age again, and a starting daemon
+  deletes whatever the last run left. `ping` carries `recent_audio_s` when this is on.
+- **`retranscribe`.** Request `{"cmd": "retranscribe", "uid": "…", "mode": "accurate"}`
+  (`mode` defaults to `accurate`; `punct`, `fillers` and `tag` as in `transcribe`). The kept
+  recording goes through the same pipeline with that mode's model, without a shadow run and
+  without keeping a second copy. The response is a normal transcribe response plus
+  `redo_of` (the original uid) and a new `uid`. Expired or unknown uid → `file_not_found`;
+  missing uid, unknown mode or no router backend → `bad_request`. Log rows carry `redo_of`
+  and the mode actually used in `asr_mode`; statistics skip them (same audio, not a new sentence).
+- **Result file.** Every `transcribe` / `retranscribe`, including `no_speech` and errors, is
+  written to `<PREFIX>_RESULTS_PATH` (default `<data root>/dictation-last.json`, 0600, replaced
+  atomically): `{"version": 1, "updated": ts, "results": [newest first, at most 10]}`, each
+  entry `ts`, `uid`, `wav` (the path in the request), `ok`, `text`, `raw`, `changes`, `punct`,
+  `total_ms`, `error`, `redo_of`, `tag` (absent when empty). `ping` carries `results_path`.
+  A shell that stopped waiting finds its sentence by `wav`. It holds the same text as the
+  dictation log and stays on the machine.
+- **Shell (0.9.0).** One recording can start while earlier ones are still being transcribed.
+  The shell still sends one request at a time (the daemon handles one at a time), in the order
+  they were spoken, and pastes results in that order. It no longer deletes a recording when
+  the daemon is slow: after the timeout above it shows "still transcribing" and keeps waiting;
+  if the connection fails it reads the result file and, if the daemon restarted before reading
+  the recording, sends it once more. A result that arrives late or after the user switched
+  apps goes to the clipboard and the recent list instead of being typed.
+- The wire protocol stays 1.0: every field above is an addition readers may ignore.

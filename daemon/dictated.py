@@ -14,12 +14,14 @@ launchd 安裝見 daemon/README.md。
 
 from __future__ import annotations
 
+import io
 import json
 import os
 import re
 import signal
 import socket
 import sys
+import threading
 import time
 import unicodedata
 import uuid
@@ -36,7 +38,7 @@ except ImportError:  # direct script execution: python daemon/dictated.py
     from product_config import (DATA_ROOT, LOG_ROOT, LEXICON_ROOT, PRIORITY_TERMS, SOCKET_PATH, env,
                                 PROMPT_CORE_TERMS as PROMPT_CORE_TERMS_RAW)
 
-__version__ = "0.8.0"
+__version__ = "0.9.0"
 
 # ---------------------------------------------------------------------------
 # 常數（路徑皆契約 SSOT，見 IO-CONTRACT.md §路徑約定）
@@ -114,6 +116,13 @@ ASR_POST_RESERVE_S = 0.5
 # 路由資訊寫進每句 log 的欄位（None 不寫）
 ROUTE_LOG_FIELDS = ("asr_where", "asr_model", "asr_engine_ms", "net_ms", "ipc_ms", "asr_queue_ms", "asr_fallback")
 SHADOW_LOG_DIR = Path(env("ASR_SHADOW_LOG_ROOT", str(LOG_ROOT.parent / "dictation-shadow"))).expanduser()
+# v0.9.0 重轉上一句：router 模式把每句成功的原始錄音留在本機這麼多秒（過期就刪；0＝不留，retranscribe 一律 file_not_found）。
+# 一個月的紀錄：一段連講裡兩句間隔中位數 60 秒，聽錯的那句通常在下一句之前就看到了。
+RECENT_AUDIO_S = float(env("RECENT_AUDIO_S", "60") or 0)
+RECENT_AUDIO_DIR = Path(env("RECENT_AUDIO_DIR", str(DATA_ROOT / "dictation-recent"))).expanduser()
+# v0.9.0 最後結果檔：每句的結果（成功、no_speech、錯誤）都寫一份，殼等不到 socket 回應時從這裡撿回來。
+RESULTS_PATH = Path(env("RESULTS_PATH", str(DATA_ROOT / "dictation-last.json"))).expanduser()
+RESULTS_KEEP = 10
 
 
 # ---------------------------------------------------------------------------
@@ -958,6 +967,121 @@ def cleanup_wav(path: str) -> None:
         log_line(f"⚠️ cleanup_wav failed for {path}: {e}")
 
 
+_UID = re.compile(r"[0-9a-f]{6,32}")
+
+
+def _write_private(path: Path, data: bytes) -> None:
+    """原子寫入、0600：先寫同資料夾的暫存檔再 rename，讀的人不會看到寫一半的檔。"""
+    path.parent.mkdir(parents=True, exist_ok=True)
+    tmp = path.with_name(f".{path.name}.{os.getpid()}.tmp")
+    fd = os.open(tmp, os.O_WRONLY | os.O_CREAT | os.O_TRUNC, 0o600)
+    with os.fdopen(fd, "wb") as f:
+        f.write(data)
+    os.replace(tmp, path)
+
+
+class RecentAudio:
+    """最近幾句的原始錄音（v0.9.0，router 模式；只給 retranscribe 用）。
+
+    只在本機、資料夾 0700、檔案 0600；存 PCM16 wav（跟殼交來的格式一樣，存回去不失真）。
+    存了 keep_s 秒就刪：每存一句排一個計時器掃一次，讀的時候也檢查；daemon 啟動時把上次留下的全部清掉。
+    """
+
+    def __init__(self, root: Path, keep_s: float) -> None:
+        self.root = Path(root)
+        self.keep_s = keep_s
+        self.sweep(everything=True)
+
+    def path(self, uid: str) -> Path:
+        return self.root / f"{uid}.wav"
+
+    def save(self, uid: str, audio) -> bool:
+        if self.keep_s <= 0 or audio is None or not getattr(audio, "size", 0) or not _UID.fullmatch(uid):
+            return False
+        pcm = np.clip(np.round(audio * 32768.0), -32768, 32767).astype(np.int16).tobytes()
+        try:
+            self.root.mkdir(parents=True, exist_ok=True)
+            os.chmod(self.root, 0o700)
+            buf = io.BytesIO()
+            with wave.open(buf, "wb") as w:
+                w.setnchannels(1)
+                w.setsampwidth(2)
+                w.setframerate(SAMPLE_RATE)
+                w.writeframes(pcm)
+            _write_private(self.path(uid), buf.getvalue())
+        except OSError as e:
+            log_line(f"⚠️ recent audio save failed: {e}")
+            return False
+        timer = threading.Timer(self.keep_s + 0.5, self.sweep)
+        timer.daemon = True
+        timer.start()
+        return True
+
+    def get(self, uid: str) -> str | None:
+        """還在保留期內 → 檔案路徑；過期／沒有／uid 格式不對 → None。"""
+        if not _UID.fullmatch(uid or ""):
+            return None
+        p = self.path(uid)
+        try:
+            age = time.time() - p.stat().st_mtime
+        except OSError:
+            return None
+        if age > self.keep_s:
+            self._unlink(p)
+            return None
+        return str(p)
+
+    def sweep(self, everything: bool = False) -> int:
+        try:
+            entries = list(self.root.iterdir())
+        except OSError:
+            return 0
+        now, n = time.time(), 0
+        for p in entries:
+            if not p.name.endswith((".wav", ".tmp")):
+                continue
+            try:
+                if everything or now - p.stat().st_mtime > self.keep_s:
+                    p.unlink()
+                    n += 1
+            except OSError:
+                pass
+        return n
+
+    @staticmethod
+    def _unlink(p: Path) -> None:
+        try:
+            p.unlink()
+        except OSError:
+            pass
+
+
+class ResultStore:
+    """每句的最後結果（v0.9.0）：殼等不到 socket 回應時（逾時、daemon 重啟、殼重開）從這裡撿回來。
+
+    一個 JSON 檔、新的在前、只留最近 keep 句；原子覆寫、0600。內容跟 dictation log 一樣只在本機。
+    """
+
+    def __init__(self, path: Path, keep: int = RESULTS_KEEP) -> None:
+        self.path = Path(path)
+        self.keep = keep
+
+    def read(self) -> list[dict]:
+        try:
+            rows = json.loads(self.path.read_text(encoding="utf-8")).get("results")
+        except (OSError, ValueError, AttributeError):
+            return []
+        return [r for r in rows if isinstance(r, dict)] if isinstance(rows, list) else []
+
+    def record(self, entry: dict) -> None:
+        rows = [entry] + self.read()
+        body = {"version": 1, "updated": entry.get("ts"), "results": rows[: self.keep]}
+        try:
+            _write_private(self.path, (json.dumps(body, ensure_ascii=False) + "\n").encode("utf-8"))
+        except OSError as e:
+            log_line(f"⚠️ result file write failed: {e}")
+
+
 # ---------------------------------------------------------------------------
 # no_speech 判定
 # ---------------------------------------------------------------------------
@@ -1196,6 +1320,9 @@ class DictationDaemon:
                 worker_python=ASR_WORKER_PYTHON, log=log_line,
                 remote_rtf=ASR_REMOTE_RTF, remote_base_s=ASR_REMOTE_BASE_S,
                 local_models=list(self.modes.values()))
+        self.results = ResultStore(RESULTS_PATH)
+        # 重轉要另一個模式：只有 router 模式有，錄音也只在這時候留
+        self.recent = RecentAudio(RECENT_AUDIO_DIR, RECENT_AUDIO_S) if self.router is not None else None
         log_line(
             f"lexicon loaded: {len(self.lex.replacements)} replacements, "
             f"prompt {len(self.initial_prompt)} chars"
@@ -1286,6 +1413,11 @@ class DictationDaemon:
                 resp["warm"] = self.router.warm
                 resp["asr"] = self.router.status()
                 resp["mode"] = self.mode
+            recent = getattr(self, "recent", None)
+            if recent is not None and recent.keep_s > 0:
+                resp["recent_audio_s"] = recent.keep_s      # 殼據此顯示／停用「用準模式重轉」
+            if getattr(self, "results", None) is not None:
+                resp["results_path"] = str(self.results.path)
             return resp
         if cmd == "reload_lexicon":
             self.lex.reload()
@@ -1301,6 +1433,8 @@ class DictationDaemon:
             return self.handle_add_pair(req)
         if cmd == "set_mode":
             return self.handle_set_mode(req)
+        if cmd == "retranscribe":
+            return self.handle_retranscribe(req)
         if cmd == "stats":
             return self.handle_stats()
         return {"ok": False, "error": "unknown_cmd"}
@@ -1338,6 +1472,8 @@ class DictationDaemon:
                         row = json.loads(line)
                     except json.JSONDecodeError:
                         continue
+                    if row.get("redo_of"):        # 重轉同一段錄音，不是新的一句
+                        continue
                     if row.get("error"):
                         err += 1
                         continue
@@ -1373,7 +1509,46 @@ class DictationDaemon:
             "replacements": len(self.lex.replacements),
         }
 
-    def handle_transcribe(self, req: dict) -> dict:
+    def handle_retranscribe(self, req: dict) -> dict:
+        """重轉上一句（v0.9.0）：剛才那句的錄音用另一個模式（預設準）再辨識一次。
+
+        錄音只留 RECENT_AUDIO_S 秒；過期、沒有這句、或 daemon 不是 router 模式 → 不重轉。
+        回應跟 transcribe 一樣，多一個 redo_of（原句的 uid）。
+        """
+        router, recent = getattr(self, "router", None), getattr(self, "recent", None)
+        uid = str(req.get("uid") or "").strip()
+        mode = MODE_ALIASES.get(str(req.get("mode") or "accurate").strip().lower(),
+                                MODE_ALIASES.get(str(req.get("mode") or "").strip()))
+        if router is None or recent is None or not uid or not mode:
+            return {"ok": False, "error": "bad_request"}
+        path = recent.get(uid)
+        if path is None:
+            log_line(f"retranscribe {uid}：錄音已過期或不存在（只留 {recent.keep_s:g} 秒）")
+            return {"ok": False, "error": "file_not_found"}
+        sub = {"wav": path, "punct": req.get("punct"), "fillers": req.get("fillers"), "tag": req.get("tag")}
+        return self.handle_transcribe({k: v for k, v in sub.items() if v}, model=self.modes[mode],
+                                      mode=mode, redo_of=uid)
+
+    def handle_transcribe(self, req: dict, *, model: str | None = None, mode: str | None = None,
+                          redo_of: str | None = None) -> dict:
+        """一句：辨識 → 回應；結果另外寫進最後結果檔（v0.9.0，殼等不到回應時撿得回來）。"""
+        uid = uuid.uuid4().hex[:12]
+        resp = self._transcribe(req, uid, model=model, mode=mode, redo_of=redo_of)
+        if resp.get("ok"):
+            resp["uid"] = uid
+            if redo_of:
+                resp["redo_of"] = redo_of
+        results = getattr(self, "results", None)
+        if results is not None:
+            entry = {"ts": datetime.now().isoformat(timespec="seconds"), "uid": uid,
+                     "wav": str(req.get("wav") or ""), "redo_of": redo_of,
+                     "tag": str(req["tag"])[:40] if req.get("tag") else None,
+                     **{k: resp.get(k) for k in ("ok", "text", "raw", "changes", "punct", "total_ms", "error")}}
+            results.record({k: v for k, v in entry.items() if v is not None})
+        return resp
+
+    def _transcribe(self, req: dict, uid: str, *, model: str | None = None, mode: str | None = None,
+                    redo_of: str | None = None) -> dict:
         t_total0 = time.perf_counter()
         t_mono0 = time.monotonic()
         wav_path = str(req.get("wav") or "")
@@ -1438,7 +1613,8 @@ class DictationDaemon:
                 adur = len(src) / SAMPLE_RATE
             short = adur is not None and adur < ASR_SHORT_CLIP_S
             router = getattr(self, "router", None)
-            req_model = router.main if router is not None else None      # 這一句開始時的模型（中途切換不影響這句）
+            # 這一句開始時的模型（中途切換不影響這句）；retranscribe 指定另一個模式的模型
+            req_model = (model or router.main) if router is not None else None
             main_kind = asr_engine.spec(req_model)["kind"] if router is not None else "whisper"
             # 提示詞＝whisper 的 initial_prompt；熱詞＝Qwen3-ASR 的詞表（同一批專名）。ASR_PROMPT=none 兩者都不給。
             hotwords = None
@@ -1449,7 +1625,6 @@ class DictationDaemon:
             else:
                 prompt0 = None
                 hotwords = getattr(self, "hotwords", None)
-            uid = uuid.uuid4().hex[:12]
             route: dict = {}
             if router is None:
                 import mlx_whisper
@@ -1512,8 +1687,10 @@ class DictationDaemon:
                     "asr_retry": retry_tag, "raw_first": raw_first,
                     "trim_head_s": round(trim_h, 2) or None, "trim_tail_s": round(trim_t, 2) or None}
             if router is not None:
-                diag.update({"uid": uid, "asr_mode": getattr(self, "mode", None),
+                diag.update({"uid": uid, "asr_mode": mode or getattr(self, "mode", None),
                              **{k: route.get(k) for k in ROUTE_LOG_FIELDS}})
+            if redo_of:                   # 重轉的那一列：原句的 uid（統計時別算成新的一句）
+                diag["redo_of"] = redo_of
             if req.get("tag"):            # 測試／重放送進來的句子自己標記，log 讀者分得出來（殼不送）
                 diag["tag"] = str(req["tag"])[:40]
             if not deloop:
@@ -1523,7 +1700,8 @@ class DictationDaemon:
                                     total_ms=self._ms(t_total0), pre_asr_ms=pre_asr_ms,
                                     load_ms=load_ms, lex_ms=0, punct_ms=0,
                                     error="no_speech", dehall=deloop_why, diag=diag)
-                self._queue_shadow(router, uid, src, adur, dur, short, route.get("body"), raw, "")
+                if not redo_of:
+                    self._queue_shadow(router, uid, src, adur, dur, short, route.get("body"), raw, "")
                 return {"ok": False, "error": "no_speech"}
 
             # -- 確定性校正（詞庫命中才改，絕無 LLM，見契約§校正哲學）
@@ -1575,7 +1753,11 @@ class DictationDaemon:
                                 load_ms=load_ms, lex_ms=lex_ms, punct_ms=punct_ms,
                                 punct=punct_mode,
                                 dehall=deloop_why, diag=diag)
-            self._queue_shadow(router, uid, src, adur, dur, short, route.get("body"), raw, text)
+            if not redo_of:               # 重轉本身就是另一個模型，不再並排；也不再留一份錄音
+                self._queue_shadow(router, uid, src, adur, dur, short, route.get("body"), raw, text)
+                recent = getattr(self, "recent", None)
+                if recent is not None and audio is not None:
+                    recent.save(uid, audio)
             resp = {"ok": True, "text": text, "raw": raw, "changes": changes,
                     "punct": punct_mode, "asr_ms": asr_ms, "total_ms": total_ms,
                     "pre_asr_ms": pre_asr_ms, "load_ms": load_ms,

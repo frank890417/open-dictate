@@ -45,6 +45,10 @@ final class StatusItemController: NSObject, NSMenuDelegate, NSPopoverDelegate {
     var onOpenLog: (() -> Void)?
     var onHotkeyChanged: (() -> Void)?
     var onMicChanged: (() -> Void)?
+    /// 上一句用準模式重轉（v0.9）
+    var onRetranscribe: ((ControlCenterModel.Utterance) -> Void)?
+    /// 撤回上一句（v0.9）：焦點已還給原 app
+    var onWithdraw: ((ControlCenterModel.Utterance) -> Void)?
 
     private var statusItem: NSStatusItem!
     private let classicMenu = NSMenu()
@@ -267,6 +271,17 @@ final class StatusItemController: NSObject, NSMenuDelegate, NSPopoverDelegate {
         model.onPopMenu = { [weak self] kind in self?.popMenu(kind) }
         model.onHotkeyChanged = { [weak self] in self?.onHotkeyChanged?() }
         model.onRepaste = { [weak self] text in self?.repaste(text) }
+        model.onRetranscribe = { [weak self] u in
+            self?.returnFocus()                     // 先把焦點還回去，daemon 那邊同時開始轉
+            self?.onRetranscribe?(u)
+        }
+        model.onWithdraw = { [weak self] u in self?.returnFocus { self?.onWithdraw?(u) } }
+        model.onPasteUndelivered = { [weak self] u in
+            self?.returnFocus {
+                TextInjector.inject(u.text) { method in mdLog("貼上沒送到的那句：\(method.rawValue)") }
+                if self?.model.undelivered?.id == u.id { self?.model.undelivered = nil }
+            }
+        }
         model.onReloadLexicon = { [weak self] in self?.onReloadLexicon?() }
         model.onRestartDaemon = { [weak self] in self?.onRestartDaemon?() }
         model.onOpenLog = { [weak self] in self?.closePopover(); self?.openLogClicked() }
@@ -296,7 +311,7 @@ final class StatusItemController: NSObject, NSMenuDelegate, NSPopoverDelegate {
         // 重開 app 後控制中心不是空的：今天最後幾句從 log 讀回來
         for entry in DictationStats.recentSuccessEntries(limit: 6).reversed() {
             pushHistory(text: entry.text, raw: entry.raw, changes: entry.changes,
-                        latencyMs: entry.totalMs, at: entry.date)
+                        latencyMs: entry.totalMs, at: entry.date, uid: entry.uid, redoOf: entry.redoOf)
         }
         if let first = DictationStats.recentSuccessEntries(limit: 1).first {
             lastAppliedLogTs = first.ts
@@ -348,12 +363,18 @@ final class StatusItemController: NSObject, NSMenuDelegate, NSPopoverDelegate {
 
     /// 再貼一次：關控制中心 → 焦點還給原本的 app → 貼上
     private func repaste(_ text: String) {
+        returnFocus {
+            TextInjector.inject(text) { method in mdLog("再貼一次：\(method.rawValue)") }
+        }
+    }
+
+    /// 關控制中心、焦點還給開它之前在用的 app；then 在焦點回去之後（0.3 秒）才跑
+    private func returnFocus(then: (() -> Void)? = nil) {
         keepFocusOnClose = true
         closePopover()
         previousApp?.activate()
-        DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
-            TextInjector.inject(text) { method in mdLog("再貼一次：\(method.rawValue)") }
-        }
+        guard let then else { return }
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.3, execute: then)
     }
 
     // MARK: - 今天 3 題
@@ -421,6 +442,24 @@ final class StatusItemController: NSObject, NSMenuDelegate, NSPopoverDelegate {
     }
 
     // MARK: - External updates
+
+    /// 轉錄中的說明（「轉錄中…」「還在轉…」）與還沒回來的句數
+    func setTranscribing(label: String, queued: Int) {
+        model.transcribingLabel = label
+        model.queued = queued
+        statusItem.button?.toolTip = queued > 1 ? "\(label)（還有 \(queued) 句）" : label
+    }
+
+    /// daemon 的重轉能力（ping 的 recent_audio_s）
+    func setRedoSupport(seconds: Double?) { model.recentAudioSeconds = seconds }
+    func setRedoBusy(_ busy: Bool) { model.redoBusy = busy }
+
+    /// 晚到、沒貼上的那句：字已放剪貼簿，控制中心多一張卡可以一鍵貼回去
+    func setUndelivered(text: String, raw: String?, changes: [[String]], latencyMs: Int?, uid: String?) {
+        model.undelivered = .init(text: text, raw: raw, changes: changes, latencyMs: latencyMs, at: Date(), uid: uid)
+    }
+
+    func markWithdrawn(_ u: ControlCenterModel.Utterance) { model.markWithdrawn(u) }
 
     func setState(_ state: IconState) {
         applyIcon(state)
@@ -492,7 +531,8 @@ final class StatusItemController: NSObject, NSMenuDelegate, NSPopoverDelegate {
         lastAppliedLogTs = entry.ts
         guard entry.text != lastText else { return }
         setSuccess(text: entry.text, raw: entry.raw, latencyMs: entry.totalMs, changes: entry.changes)
-        pushHistory(text: entry.text, raw: entry.raw, changes: entry.changes, latencyMs: entry.totalMs, at: entry.date)
+        pushHistory(text: entry.text, raw: entry.raw, changes: entry.changes, latencyMs: entry.totalMs, at: entry.date,
+                    uid: entry.uid, redoOf: entry.redoOf)
     }
 
     func setLastResult(_ text: String?) {
@@ -532,8 +572,9 @@ final class StatusItemController: NSObject, NSMenuDelegate, NSPopoverDelegate {
         refreshStats()
     }
 
-    func pushHistory(text: String, raw: String?, changes: [[String]] = [], latencyMs: Int? = nil, at: Date = Date()) {
-        model.push(.init(text: text, raw: raw, changes: changes, latencyMs: latencyMs, at: at))
+    func pushHistory(text: String, raw: String?, changes: [[String]] = [], latencyMs: Int? = nil, at: Date = Date(),
+                     uid: String? = nil, redoOf: String? = nil) {
+        model.push(.init(text: text, raw: raw, changes: changes, latencyMs: latencyMs, at: at, uid: uid, redoOf: redoOf))
         history.insert((text, raw), at: 0)
         if history.count > 8 { history.removeLast(history.count - 8) }
         historySubmenu.removeAllItems()
