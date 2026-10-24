@@ -24,6 +24,12 @@ enum DictateSettings {
         set { d.set(newValue, forKey: "stripFillers") }
     }
 
+    /// 偵測到會議 App 在用麥克風時，提醒要不要開會議錄音（MeetingDetector）
+    static var meetingDetect: Bool {
+        get { d.object(forKey: "meetingDetect") as? Bool ?? true }
+        set { d.set(newValue, forKey: "meetingDetect") }
+    }
+
     // MARK: - 標點
 
     /// smart_zh / llm_zh / raw

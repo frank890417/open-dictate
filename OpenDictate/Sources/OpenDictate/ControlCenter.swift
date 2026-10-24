@@ -46,6 +46,8 @@ final class ControlCenterModel: ObservableObject {
     @Published var meetingAvailable = false
     /// 會議 app 正在錄（ProductConfig.meetingStatusFile 存在）；nil＝沒在錄或不知道
     @Published var meeting: MeetingStatus?
+    /// 偵測到正在通話的會議 App（MeetingDetector）；nil＝沒有
+    @Published var meetingDetected: String?
 
     struct MeetingStatus: Equatable {
         let title: String
@@ -491,6 +493,9 @@ struct ControlCenterView: View {
                             Text(meetingSubtitle(m, now: ctx.date))
                                 .font(.system(size: 10.5).monospacedDigit()).foregroundStyle(.secondary)
                         }
+                    } else if let app = model.meetingDetected, model.meetingAvailable {
+                        Text("偵測到 \(app) 正在通話 · 點這裡開始錄")
+                            .font(.system(size: 10.5, weight: .medium)).foregroundStyle(Color.red)
                     } else {
                         Text(model.meetingAvailable ? "邊錄邊出逐字稿與即時重點" : "即時會議面板未安裝")
                             .font(.system(size: 10.5)).foregroundStyle(.secondary)

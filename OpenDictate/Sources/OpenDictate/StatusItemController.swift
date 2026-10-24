@@ -99,6 +99,8 @@ final class StatusItemController: NSObject, NSMenuDelegate, NSPopoverDelegate {
 
     private let hudMenuItem = NSMenuItem(title: "錄音浮動提示（游標旁）", action: #selector(hudToggled), keyEquivalent: "")
     private let rawDiffMenuItem = NSMenuItem(title: "成功時顯示 raw 對照", action: #selector(rawDiffToggled), keyEquivalent: "")
+    private let meetingDetectMenuItem = NSMenuItem(title: "偵測到開會時提醒錄音", action: #selector(meetingDetectToggled), keyEquivalent: "")
+    var onMeetingDetectChanged: (() -> Void)?
 
     private var lastText: String?
     private var lastRaw: String?
@@ -209,9 +211,12 @@ final class StatusItemController: NSObject, NSMenuDelegate, NSPopoverDelegate {
         menu.addItem(injectMenuItem)
 
         hudMenuItem.target = self
+        meetingDetectMenuItem.target = self
+        meetingDetectMenuItem.toolTip = "Zoom／Teams／Meet 等會議 App 用麥克風超過 20 秒，問一次要不要開會議錄音"
         menu.addItem(hudMenuItem)
         rawDiffMenuItem.target = self
         menu.addItem(rawDiffMenuItem)
+        menu.addItem(meetingDetectMenuItem)
 
         let settings = NSMenuItem(title: "設定…", action: #selector(settingsClicked), keyEquivalent: ",")
         settings.target = self
@@ -505,6 +510,17 @@ final class StatusItemController: NSObject, NSMenuDelegate, NSPopoverDelegate {
         punctMenuItem.title = mode == "fast" ? "標點模式（快：用模型自帶標點，原樣除外）" : "標點模式"
     }
 
+    /// 偵測到正在通話的會議 App（nil＝沒有）→ 控制中心會議卡亮提示
+    func setMeetingDetected(_ app: String?) {
+        model.meetingDetected = app
+    }
+
+    @objc private func meetingDetectToggled() {
+        DictateSettings.meetingDetect.toggle()
+        meetingDetectMenuItem.state = DictateSettings.meetingDetect ? .on : .off
+        onMeetingDetectChanged?()
+    }
+
     func setDaemonStatus(_ text: String) {
         daemonStatusMenuItem.title = "daemon：\(text)"
         model.daemonDetail = text
@@ -678,6 +694,7 @@ final class StatusItemController: NSObject, NSMenuDelegate, NSPopoverDelegate {
 
         hudMenuItem.state = DictateSettings.hudEnabled ? .on : .off
         rawDiffMenuItem.state = DictateSettings.showRawDiff ? .on : .off
+        meetingDetectMenuItem.state = DictateSettings.meetingDetect ? .on : .off
 
         rebuildMicMenu()
         onCheckDaemon?()

@@ -16,6 +16,7 @@ import SwiftUI
 ///                                                 # fresh＝把最新那句當成剛講完（錄音還在保留期內，重轉按鈕亮著）
 ///   OpenDictate --probe-toggle                    # 叫正在跑的那一份打開／關上控制中心（可綁 Raycast／捷徑）
 ///   OpenDictate --probe-quiz [answer <id> yes|no] # 今天 3 題：印出題目（只看不記），或回答一題
+///   OpenDictate --probe-audio-clients             # 現在誰在用音訊輸入、會不會被當成會議（MeetingDetector）
 ///
 /// exit code：0 = 拿到合法 daemon 回應（含 ok:false，如 no_speech）或 wav 產出成功；
 ///            2 = 傳輸層失敗（連不上 / timeout / 格式錯）；64 = 用法錯誤。
@@ -64,6 +65,28 @@ enum ProbeCLI {
             DistributedNotificationCenter.default().postNotificationName(
                 StatusItemController.toggleNotification, object: nil, userInfo: nil, deliverImmediately: true)
             print("posted \(StatusItemController.toggleNotification.rawValue)")
+            return 0
+        case "--probe-meeting-prompt":
+            guard arguments.count >= 3 else { return 64 }
+            _ = NSApplication.shared
+            let view = MeetingPromptPanel.makeContent(app: "Zoom", onStart: {}, onDismiss: {})
+            view.appearance = NSAppearance(named: arguments.count >= 4 && arguments[3] == "dark" ? .darkAqua : .aqua)
+            let bg = NSView(frame: view.frame)
+            bg.wantsLayer = true
+            bg.layer?.backgroundColor = (arguments.count >= 4 && arguments[3] == "dark" ? NSColor(white: 0.16, alpha: 1) : NSColor(white: 0.94, alpha: 1)).cgColor
+            bg.addSubview(view)
+            guard let rep = bg.bitmapImageRepForCachingDisplay(in: bg.bounds) else { return 2 }
+            bg.cacheDisplay(in: bg.bounds, to: rep)
+            try? rep.representation(using: .png, properties: [:])?.write(to: URL(fileURLWithPath: arguments[2]))
+            print("snapshot=\(arguments[2])")
+            return 0
+        case "--probe-audio-clients":
+            guard let clients = MeetingDetector.inputClients() else { print("process 物件不可用（需要 macOS 14.4+）"); return 2 }
+            if clients.isEmpty { print("沒有任何行程在用音訊輸入") }
+            for c in clients {
+                let name = NSRunningApplication(processIdentifier: c.pid)?.localizedName ?? "?"
+                print("pid=\(c.pid) bundle=\(c.bundleID.isEmpty ? "（無）" : c.bundleID) app=\(name) meeting=\(MeetingDetector.meetingAppName(for: c.bundleID) ?? "否")")
+            }
             return 0
         case "--probe-quiz":
             guard LexiconQuiz.isAvailable else { print("quiz=unavailable path=\(LexiconQuiz.scriptPath)"); return 0 }
