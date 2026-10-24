@@ -46,6 +46,8 @@ def main() -> int:
         # Optional fields: empty string means "use the built-in default".
         "PRODUCT_MODEL": r.get("model", ""),
         "PRODUCT_PROMPT_CORE_TERMS": r.get("promptCoreTerms", ""),
+        "PRODUCT_MEETING_URL": r.get("meetingURL", ""),
+        "PRODUCT_MEETING_STATUS_FILE": r.get("meetingStatusFile", ""),
         "PRODUCT_SIGNING_IDENTITY": p.get("signingIdentity", ""),
         "PRODUCT_RUNTIME_LOG_ROOT": p.get("runtimeLogRoot") or f"{p['dataRoot'].rstrip('/')}/runtime-logs",
     }
