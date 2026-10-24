@@ -29,6 +29,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private let hotkeyMonitor = HotkeyMonitor()
     private let recorder = AudioRecorder()
     private let hud = RecordingHUD()
+    private let meetingDetector = MeetingDetector()
+    private let meetingPrompt = MeetingPromptPanel()
     private let settingsWindow = SettingsWindowController()
     /// 跟 daemon 的往返全部排在這條序列上：daemon 一次處理一句，殼也一次送一句，逾時才從真的開始處理時算
     private let socketQueue = DispatchQueue(label: "\(ProductConfig.shellLaunchLabel).socket", qos: .userInitiated)
@@ -74,12 +76,34 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
         recorder.onLevel = { [weak self] level in self?.hud.updateLevel(level) }
 
+        meetingDetector.onPrompt = { [weak self] app in
+            self?.meetingPrompt.show(app: app) {
+                guard let url = URL(string: ProductConfig.meetingURL) else { return }
+                mdLog("會議提醒：開始錄（\(app)）")
+                NSWorkspace.shared.open(url)
+            }
+        }
+        meetingDetector.onActiveChanged = { [weak self] app in self?.statusController.setMeetingDetected(app) }
+        statusController.onMeetingDetectChanged = { [weak self] in self?.applyMeetingDetect() }
+        applyMeetingDetect()
+
         statusController.refreshStats()
         pingDaemon()
         mdLog("\(ProductConfig.appName) v\(Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "?") 啟動（熱鍵=\(DictateSettings.hotkeyLabel), AX=\(PermissionGuide.isAccessibilityTrusted)）")
     }
 
     func applicationSupportsSecureRestorableState(_ app: NSApplication) -> Bool { true }
+
+    /// 會議偵測：設定開著、而且有 App 認領會議網址（會議面板裝了）才跑
+    private func applyMeetingDetect() {
+        let handled = URL(string: ProductConfig.meetingURL).flatMap { NSWorkspace.shared.urlForApplication(toOpen: $0) } != nil
+        if DictateSettings.meetingDetect && handled {
+            meetingDetector.start()
+        } else {
+            meetingDetector.stop()
+            meetingPrompt.hide()
+        }
+    }
 
     private func openSettings() {
         settingsWindow.refreshStats()
