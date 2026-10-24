@@ -11,7 +11,8 @@
         "cmd": {"const": "transcribe"},
         "wav": {"type": "string", "minLength": 1},
         "punct": {"enum": ["raw", "smart_zh", "llm_zh"], "default": "smart_zh"},
-        "tag": {"type": "string", "maxLength": 40, "description": "daemon ≥0.7.0: copied into the local log row (marks test/replay utterances)"}
+        "tag": {"type": "string", "maxLength": 40, "description": "daemon ≥0.7.0: copied into the local log row (marks test/replay utterances)"},
+        "fillers": {"enum": ["keep", "strip"], "default": "keep", "description": "daemon ≥0.8.0: strip removes the hesitation sounds 呃／嗯 after punctuation (raw keeps them)"}
       }
     },
     {

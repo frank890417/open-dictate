@@ -209,3 +209,12 @@ Two recognition models stay loaded in the worker; the daemon picks one per utter
 - **Log rows** gain `asr_mode`. `asr_where` is `local` or `studio`; `studio` is this field's name
   for the optional remote recognition service (`asr_server.py`), whatever machine it runs on.
 - The wire protocol stays 1.0: every field above is an addition readers may ignore.
+
+## Daemon 0.8.0: optional filler removal
+
+- `transcribe` accepts `"fillers": "keep" | "strip"` (default `keep`). With `strip` the daemon
+  removes the hesitation sounds 呃 / 嗯 after punctuation: 呃 everywhere, 嗯 except at the very
+  start of the utterance (an answer such as 「嗯，好」). A filler between two commas leaves one
+  comma. This is the only step that deletes content characters, so it is opt-in per request;
+  `raw` always keeps the original and the log row carries `fillers` (how many were removed).
+- An utterance that is nothing but fillers is `no_speech` (`dehall: "only_fillers"`).

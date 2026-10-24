@@ -6,6 +6,10 @@ struct DictationStats {
     let okCount: Int
     let errorCount: Int
     let lexiconHits: Int
+    /// 打出去的字數（成功句 text 長度合計）
+    var chars: Int = 0
+    /// 沒聽到話（no_speech：誤觸、靜音、幻覺被擋）
+    var noSpeech: Int = 0
     let p50Ms: Int?
     let p90Ms: Int?
     let maxMs: Int?
@@ -30,15 +34,18 @@ struct DictationStats {
             return DictationStats(count: 0, okCount: 0, errorCount: 0, lexiconHits: 0,
                                   p50Ms: nil, p90Ms: nil, maxMs: nil)
         }
-        var ok = 0, err = 0, hits = 0
+        var ok = 0, err = 0, hits = 0, chars = 0, noSpeech = 0
         var latencies: [Int] = []
         for line in data.split(separator: "\n") {
             guard let row = try? JSONSerialization.jsonObject(with: Data(line.utf8)) as? [String: Any] else { continue }
+            if row["tag"] != nil { continue }      // 測試／重放句不算
             if let e = row["error"] as? String, !e.isEmpty {
                 err += 1
+                if e == "no_speech" { noSpeech += 1 }
                 continue
             }
             let text = (row["text"] as? String) ?? ""
+            chars += text.count
             if text.isEmpty && (row["ok"] as? Bool) == false {
                 err += 1
                 continue
@@ -66,6 +73,8 @@ struct DictationStats {
             okCount: ok,
             errorCount: err,
             lexiconHits: hits,
+            chars: chars,
+            noSpeech: noSpeech,
             p50Ms: pct(0.5),
             p90Ms: pct(0.9),
             maxMs: latencies.last
@@ -101,6 +110,32 @@ struct DictationStats {
         let raw: String?
         let changes: [[String]]
         let totalMs: Int?
+
+        /// log 的 ts（本地時間 yyyy-MM-ddTHH:mm:ss）；讀不懂就當作現在
+        var date: Date {
+            guard let ts else { return Date() }
+            let f = DateFormatter()
+            f.locale = Locale(identifier: "en_US_POSIX")
+            f.dateFormat = "yyyy-MM-dd'T'HH:mm:ss"
+            return f.date(from: ts) ?? Date()
+        }
+    }
+
+    /// 今天最後 limit 句成功的聽寫（新的在前；測試句不算）。控制中心開機時用來補「最近」。
+    static func recentSuccessEntries(limit: Int, from url: URL = DictationStats.todayFile()) -> [Entry] {
+        guard let data = try? String(contentsOf: url, encoding: .utf8) else { return [] }
+        var out: [Entry] = []
+        for line in data.split(separator: "\n").reversed() {
+            guard out.count < limit,
+                  let row = try? JSONSerialization.jsonObject(with: Data(line.utf8)) as? [String: Any] else { continue }
+            if row["tag"] != nil { continue }
+            if let e = row["error"] as? String, !e.isEmpty { continue }
+            guard let text = row["text"] as? String, !text.isEmpty else { continue }
+            out.append(Entry(ts: row["ts"] as? String, text: text, raw: row["raw"] as? String,
+                             changes: (row["changes"] as? [[String]]) ?? [],
+                             totalMs: (row["total_ms"] as? NSNumber)?.intValue))
+        }
+        return out
     }
 
     /// 讀 log 檔最後一筆「成功」記錄（text 非空、無 error）。
@@ -112,6 +147,7 @@ struct DictationStats {
         guard let data = try? String(contentsOf: url, encoding: .utf8) else { return nil }
         for line in data.split(separator: "\n").reversed() {
             guard let row = try? JSONSerialization.jsonObject(with: Data(line.utf8)) as? [String: Any] else { continue }
+            if row["tag"] != nil { continue }
             if let e = row["error"] as? String, !e.isEmpty { continue }
             guard let text = row["text"] as? String, !text.isEmpty else { continue }
             let totalMs: Int?

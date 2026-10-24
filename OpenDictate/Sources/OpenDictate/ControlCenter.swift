@@ -1,0 +1,504 @@
+import AppKit
+import SwiftUI
+
+/// 選單列控制中心（左鍵）：狀態、辨識模式、常用開關、上一句、最近紀錄、今日數字。
+/// 右鍵仍是完整的文字選單（StatusItemController 的 classicMenu）。
+///
+/// 為什麼長這樣（2026-10 一個月的使用紀錄）：
+/// - 模式只切過 2 次、詞庫回報 0 次——藏在第二層子選單裡的東西不會被用到，常用的要在第一眼。
+/// - 他最常做的是「接著上一句講」、偶爾要把上一句再拿出來：上一句是一張卡，複製／再貼一次／教詞庫都在卡上。
+final class ControlCenterModel: ObservableObject {
+
+    struct Utterance: Identifiable, Equatable {
+        let id = UUID()
+        let text: String
+        let raw: String?
+        let changes: [[String]]
+        let latencyMs: Int?
+        let at: Date
+    }
+
+    enum Phase { case idle, recording, transcribing, error }
+
+    @Published var phase: Phase = .idle
+    @Published var daemonOnline: Bool?            // nil＝檢查中
+    @Published var daemonDetail = "檢查中…"
+    @Published var mode: String?                  // fast／accurate；nil＝舊 daemon 或離線
+    @Published var punctMode = DictateSettings.punctMode
+    @Published var stripFillers = DictateSettings.stripFillers
+    @Published var hudEnabled = DictateSettings.hudEnabled
+    @Published var showRawDiff = DictateSettings.showRawDiff
+    @Published var hotkey = DictateSettings.hotkey
+    @Published var micName = ""
+    @Published var micFollowsSystem = true
+    @Published var history: [Utterance] = []       // [0]＝上一句
+    @Published var stats = DictationStats.loadToday()
+    @Published var notice: String?                 // 最近一次錯誤（麥克風靜音、daemon 沒回應…）
+    @Published var copiedID: UUID?
+    @Published var meetingAvailable = false
+
+    // 由 StatusItemController 接線
+    var onSetMode: (String) -> Void = { _ in }
+    var onPopMenu: (MenuKind) -> Void = { _ in }
+    var onHotkeyChanged: () -> Void = {}
+    var onRepaste: (String) -> Void = { _ in }
+    var onTeach: () -> Void = {}
+    var onReloadLexicon: () -> Void = {}
+    var onRestartDaemon: () -> Void = {}
+    var onOpenLog: () -> Void = {}
+    var onOpenSettings: () -> Void = {}
+    var onPermissions: () -> Void = {}
+    var onStartMeeting: () -> Void = {}
+
+    enum MenuKind { case mic, punct, teach }
+
+    var last: Utterance? { history.first }
+
+    /// 開控制中心前重讀一次（設定可能在設定窗或完整選單被改過）。
+    func refresh() {
+        punctMode = DictateSettings.punctMode
+        stripFillers = DictateSettings.stripFillers
+        hudEnabled = DictateSettings.hudEnabled
+        showRawDiff = DictateSettings.showRawDiff
+        hotkey = DictateSettings.hotkey
+        micName = MicDevice.resolveRecordingDevice().name   // 這次錄音實際會用的那支（含闔蓋改用外接的判斷）
+        micFollowsSystem = DictateSettings.preferredMicUID == nil
+        stats = DictationStats.loadToday()
+        meetingAvailable = URL(string: ProductConfig.meetingURL)
+            .flatMap { NSWorkspace.shared.urlForApplication(toOpen: $0) } != nil
+    }
+
+    func push(_ u: Utterance) {
+        if let first = history.first, first.text == u.text { return }
+        history.insert(u, at: 0)
+        if history.count > 8 { history.removeLast(history.count - 8) }
+    }
+
+    func copy(_ u: Utterance) {
+        let pb = NSPasteboard.general
+        pb.clearContents()
+        pb.setString(u.text, forType: .string)
+        copiedID = u.id
+        DispatchQueue.main.asyncAfter(deadline: .now() + 1.2) { [weak self] in
+            if self?.copiedID == u.id { self?.copiedID = nil }
+        }
+    }
+
+    func toggleFillers() { stripFillers.toggle(); DictateSettings.stripFillers = stripFillers }
+    func toggleHUD() { hudEnabled.toggle(); DictateSettings.hudEnabled = hudEnabled }
+    func toggleRawDiff() { showRawDiff.toggle(); DictateSettings.showRawDiff = showRawDiff }
+    func cycleHotkey() {
+        hotkey = hotkey == "fn" ? "rightOption" : "fn"
+        DictateSettings.hotkey = hotkey
+        onHotkeyChanged()
+    }
+
+    var hotkeyLabel: String { hotkey == "rightOption" ? "右 ⌥" : "fn" }
+
+    var punctLabel: String {
+        if mode == "fast" && punctMode != "raw" { return "模型自帶" }
+        switch punctMode {
+        case "llm_zh": return "LLM 完整"
+        case "raw": return "原樣"
+        default: return "智慧全形"
+        }
+    }
+}
+
+// MARK: - View
+
+struct ControlCenterView: View {
+    @ObservedObject var model: ControlCenterModel
+    /// 截圖用（ImageRenderer 畫不出毛玻璃）：給一個實心底
+    var solidBackground = false
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            header
+            if let notice = model.notice { noticeBanner(notice) }
+            modeTiles
+            toggleGrid
+            HStack(spacing: 8) {
+                WideTile(symbol: "mic.fill", title: model.micFollowsSystem ? "麥克風・跟系統" : "麥克風・指定",
+                         value: model.micName.isEmpty ? "系統預設" : model.micName) {
+                    model.onPopMenu(.mic)
+                }
+                WideTile(symbol: "text.quote", title: "標點", value: model.punctLabel) {
+                    model.onPopMenu(.punct)
+                }
+                .disabled(model.mode == "fast")
+                .help(model.mode == "fast" ? "快速模式用模型自帶的標點；切到「準」才能選" : "標點模式")
+            }
+            lastCard
+            if model.history.count > 1 { historyList }
+            statsRow
+            meetingButton
+            footer
+        }
+        .padding(14)
+        .frame(width: 340)
+        .background(solidBackground ? Color(nsColor: .windowBackgroundColor) : Color.clear)
+    }
+
+    // MARK: header
+
+    private var phaseColor: Color {
+        switch model.phase {
+        case .idle: return model.daemonOnline == false ? .gray : .accentColor
+        case .recording: return .red
+        case .transcribing, .error: return .orange
+        }
+    }
+
+    private var phaseSymbol: String {
+        switch model.phase {
+        case .idle, .recording: return "mic.fill"
+        case .transcribing: return "waveform"
+        case .error: return "exclamationmark.triangle.fill"
+        }
+    }
+
+    private var phaseText: String {
+        switch model.phase {
+        case .idle: return "按住 \(model.hotkeyLabel) 講話，放開就打字"
+        case .recording: return "錄音中…"
+        case .transcribing: return "轉錄中…"
+        case .error: return "剛剛出了點問題"
+        }
+    }
+
+    private var header: some View {
+        HStack(spacing: 10) {
+            ZStack {
+                Circle().fill(phaseColor.gradient).frame(width: 34, height: 34)
+                Image(systemName: phaseSymbol)
+                    .font(.system(size: 15, weight: .semibold))
+                    .foregroundStyle(.white)
+            }
+            VStack(alignment: .leading, spacing: 1) {
+                Text(ProductConfig.appName).font(.system(size: 14, weight: .semibold))
+                Text(phaseText).font(.system(size: 11)).foregroundStyle(.secondary)
+            }
+            Spacer(minLength: 4)
+            HStack(spacing: 5) {
+                Circle()
+                    .fill(model.daemonOnline == nil ? Color.gray : (model.daemonOnline! ? Color.green : Color.red))
+                    .frame(width: 7, height: 7)
+                Text(model.daemonOnline == nil ? "檢查中" : (model.daemonOnline! ? "線上" : "離線"))
+                    .font(.system(size: 11, weight: .medium))
+                    .foregroundStyle(.secondary)
+            }
+            .padding(.horizontal, 8).padding(.vertical, 4)
+            .background(Capsule().fill(Color.primary.opacity(0.06)))
+            .help(model.daemonDetail)
+            IconButton(symbol: "gearshape", help: "設定…", action: model.onOpenSettings)
+        }
+    }
+
+    private func noticeBanner(_ text: String) -> some View {
+        HStack(alignment: .top, spacing: 6) {
+            Image(systemName: "exclamationmark.triangle.fill").foregroundStyle(.orange)
+            Text(text).font(.system(size: 11)).lineLimit(3)
+            Spacer(minLength: 0)
+            Button { model.notice = nil } label: { Image(systemName: "xmark").font(.system(size: 9, weight: .bold)) }
+                .buttonStyle(.plain).foregroundStyle(.secondary)
+        }
+        .padding(8)
+        .background(RoundedRectangle(cornerRadius: 10).fill(Color.orange.opacity(0.12)))
+    }
+
+    // MARK: mode & toggles
+
+    private var modeTiles: some View {
+        HStack(spacing: 8) {
+            ModeTile(symbol: "bolt.fill", title: "快", subtitle: "Qwen3・約 1 秒", selected: model.mode == "fast") {
+                model.onSetMode("fast")
+            }
+            ModeTile(symbol: "scope", title: "準", subtitle: "Whisper・較準", selected: model.mode == "accurate") {
+                model.onSetMode("accurate")
+            }
+        }
+        .disabled(model.mode == nil)
+        .opacity(model.mode == nil ? 0.5 : 1)
+    }
+
+    private var toggleGrid: some View {
+        HStack(spacing: 8) {
+            ToggleTile(symbol: "text.badge.minus", title: "去掉呃嗯", on: model.stripFillers,
+                       help: "拿掉「呃」「嗯」等語氣聲（原文仍留在記錄）", action: model.toggleFillers)
+            ToggleTile(symbol: "text.bubble", title: "浮動提示", on: model.hudEnabled,
+                       help: "錄音時在游標旁顯示波形與結果", action: model.toggleHUD)
+            ToggleTile(symbol: "arrow.left.arrow.right", title: "原文對照", on: model.showRawDiff,
+                       help: "成功時在浮動提示顯示辨識原文／詞庫改了哪裡", action: model.toggleRawDiff)
+            ToggleTile(symbol: model.hotkey == "fn" ? "globe" : "option", title: "熱鍵 \(model.hotkeyLabel)", on: false,
+                       help: "點一下切換 fn／右 Option", action: model.cycleHotkey)
+        }
+    }
+
+    // MARK: last & history
+
+    private func meta(_ u: ControlCenterModel.Utterance) -> String {
+        var bits = [Self.clock.string(from: u.at)]
+        if let ms = u.latencyMs { bits.append(ms >= 1000 ? String(format: "%.1f 秒", Double(ms) / 1000) : "\(ms) ms") }
+        if !u.changes.isEmpty { bits.append("詞庫改 \(u.changes.count) 處") }
+        bits.append("\(u.text.count) 字")
+        return bits.joined(separator: " · ")
+    }
+
+    private var lastCard: some View {
+        VStack(alignment: .leading, spacing: 7) {
+            HStack(spacing: 6) {
+                Text("上一句").font(.system(size: 11, weight: .semibold)).foregroundStyle(.secondary)
+                if let u = model.last { Text(meta(u)).font(.system(size: 11)).foregroundStyle(.tertiary) }
+                Spacer()
+            }
+            if let u = model.last {
+                Text(u.text)
+                    .font(.system(size: 12.5))
+                    .lineLimit(5)
+                    .fixedSize(horizontal: false, vertical: true)
+                    .textSelection(.enabled)
+                HStack(spacing: 6) {
+                    PillButton(symbol: model.copiedID == u.id ? "checkmark" : "doc.on.doc",
+                               title: model.copiedID == u.id ? "已複製" : "複製") { model.copy(u) }
+                    PillButton(symbol: "arrow.uturn.down", title: "再貼一次") { model.onRepaste(u.text) }
+                    PillButton(symbol: "character.book.closed", title: "教詞庫") { model.onPopMenu(.teach) }
+                    Spacer(minLength: 0)
+                }
+            } else {
+                Text("還沒有聽寫。按住 \(model.hotkeyLabel) 開始講話。")
+                    .font(.system(size: 12)).foregroundStyle(.secondary)
+            }
+        }
+        .tile()
+    }
+
+    private var historyList: some View {
+        VStack(alignment: .leading, spacing: 2) {
+            Text("最近（點一下複製）").font(.system(size: 11, weight: .semibold)).foregroundStyle(.secondary)
+                .padding(.bottom, 2)
+            ForEach(model.history.dropFirst().prefix(5)) { u in
+                Button { model.copy(u) } label: {
+                    HStack(spacing: 8) {
+                        Text(Self.clock.string(from: u.at))
+                            .font(.system(size: 10.5).monospacedDigit()).foregroundStyle(.tertiary)
+                        Text(u.text).font(.system(size: 11.5)).lineLimit(1)
+                        Spacer(minLength: 0)
+                        if model.copiedID == u.id {
+                            Image(systemName: "checkmark").font(.system(size: 10, weight: .bold)).foregroundStyle(.green)
+                        }
+                    }
+                    .padding(.vertical, 3)
+                    .contentShape(Rectangle())
+                }
+                .buttonStyle(.plain)
+                .help(u.text)
+            }
+        }
+        .tile()
+    }
+
+    // MARK: stats, meeting, footer
+
+    private var statsRow: some View {
+        let s = model.stats
+        let speed = s.p50Ms.map { $0 >= 1000 ? String(format: "%.1f 秒", Double($0) / 1000) : "\($0) ms" } ?? "—"
+        return HStack(spacing: 8) {
+            StatTile(value: "\(s.okCount)", label: "今日句數")
+            StatTile(value: s.chars >= 10000 ? String(format: "%.1f 萬", Double(s.chars) / 10000) : "\(s.chars)", label: "字數")
+            StatTile(value: speed, label: "中位速度")
+            StatTile(value: "\(s.noSpeech)", label: "沒聽到話")
+        }
+    }
+
+    private var meetingButton: some View {
+        Button(action: model.onStartMeeting) {
+            HStack(spacing: 10) {
+                Image(systemName: "record.circle").font(.system(size: 17, weight: .semibold))
+                    .foregroundStyle(model.meetingAvailable ? Color.red : Color.secondary)
+                VStack(alignment: .leading, spacing: 1) {
+                    Text("會議錄音").font(.system(size: 12.5, weight: .semibold))
+                    Text(model.meetingAvailable ? "邊錄邊出逐字稿與即時重點" : "即時會議面板開發中")
+                        .font(.system(size: 10.5)).foregroundStyle(.secondary)
+                }
+                Spacer()
+                if model.meetingAvailable { Image(systemName: "chevron.right").foregroundStyle(.tertiary) }
+            }
+            .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+        .tile()
+        .disabled(!model.meetingAvailable)
+    }
+
+    private var footer: some View {
+        HStack(spacing: 2) {
+            IconButton(symbol: "text.book.closed", help: "重載詞庫", action: model.onReloadLexicon)
+            IconButton(symbol: "arrow.clockwise", help: "重啟辨識服務（daemon）", action: model.onRestartDaemon)
+            IconButton(symbol: "doc.text", help: "開啟今日聽寫記錄", action: model.onOpenLog)
+            IconButton(symbol: "lock.shield", help: "權限說明", action: model.onPermissions)
+            Spacer()
+            Text("右鍵圖示：完整選單").font(.system(size: 10)).foregroundStyle(.tertiary)
+            IconButton(symbol: "power", help: "結束 \(ProductConfig.appName)") { NSApp.terminate(nil) }
+        }
+    }
+
+    static let clock: DateFormatter = {
+        let f = DateFormatter()
+        f.dateFormat = "HH:mm"
+        return f
+    }()
+}
+
+// MARK: - Pieces
+
+private struct TileBackground: ViewModifier {
+    func body(content: Content) -> some View {
+        content
+            .padding(10)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .background(RoundedRectangle(cornerRadius: 12, style: .continuous).fill(Color.primary.opacity(0.06)))
+    }
+}
+
+private extension View {
+    func tile() -> some View { modifier(TileBackground()) }
+}
+
+private struct ModeTile: View {
+    let symbol: String
+    let title: String
+    let subtitle: String
+    let selected: Bool
+    let action: () -> Void
+
+    var body: some View {
+        Button(action: action) {
+            HStack(spacing: 9) {
+                ZStack {
+                    Circle().fill(selected ? Color.white.opacity(0.25) : Color.primary.opacity(0.08))
+                        .frame(width: 30, height: 30)
+                    Image(systemName: symbol).font(.system(size: 13, weight: .semibold))
+                }
+                VStack(alignment: .leading, spacing: 1) {
+                    Text(title).font(.system(size: 14, weight: .bold))
+                    Text(subtitle).font(.system(size: 10.5)).opacity(0.8).lineLimit(1).minimumScaleFactor(0.8)
+                }
+                Spacer(minLength: 0)
+            }
+            .foregroundStyle(selected ? Color.white : Color.primary)
+            .padding(10)
+            .frame(maxWidth: .infinity)
+            .background(RoundedRectangle(cornerRadius: 12, style: .continuous)
+                .fill(selected ? AnyShapeStyle(Color.accentColor.gradient) : AnyShapeStyle(Color.primary.opacity(0.06))))
+            .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+    }
+}
+
+private struct ToggleTile: View {
+    let symbol: String
+    let title: String
+    let on: Bool
+    let help: String
+    let action: () -> Void
+
+    var body: some View {
+        Button(action: action) {
+            VStack(spacing: 6) {
+                ZStack {
+                    Circle().fill(on ? AnyShapeStyle(Color.accentColor.gradient) : AnyShapeStyle(Color.primary.opacity(0.1)))
+                        .frame(width: 30, height: 30)
+                    Image(systemName: symbol).font(.system(size: 12.5, weight: .semibold))
+                        .foregroundStyle(on ? Color.white : Color.primary)
+                }
+                Text(title).font(.system(size: 10.5)).lineLimit(1).minimumScaleFactor(0.8)
+            }
+            .frame(maxWidth: .infinity)
+            .padding(.vertical, 9)
+            .background(RoundedRectangle(cornerRadius: 12, style: .continuous).fill(Color.primary.opacity(0.06)))
+            .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+        .help(help)
+    }
+}
+
+private struct WideTile: View {
+    let symbol: String
+    let title: String
+    let value: String
+    let action: () -> Void
+
+    var body: some View {
+        Button(action: action) {
+            HStack(spacing: 8) {
+                Image(systemName: symbol).font(.system(size: 12, weight: .semibold)).frame(width: 16)
+                VStack(alignment: .leading, spacing: 1) {
+                    Text(title).font(.system(size: 10.5)).foregroundStyle(.secondary)
+                    Text(value).font(.system(size: 12, weight: .medium)).lineLimit(1)
+                }
+                Spacer(minLength: 0)
+                Image(systemName: "chevron.up.chevron.down").font(.system(size: 9, weight: .semibold)).foregroundStyle(.tertiary)
+            }
+            .padding(10)
+            .frame(maxWidth: .infinity)
+            .background(RoundedRectangle(cornerRadius: 12, style: .continuous).fill(Color.primary.opacity(0.06)))
+            .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+    }
+}
+
+private struct StatTile: View {
+    let value: String
+    let label: String
+
+    var body: some View {
+        VStack(spacing: 2) {
+            Text(value).font(.system(size: 14, weight: .semibold).monospacedDigit()).lineLimit(1).minimumScaleFactor(0.7)
+            Text(label).font(.system(size: 10)).foregroundStyle(.secondary)
+        }
+        .frame(maxWidth: .infinity)
+        .padding(.vertical, 8)
+        .background(RoundedRectangle(cornerRadius: 10, style: .continuous).fill(Color.primary.opacity(0.06)))
+    }
+}
+
+private struct PillButton: View {
+    let symbol: String
+    let title: String
+    let action: () -> Void
+
+    var body: some View {
+        Button(action: action) {
+            HStack(spacing: 4) {
+                Image(systemName: symbol).font(.system(size: 10.5, weight: .semibold))
+                Text(title).font(.system(size: 11, weight: .medium))
+            }
+            .padding(.horizontal, 9).padding(.vertical, 5)
+            .background(Capsule().fill(Color.primary.opacity(0.09)))
+            .contentShape(Capsule())
+        }
+        .buttonStyle(.plain)
+    }
+}
+
+private struct IconButton: View {
+    let symbol: String
+    let help: String
+    let action: () -> Void
+
+    var body: some View {
+        Button(action: action) {
+            Image(systemName: symbol)
+                .font(.system(size: 12, weight: .medium))
+                .frame(width: 26, height: 26)
+                .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+        .foregroundStyle(.secondary)
+        .help(help)
+    }
+}

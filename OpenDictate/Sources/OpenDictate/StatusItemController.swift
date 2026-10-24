@@ -1,7 +1,8 @@
 import AppKit
+import SwiftUI
 
-/// menubar 狀態圖示 + 選單（SF Symbols + 分區）。
-final class StatusItemController: NSObject, NSMenuDelegate {
+/// menubar 狀態圖示：左鍵＝控制中心（ControlCenter.swift），右鍵／Control-點＝完整選單（SF Symbols + 分區）。
+final class StatusItemController: NSObject, NSMenuDelegate, NSPopoverDelegate {
 
     enum IconState {
         case idle, recording, transcribing, error
@@ -46,6 +47,13 @@ final class StatusItemController: NSObject, NSMenuDelegate {
     var onMicChanged: (() -> Void)?
 
     private var statusItem: NSStatusItem!
+    private let classicMenu = NSMenu()
+    private let popover = NSPopover()
+    private let model = ControlCenterModel()
+    /// 開控制中心前在前景的 app：關掉時把焦點還給它（再貼一次也貼到它）
+    private var previousApp: NSRunningApplication?
+    /// 從控制中心開了需要打字的視窗（教詞庫、設定）→ 關控制中心時不要把焦點搶回原 app
+    private var keepFocusOnClose = false
     private let daemonStatusMenuItem = NSMenuItem(title: "daemon：尚未檢查", action: nil, keyEquivalent: "")
     private let statsMenuItem = NSMenuItem(title: "今日尚無聽寫", action: nil, keyEquivalent: "")
     private let lastResultMenuItem = NSMenuItem(title: "", action: nil, keyEquivalent: "")
@@ -95,8 +103,14 @@ final class StatusItemController: NSObject, NSMenuDelegate {
     func setup() {
         statusItem = NSStatusBar.system.statusItem(withLength: NSStatusItem.variableLength)
         applyIcon(.idle)
+        if let button = statusItem.button {
+            button.target = self
+            button.action = #selector(statusButtonClicked(_:))
+            button.sendAction(on: [.leftMouseUp, .rightMouseUp])
+        }
+        setupControlCenter()
 
-        let menu = NSMenu()
+        let menu = classicMenu
         menu.delegate = self
 
         daemonStatusMenuItem.isEnabled = false
@@ -224,12 +238,139 @@ final class StatusItemController: NSObject, NSMenuDelegate {
         quit.image = UITheme.menuSymbol(UITheme.Symbol.quit)
         menu.addItem(quit)
 
-        statusItem.menu = menu
+        // 不掛 statusItem.menu：左鍵要開控制中心，完整選單在右鍵時才臨時掛上（showClassicMenu）
+    }
+
+    // MARK: - Control center
+
+    private func setupControlCenter() {
+        let hosting = NSHostingController(rootView: ControlCenterView(model: model))
+        hosting.sizingOptions = [.preferredContentSize]
+        popover.contentViewController = hosting
+        popover.behavior = .transient
+        popover.animates = true
+        popover.delegate = self
+
+        model.onSetMode = { [weak self] mode in
+            guard let self, mode != self.asrMode else { return }
+            self.onSetAsrMode?(mode)
+        }
+        model.onPopMenu = { [weak self] kind in self?.popMenu(kind) }
+        model.onHotkeyChanged = { [weak self] in self?.onHotkeyChanged?() }
+        model.onRepaste = { [weak self] text in self?.repaste(text) }
+        model.onReloadLexicon = { [weak self] in self?.onReloadLexicon?() }
+        model.onRestartDaemon = { [weak self] in self?.onRestartDaemon?() }
+        model.onOpenLog = { [weak self] in self?.closePopover(); self?.openLogClicked() }
+        model.onOpenSettings = { [weak self] in
+            self?.keepFocusOnClose = true
+            self?.closePopover()
+            self?.onOpenSettings?()
+        }
+        model.onPermissions = { [weak self] in
+            self?.keepFocusOnClose = true
+            self?.closePopover()
+            PermissionGuide.showGuideAlert()
+        }
+        model.onStartMeeting = { [weak self] in
+            self?.closePopover()
+            if let url = URL(string: ProductConfig.meetingURL) { NSWorkspace.shared.open(url) }
+        }
+
+        // 重開 app 後控制中心不是空的：今天最後幾句從 log 讀回來
+        for entry in DictationStats.recentSuccessEntries(limit: 6).reversed() {
+            pushHistory(text: entry.text, raw: entry.raw, changes: entry.changes,
+                        latencyMs: entry.totalMs, at: entry.date)
+        }
+        if let first = DictationStats.recentSuccessEntries(limit: 1).first {
+            lastAppliedLogTs = first.ts
+            lastText = first.text; lastRaw = first.raw; lastChanges = first.changes
+            rebuildTeachMenu()
+        }
+    }
+
+    @objc private func statusButtonClicked(_ sender: NSStatusBarButton) {
+        let event = NSApp.currentEvent
+        if event?.type == .rightMouseUp || event?.modifierFlags.contains(.control) == true {
+            showClassicMenu()
+        } else {
+            togglePopover()
+        }
+    }
+
+    private func showClassicMenu() {
+        closePopover()
+        statusItem.menu = classicMenu
+        statusItem.button?.performClick(nil)
+        statusItem.menu = nil
+    }
+
+    private func togglePopover() {
+        if popover.isShown { closePopover(); return }
+        guard let button = statusItem.button else { return }
+        let front = NSWorkspace.shared.frontmostApplication
+        previousApp = front?.processIdentifier == ProcessInfo.processInfo.processIdentifier ? previousApp : front
+        keepFocusOnClose = false
+        recoverLastFromLogIfNeeded()
+        model.refresh()
+        onCheckDaemon?()
+        NSApp.activate()
+        popover.show(relativeTo: button.bounds, of: button, preferredEdge: .minY)
+        popover.contentViewController?.view.window?.makeKey()
+    }
+
+    private func closePopover() {
+        if popover.isShown { popover.performClose(nil) }
+    }
+
+    func popoverDidClose(_ notification: Notification) {
+        // 用 Esc／按鈕關掉（我們還在前景）才把焦點還回去；點了別的 app 關掉的就不搶
+        if !keepFocusOnClose, NSApp.isActive { previousApp?.activate() }
+        keepFocusOnClose = false
+    }
+
+    /// 再貼一次：關控制中心 → 焦點還給原本的 app → 貼上
+    private func repaste(_ text: String) {
+        keepFocusOnClose = true
+        closePopover()
+        previousApp?.activate()
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
+            TextInjector.inject(text) { method in mdLog("再貼一次：\(method.rawValue)") }
+        }
+    }
+
+    private func popMenu(_ kind: ControlCenterModel.MenuKind) {
+        let menu: NSMenu
+        switch kind {
+        case .mic:
+            rebuildMicMenu()
+            menu = micSubmenu
+        case .punct:
+            let mode = DictateSettings.punctMode
+            punctSmartItem.state = mode == "smart_zh" ? .on : .off
+            punctLLMItem.state = mode == "llm_zh" ? .on : .off
+            punctRawItem.state = mode == "raw" ? .on : .off
+            menu = punctSubmenu
+        case .teach:
+            rebuildTeachMenu()
+            keepFocusOnClose = true        // 教詞庫面板要打字
+            menu = teachChangesSubmenu
+        }
+        menu.popUp(positioning: nil, at: NSEvent.mouseLocation, in: nil)
+        model.refresh()
+        if kind == .teach { keepFocusOnClose = false }
     }
 
     // MARK: - External updates
 
-    func setState(_ state: IconState) { applyIcon(state) }
+    func setState(_ state: IconState) {
+        applyIcon(state)
+        switch state {
+        case .idle: model.phase = .idle
+        case .recording: model.phase = .recording
+        case .transcribing: model.phase = .transcribing
+        case .error: model.phase = .error
+        }
+    }
 
     private func applyIcon(_ state: IconState) {
         guard let button = statusItem.button else { return }
@@ -242,6 +383,7 @@ final class StatusItemController: NSObject, NSMenuDelegate {
     /// daemon 回報的辨識模式（nil＝舊 daemon／沒有模式，選單隱藏）
     func setAsrMode(_ mode: String?) {
         asrMode = mode
+        model.mode = mode
         asrModeMenuItem.isHidden = (mode == nil)
         asrFastItem.state = mode == "fast" ? .on : .off
         asrAccurateItem.state = mode == "accurate" ? .on : .off
@@ -251,6 +393,10 @@ final class StatusItemController: NSObject, NSMenuDelegate {
 
     func setDaemonStatus(_ text: String) {
         daemonStatusMenuItem.title = "daemon：\(text)"
+        model.daemonDetail = text
+        if text.contains("線上") { model.daemonOnline = true }
+        else if text.contains("離線") || text.contains("連不上") || text.contains("異常") { model.daemonOnline = false; model.mode = nil }
+        else { model.daemonOnline = nil }
         if text.contains("離線") || text.contains("連不上") {
             daemonStatusMenuItem.image = UITheme.menuSymbol(UITheme.Symbol.offline)
         } else if text.contains("線上") {
@@ -261,7 +407,9 @@ final class StatusItemController: NSObject, NSMenuDelegate {
     }
 
     func refreshStats() {
-        statsMenuItem.title = DictationStats.loadToday().summaryLine
+        let stats = DictationStats.loadToday()
+        statsMenuItem.title = stats.summaryLine
+        model.stats = stats
     }
 
     /// 殼端 timeout 但 daemon 其實跑完時的復原：lastText 只在收到 socket 回應時更新，
@@ -272,10 +420,11 @@ final class StatusItemController: NSObject, NSMenuDelegate {
         lastAppliedLogTs = entry.ts
         guard entry.text != lastText else { return }
         setSuccess(text: entry.text, raw: entry.raw, latencyMs: entry.totalMs, changes: entry.changes)
-        pushHistory(text: entry.text, raw: entry.raw)
+        pushHistory(text: entry.text, raw: entry.raw, changes: entry.changes, latencyMs: entry.totalMs, at: entry.date)
     }
 
     func setLastResult(_ text: String?) {
+        if let text, text.hasPrefix("⚠️") { model.notice = String(text.dropFirst(2)).trimmingCharacters(in: .whitespaces) }
         if let text, !text.isEmpty {
             lastResultMenuItem.title = String(text.prefix(60))
             lastResultMenuItem.isHidden = false
@@ -290,6 +439,7 @@ final class StatusItemController: NSObject, NSMenuDelegate {
     }
 
     func setSuccess(text: String, raw: String?, latencyMs: Int?, changes: [[String]]) {
+        model.notice = nil
         lastText = text
         lastRaw = raw
         lastChanges = changes
@@ -310,7 +460,8 @@ final class StatusItemController: NSObject, NSMenuDelegate {
         refreshStats()
     }
 
-    func pushHistory(text: String, raw: String?) {
+    func pushHistory(text: String, raw: String?, changes: [[String]] = [], latencyMs: Int? = nil, at: Date = Date()) {
+        model.push(.init(text: text, raw: raw, changes: changes, latencyMs: latencyMs, at: at))
         history.insert((text, raw), at: 0)
         if history.count > 8 { history.removeLast(history.count - 8) }
         historySubmenu.removeAllItems()

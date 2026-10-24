@@ -36,7 +36,7 @@ except ImportError:  # direct script execution: python daemon/dictated.py
     from product_config import (DATA_ROOT, LOG_ROOT, LEXICON_ROOT, PRIORITY_TERMS, SOCKET_PATH, env,
                                 PROMPT_CORE_TERMS as PROMPT_CORE_TERMS_RAW)
 
-__version__ = "0.7.2"
+__version__ = "0.8.0"
 
 # ---------------------------------------------------------------------------
 # 常數（路徑皆契約 SSOT，見 IO-CONTRACT.md §路徑約定）
@@ -207,6 +207,32 @@ def fix_dunhao_before_conj(text: str) -> str:
 def postprocess_punct(text: str) -> str:
     """標點層之後的確定性收尾（llm_zh／smart_zh 都過，raw 不過）。只動標點符號。"""
     return fix_dunhao_before_conj(text)
+
+
+# ---------------------------------------------------------------------------
+# 去掉語氣填充詞（v0.8.0，請求帶 fillers="strip" 才做；raw 永遠是原文）
+#
+# Qwen3-ASR 照實寫出「呃」「嗯」：一個月的生產 log，快速模式 437 句裡 145 句有（33%），
+# whisper 幾乎不寫（2%）。這是唯一會刪掉內容字的一層，所以是殼端的開關、不是預設。
+# 「呃」一律拿掉；「嗯」放在整句開頭時是回話（「嗯，好」），留著。
+# 兩側都有逗號（「應該，呃，可以」）留一個逗號，其他情況連同貼著的那個逗號一起拿掉。
+# ---------------------------------------------------------------------------
+_FILLER = re.compile(r"([，,、]?)\s*(呃+|嗯+)\s*([，,、]?)")
+
+
+def strip_fillers(text: str) -> tuple[str, int]:
+    """回 (去掉填充詞的文字, 拿掉幾個)。"""
+    removed = 0
+
+    def repl(m: re.Match) -> str:
+        nonlocal removed
+        if m.group(2).startswith("嗯") and not text[: m.start()].strip():
+            return m.group(0)
+        removed += 1
+        return "，" if m.group(1) and m.group(3) else ""
+
+    out = _FILLER.sub(repl, text)
+    return (out.strip(), removed) if removed else (text, 0)
 
 
 # ---------------------------------------------------------------------------
@@ -1527,6 +1553,18 @@ class DictationDaemon:
                 punct_mode = "smart_zh"
             if punct_mode.startswith(("llm_zh", "smart_zh", "asr_zh")):
                 text = postprocess_punct(text)
+            if req.get("fillers") == "strip":
+                stripped, n_fill = strip_fillers(text)
+                if n_fill and not _content_chars(stripped):
+                    log_line(f"🧹 只有填充詞 → no_speech（{dur}s）")
+                    self._log_utterance(dur, raw=raw, text="", changes=changes, asr_ms=asr_ms,
+                                        total_ms=self._ms(t_total0), pre_asr_ms=pre_asr_ms,
+                                        load_ms=load_ms, lex_ms=lex_ms, punct_ms=self._ms(t_punct0),
+                                        error="no_speech", dehall="only_fillers", diag=diag)
+                    return {"ok": False, "error": "no_speech"}
+                if n_fill:
+                    text = stripped
+                    diag["fillers"] = n_fill
             punct_ms = self._ms(t_punct0)
             if punct_mode != punct_req:
                 diag["punct_req"] = punct_req

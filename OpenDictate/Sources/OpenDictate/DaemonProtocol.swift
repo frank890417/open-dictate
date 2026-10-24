@@ -5,8 +5,8 @@ import Foundation
 
 /// 殼 → daemon 的請求。
 enum DaemonRequest {
-    /// punct："smart_zh" | "llm_zh" | "raw"
-    case transcribe(wavPath: String, punct: String)
+    /// punct："smart_zh" | "llm_zh" | "raw"；fillers："strip" 去掉呃／嗯（daemon v0.8+），nil＝不送（照舊）
+    case transcribe(wavPath: String, punct: String, fillers: String? = nil)
     case ping
     case reloadLexicon
     /// 寫入個人詞庫 pair（daemon v0.5+）
@@ -19,8 +19,10 @@ enum DaemonRequest {
     func jsonLine() throws -> Data {
         let dict: [String: Any]
         switch self {
-        case .transcribe(let wavPath, let punct):
-            dict = ["cmd": "transcribe", "wav": wavPath, "punct": punct]
+        case .transcribe(let wavPath, let punct, let fillers):
+            var d: [String: Any] = ["cmd": "transcribe", "wav": wavPath, "punct": punct]
+            if let fillers { d["fillers"] = fillers }
+            dict = d
         case .ping:
             dict = ["cmd": "ping"]
         case .reloadLexicon:
