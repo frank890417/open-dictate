@@ -142,7 +142,8 @@ All changes are daemon-internal; the wire protocol stays 1.0.
   original text).
 - Local JSONL log entries may carry diagnostics: `rms`, `dr`, `voiced`,
   `asr_temp_max`, `asr_retry`, `raw_first`, `trim_head_s`, `trim_tail_s`; `dehall`
-  may be `speech_gate` or `known_hallucination …`. `no_speech` is a normal outcome,
+  may be `speech_gate`, `known_hallucination …` or `prompt_echo` (0.7.3: the whole
+  result is the hotword / prompt term list read back in order). `no_speech` is a normal outcome,
   not an error.
 
 ## Daemon 0.7.0: ASR router (remote first, local fallback, shadow)
