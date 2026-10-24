@@ -12,6 +12,7 @@ import SwiftUI
 ///   OpenDictate --probe-mic                       # 印出這次錄音會用哪支麥克風、為什麼（不錄音）
 ///   OpenDictate --probe-snapshot <png> [light|dark]  # 用今天的真實資料把控制中心畫成 PNG（不開視窗）
 ///   OpenDictate --probe-toggle                    # 叫正在跑的那一份打開／關上控制中心（可綁 Raycast／捷徑）
+///   OpenDictate --probe-quiz [answer <id> yes|no] # 今天 3 題：印出題目（只看不記），或回答一題
 ///
 /// exit code：0 = 拿到合法 daemon 回應（含 ok:false，如 no_speech）或 wav 產出成功；
 ///            2 = 傳輸層失敗（連不上 / timeout / 格式錯）；64 = 用法錯誤。
@@ -54,6 +55,17 @@ enum ProbeCLI {
             DistributedNotificationCenter.default().postNotificationName(
                 StatusItemController.toggleNotification, object: nil, userInfo: nil, deliverImmediately: true)
             print("posted \(StatusItemController.toggleNotification.rawValue)")
+            return 0
+        case "--probe-quiz":
+            guard LexiconQuiz.isAvailable else { print("quiz=unavailable path=\(LexiconQuiz.scriptPath)"); return 0 }
+            if arguments.count >= 5, arguments[2] == "answer" {
+                let status = LexiconQuiz.answer(id: arguments[3], yes: arguments[4] == "yes")
+                print("answer id=\(arguments[3]) status=\(status ?? "failed")")
+                return status == nil ? 2 : 0
+            }
+            guard let snap = LexiconQuiz.today(peek: true) else { print("quiz=failed"); return 2 }
+            print("pending_today=\(snap.pendingToday) pending_total=\(snap.pendingTotal) stale=\(snap.staleNotes)")
+            for q in snap.questions { print("  \(q.id) [\(q.status)] \(q.wrong) → \(q.right)｜\(q.sample.prefix(30))") }
             return 0
         case "--probe-wav":
             guard arguments.count >= 3 else {
@@ -133,6 +145,7 @@ enum ProbeCLI {
         for e in DictationStats.recentSuccessEntries(limit: 6).reversed() {
             model.push(.init(text: e.text, raw: e.raw, changes: e.changes, latencyMs: e.totalMs, at: e.date))
         }
+        model.quiz = LexiconQuiz.today(peek: true)
         if let r = try? SocketClient(timeout: 2).roundTrip(.ping), r.ok {
             model.daemonOnline = true
             model.mode = r.mode

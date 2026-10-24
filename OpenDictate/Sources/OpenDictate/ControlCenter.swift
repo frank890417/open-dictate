@@ -36,6 +36,9 @@ final class ControlCenterModel: ObservableObject {
     @Published var notice: String?                 // 最近一次錯誤（麥克風靜音、daemon 沒回應…）
     @Published var copiedID: UUID?
     @Published var meetingAvailable = false
+    /// 今天 3 題（LexiconQuiz）；nil＝這個產品沒有出題腳本或讀不到
+    @Published var quiz: LexiconQuiz.Snapshot?
+    @Published var answering: Set<String> = []
 
     // 由 StatusItemController 接線
     var onSetMode: (String) -> Void = { _ in }
@@ -49,6 +52,7 @@ final class ControlCenterModel: ObservableObject {
     var onOpenSettings: () -> Void = {}
     var onPermissions: () -> Void = {}
     var onStartMeeting: () -> Void = {}
+    var onAnswerQuiz: (String, Bool) -> Void = { _, _ in }
 
     enum MenuKind { case mic, punct, teach }
 
@@ -130,6 +134,7 @@ struct ControlCenterView: View {
                 .help(model.mode == "fast" ? "快速模式用模型自帶的標點；切到「準」才能選" : "標點模式")
             }
             lastCard
+            if let quiz = model.quiz, !quiz.questions.isEmpty { quizCard(quiz) }
             if model.history.count > 1 { historyList }
             statsRow
             meetingButton
@@ -271,6 +276,59 @@ struct ControlCenterView: View {
             }
         }
         .tile()
+    }
+
+    // MARK: quiz（今天 3 題）
+
+    private func quizCard(_ quiz: LexiconQuiz.Snapshot) -> some View {
+        VStack(alignment: .leading, spacing: 7) {
+            HStack(spacing: 6) {
+                Image(systemName: quiz.pendingToday == 0 ? "checkmark.seal.fill" : "character.book.closed.fill")
+                    .font(.system(size: 11, weight: .semibold))
+                    .foregroundStyle(quiz.pendingToday == 0 ? Color.green : Color.accentColor)
+                Text(quiz.pendingToday == 0 ? "詞庫題：今天答完了" : "今天 \(quiz.questions.count) 題：以後都這樣改？")
+                    .font(.system(size: 11, weight: .semibold)).foregroundStyle(.secondary)
+                Spacer(minLength: 0)
+                if quiz.pendingTotal > 0 {
+                    Text("還有 \(quiz.pendingTotal) 題排隊").font(.system(size: 10.5)).foregroundStyle(.tertiary)
+                }
+            }
+            if quiz.pendingToday > 0 {
+                ForEach(quiz.questions) { q in quizRow(q) }
+            }
+            ForEach(quiz.staleNotes, id: \.self) { note in
+                Text("⚠️ \(note)").font(.system(size: 10.5)).foregroundStyle(.orange)
+            }
+        }
+        .tile()
+    }
+
+    private func quizRow(_ q: LexiconQuiz.Question) -> some View {
+        HStack(spacing: 8) {
+            VStack(alignment: .leading, spacing: 2) {
+                HStack(spacing: 4) {
+                    Text(q.wrong).strikethrough(q.status == "yes").foregroundStyle(.secondary)
+                    Image(systemName: "arrow.right").font(.system(size: 9, weight: .bold)).foregroundStyle(.tertiary)
+                    Text(q.right).fontWeight(.semibold)
+                }
+                .font(.system(size: 12.5))
+                if !q.sample.isEmpty {
+                    Text(q.sample).font(.system(size: 10.5)).foregroundStyle(.secondary).lineLimit(1)
+                }
+            }
+            .help(q.question)
+            Spacer(minLength: 4)
+            if !q.isPending {
+                Image(systemName: q.status == "yes" ? "checkmark.circle.fill" : "xmark.circle.fill")
+                    .font(.system(size: 15))
+                    .foregroundStyle(q.status == "yes" ? Color.green : Color.secondary)
+            } else if model.answering.contains(q.id) {
+                ProgressView().controlSize(.small)
+            } else {
+                ChoiceButton(title: "是", primary: true) { model.onAnswerQuiz(q.id, true) }
+                ChoiceButton(title: "否", primary: false) { model.onAnswerQuiz(q.id, false) }
+            }
+        }
     }
 
     private var historyList: some View {
@@ -463,6 +521,24 @@ private struct StatTile: View {
         .frame(maxWidth: .infinity)
         .padding(.vertical, 8)
         .background(RoundedRectangle(cornerRadius: 10, style: .continuous).fill(Color.primary.opacity(0.06)))
+    }
+}
+
+private struct ChoiceButton: View {
+    let title: String
+    let primary: Bool
+    let action: () -> Void
+
+    var body: some View {
+        Button(action: action) {
+            Text(title)
+                .font(.system(size: 11.5, weight: .semibold))
+                .foregroundStyle(primary ? Color.white : Color.primary)
+                .frame(width: 30, height: 22)
+                .background(Capsule().fill(primary ? AnyShapeStyle(Color.accentColor.gradient) : AnyShapeStyle(Color.primary.opacity(0.1))))
+                .contentShape(Capsule())
+        }
+        .buttonStyle(.plain)
     }
 }
 

@@ -54,6 +54,10 @@ final class StatusItemController: NSObject, NSMenuDelegate, NSPopoverDelegate {
     private var previousApp: NSRunningApplication?
     /// 從控制中心開了需要打字的視窗（教詞庫、設定）→ 關控制中心時不要把焦點搶回原 app
     private var keepFocusOnClose = false
+    private var iconState: IconState = .idle
+    /// 今天還有沒答的詞庫題 → 選單列圖示旁一個小點
+    private var quizPending = false
+    private var quizTimer: Timer?
     private let daemonStatusMenuItem = NSMenuItem(title: "daemon：尚未檢查", action: nil, keyEquivalent: "")
     private let statsMenuItem = NSMenuItem(title: "今日尚無聽寫", action: nil, keyEquivalent: "")
     private let lastResultMenuItem = NSMenuItem(title: "", action: nil, keyEquivalent: "")
@@ -276,6 +280,14 @@ final class StatusItemController: NSObject, NSMenuDelegate, NSPopoverDelegate {
             self?.closePopover()
             PermissionGuide.showGuideAlert()
         }
+        model.onAnswerQuiz = { [weak self] id, yes in self?.answerQuiz(id: id, yes: yes) }
+        if LexiconQuiz.isAvailable {
+            refreshQuiz(peek: true)
+            // 跨日、或在別處答過（晨報）：半小時對一次小點
+            quizTimer = Timer.scheduledTimer(withTimeInterval: 1800, repeats: true) { [weak self] _ in
+                self?.refreshQuiz(peek: true)
+            }
+        }
         model.onStartMeeting = { [weak self] in
             self?.closePopover()
             if let url = URL(string: ProductConfig.meetingURL) { NSWorkspace.shared.open(url) }
@@ -318,6 +330,7 @@ final class StatusItemController: NSObject, NSMenuDelegate, NSPopoverDelegate {
         recoverLastFromLogIfNeeded()
         model.refresh()
         onCheckDaemon?()
+        if LexiconQuiz.isAvailable { refreshQuiz(peek: false) }   // 打開才算「今天問過」
         NSApp.activate()
         popover.show(relativeTo: button.bounds, of: button, preferredEdge: .minY)
         popover.contentViewController?.view.window?.makeKey()
@@ -341,6 +354,48 @@ final class StatusItemController: NSObject, NSMenuDelegate, NSPopoverDelegate {
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
             TextInjector.inject(text) { method in mdLog("再貼一次：\(method.rawValue)") }
         }
+    }
+
+    // MARK: - 今天 3 題
+
+    private func refreshQuiz(peek: Bool) {
+        DispatchQueue.global(qos: .userInitiated).async { [weak self] in
+            let snap = LexiconQuiz.today(peek: peek)
+            DispatchQueue.main.async {
+                guard let self else { return }
+                if !peek || self.model.quiz == nil || snap != nil { self.model.quiz = snap }
+                self.setQuizPending((snap?.pendingToday ?? 0) > 0)
+            }
+        }
+    }
+
+    /// 是＝腳本走 daemon add_pair（熱重載）再單檔 commit 詞庫，0.3–1 秒：背景跑、那一列先轉圈
+    private func answerQuiz(id: String, yes: Bool) {
+        guard !model.answering.contains(id) else { return }
+        model.answering.insert(id)
+        DispatchQueue.global(qos: .userInitiated).async { [weak self] in
+            let status = LexiconQuiz.answer(id: id, yes: yes)
+            DispatchQueue.main.async {
+                guard let self else { return }
+                self.model.answering.remove(id)
+                guard let status, var quiz = self.model.quiz,
+                      let i = quiz.questions.firstIndex(where: { $0.id == id }) else {
+                    mdLog("詞庫題 \(id) 回答失敗 → 重讀")
+                    self.refreshQuiz(peek: false)
+                    return
+                }
+                quiz.questions[i].status = status
+                self.model.quiz = quiz
+                self.setQuizPending(quiz.pendingToday > 0)
+                mdLog("詞庫題 \(id)：\(status)")
+            }
+        }
+    }
+
+    private func setQuizPending(_ pending: Bool) {
+        guard pending != quizPending else { return }
+        quizPending = pending
+        applyIcon(iconState)
     }
 
     private func popMenu(_ kind: ControlCenterModel.MenuKind) {
@@ -378,11 +433,23 @@ final class StatusItemController: NSObject, NSMenuDelegate, NSPopoverDelegate {
     }
 
     private func applyIcon(_ state: IconState) {
+        iconState = state
         guard let button = statusItem.button else { return }
         button.image = UITheme.symbolImage(state.symbol)
-        button.title = ""
         button.contentTintColor = state.tint
         button.toolTip = state.tooltip
+        if quizPending && state == .idle {
+            // 小橘點＝今天的詞庫題還沒答（打開控制中心就看得到）
+            button.imagePosition = .imageLeading
+            button.attributedTitle = NSAttributedString(string: "●", attributes: [
+                .font: NSFont.systemFont(ofSize: 6),
+                .foregroundColor: NSColor.systemOrange,
+                .baselineOffset: 5,
+            ])
+            button.toolTip = state.tooltip + "（今天的詞庫題還沒答）"
+        } else {
+            button.title = ""
+        }
     }
 
     /// daemon 回報的辨識模式（nil＝舊 daemon／沒有模式，選單隱藏）
