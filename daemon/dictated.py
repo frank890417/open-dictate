@@ -1058,7 +1058,50 @@ def strip_known_hallucination(text: str) -> tuple[str, str | None]:
     return text[:keep].rstrip(), f"known_hallucination_tail {'+'.join(reversed(hit))}"
 
 
-_JUNK_BODY = re.compile(r"[\d.\s,，。、:：;；\-]*")
+# ---------------------------------------------------------------------------
+# 熱詞清單唸回（v0.7.3）
+#
+# 失敗形狀（生產 log，10/18–10/24 共 11 句，全是 Qwen3-ASR）：按一下就放開、沒講話，
+# 模型把熱詞清單照順序唸回來（「詞A, 詞B, 詞C, …」20–25 個詞，最後一個常被截斷）。
+# 錄音 0.5–2.5 秒、dr 9.8–25.3 dB、voiced 0.02–0.52——按鍵聲讓它過得了誤觸閘門，只能在輸出端認。
+# 認法：輸出照標點切成詞，數「照清單順序出現的熱詞」有幾個、佔全部詞多少。
+# 門檻 ≥6 個且佔 ≥80%：那 11 句是 20–25 個、佔 91–100%；
+# 全量 log 真人口述最接近的是照順序念四個作品名、佔 31%，沒有一句過門檻。
+# 只認整句唸回 → no_speech；「真話後面黏一段清單」目前沒看過，看到再加。
+# whisper 的 initial_prompt 是同一批詞，所以兩種模型共用這道。
+# ---------------------------------------------------------------------------
+ECHO_MIN_TERMS = 6
+ECHO_MIN_RATIO = 0.8
+_ECHO_SEP = re.compile(r"[，,、。；;！!？?]+")   # 不切「.」：Taiwan.md、p5.js 是一個詞
+
+
+def prompt_echo_index(terms) -> dict[str, int]:
+    """熱詞 → 在清單裡的位置（正規化同 _hallu_norm，簡繁、大小寫、空白都對齊）。"""
+    index: dict[str, int] = {}
+    for i, t in enumerate(terms or ()):
+        n = _hallu_norm(t)
+        if n:
+            index.setdefault(n, i)
+    return index
+
+
+def is_prompt_echo(text: str, index: dict[str, int] | None) -> bool:
+    """整句是熱詞清單照順序唸回來 → True。"""
+    if not index:
+        return False
+    items = [n for n in (_hallu_norm(x) for x in _ECHO_SEP.split(text or "")) if n]
+    if len(items) < ECHO_MIN_TERMS:
+        return False
+    in_order, last = 0, -1
+    for n in items:
+        i = index.get(n)
+        if i is not None and i > last:
+            in_order += 1
+            last = i
+    return in_order >= ECHO_MIN_TERMS and in_order >= len(items) * ECHO_MIN_RATIO
+
+
+_JUNK_BODY =re.compile(r"[\d.\s,，。、:：;；\-]*")
 TAIL_WINDOW = 3000   # 單窗迴圈最長 ~224 token ≈ 900 字；長口述上限 PUNCT_LONG_MAX 也是 3000
 
 
@@ -1410,7 +1453,7 @@ class DictationDaemon:
                                     if router is not None else None)
                 return {"ok": False, "error": "asr_failed"}
             raw = (result.get("text") or "").strip()
-            deloop, deloop_why = self._clean_asr(result)
+            deloop, deloop_why = self._clean_asr(result, getattr(self, "echo_index", None))
 
             # -- 換 prompt 重試（v0.6.0，見 asr_output_anomalous 註解）；沒給 prompt 就沒得換
             retry_tag = raw_first = None
@@ -1426,7 +1469,7 @@ class DictationDaemon:
                     except Exception as e:  # noqa: BLE001 — 重試失敗就用第一次的結果
                         log_line(f"⚠️ asr retry failed: {e!r}")
                         break
-                    d2, w2 = self._clean_asr(r2)
+                    d2, w2 = self._clean_asr(r2, getattr(self, "echo_index", None))
                     log_line(f"🔁 ASR 異常（{len(_content_chars(deloop))} 字／{dur}s，{deloop_why}）"
                              f"→ 換 {tag} 重解 → {len(_content_chars(d2))} 字")
                     if not asr_output_anomalous(d2, adur, gate_voiced):
@@ -1531,7 +1574,7 @@ class DictationDaemon:
                 row["error"] = info.get("error")
             else:
                 raw = (result.get("text") or "").strip()
-                clean, why = self._clean_asr(result)
+                clean, why = self._clean_asr(result, getattr(self, "echo_index", None))
                 text = ""
                 if clean:
                     text, _changes = self.lex.correct(clean)
@@ -1560,10 +1603,10 @@ class DictationDaemon:
                                       initial_prompt=prompt, **extra)
 
     @staticmethod
-    def _clean_asr(result: dict) -> tuple[str, str | None]:
+    def _clean_asr(result: dict, echo_index: dict[str, int] | None = None) -> tuple[str, str | None]:
         """ASR 結果 → (可用文字, 說明)。文字為空＝no_speech。
 
-        順序是正確性條件：no_speech 判定 → 小寫形標點 → 已知署名 → 迴圈尾巴（必須在 lex.correct 之前）。
+        順序是正確性條件：no_speech 判定 → 小寫形標點 → 已知署名 → 熱詞唸回 → 迴圈尾巴（必須在 lex.correct 之前）。
         """
         if is_no_speech(result):
             return "", None
@@ -1571,6 +1614,8 @@ class DictationDaemon:
         dehall_raw, known_why = strip_known_hallucination(raw)
         if not dehall_raw:
             return "", known_why
+        if is_prompt_echo(dehall_raw, echo_index):
+            return "", "prompt_echo"
         deloop, deloop_why = strip_tail_hallucination(dehall_raw)
         if known_why:
             deloop_why = f"{known_why}; {deloop_why}" if deloop_why else known_why
@@ -1594,6 +1639,7 @@ class DictationDaemon:
         self.initial_prompt_short = build_whisper_prompt(self.lex, with_seed=False)
         # Qwen3-ASR 熱詞＝whisper 提示詞裡同一批專名（短版就是「詞、詞、…。」）
         self.hotwords = [t for t in self.initial_prompt_short.rstrip("。").split("、") if t.strip()]
+        self.echo_index = prompt_echo_index(self.hotwords)
 
     @staticmethod
     def _ms(t0: float) -> int:
